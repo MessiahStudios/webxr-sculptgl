@@ -7,7 +7,7 @@ Quest-first WebXR sculpting — digital clay at human scale in Meta Quest MR/VR 
 **Repo:** https://github.com/MessiahStudios/webxr-sculptgl  
 
 **Design / roadmap:** see [`XR_Roadmap.MD`](./XR_Roadmap.MD)  
-**Quest tunnel boot:** see [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt)
+**Quest + HTTPS tunnel (DIY):** see [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt)
 
 ## What this project adds
 
@@ -32,7 +32,8 @@ npm run server
 
 Open http://127.0.0.1:8080/  
 
-For Quest over your Cloudflare tunnel, follow `tools/xr-tunnel.txt` (e.g. `https://xr-dev.messiahstudios.site`).
+For Quest, expose `npm run server` over HTTPS with any tunnel (Cloudflare, ngrok, …).  
+Step-by-step DIY: [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt).
 
 ```bash
 npm run boot:test   # release + server

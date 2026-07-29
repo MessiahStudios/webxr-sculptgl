@@ -1,56 +1,129 @@
-XR / Cloudflare tunnel — testing boot sequence
+XR / HTTPS tunnel — DIY boot guide (Quest + local Sculpt)
 
-=== BOOT SEQUENCE (Option A) — default for xr-dev.messiahstudios.site ===
-Use this when your Cloudflare Published application route is:
-  Service: http://localhost:8080
+WebXR on Meta Quest needs HTTPS. A tunnel (Cloudflare, ngrok, etc.) exposes your
+local `npm run server` so the headset can load the app.
 
-1) Ensure cloudflared is running (tunnel xr-dev HEALTHY in Zero Trust).
+This file is for anyone reproducing a similar setup. It does not include account
+secrets — you create your own tunnel and hostname.
 
-2) In this repo on the MSI, run ONE of:
-     npm run boot:test
-   (release build, then serve app/ on http://127.0.0.1:8080 , no cache)
+==============================================================================
+WHAT YOU NEED
+==============================================================================
+- This repo built and serving `app/` on a local port (default 8080)
+- A tunnel client (e.g. cloudflared) pointed at that port
+- An HTTPS hostname that reaches the tunnel (Cloudflare Tunnel, ngrok URL, …)
+- Meta Quest Browser on the same network path as that hostname
 
-   If plain PowerShell rejects chained commands when you type by hand, use:
-     npm run release
-     npm run server
-   or Command Prompt / cmd with: npm run release && npm run server
+==============================================================================
+1) BUILD + SERVE LOCALLY
+==============================================================================
+In the repo:
 
-3) On the MSI browser, confirm SculptGL loads:
-     http://localhost:8080
-   or http://127.0.0.1:8080
+  npm install
+  npm run release
+  npm run server
 
-4) On Quest (Meta Quest Browser), open:
-     https://xr-dev.messiahstudios.site
+Confirm on the PC:
 
-5) On your laptop, open the live Quest console relay:
-     http://localhost:8080/__xr_logs
-   (or https://xr-dev.messiahstudios.site/__xr_logs through the tunnel)
+  http://127.0.0.1:8080/
 
-6) Leave the server terminal open while testing.
+`tools/xr-dev-server.js` serves `app/` with no-cache and relays Quest logs to
+`/__xr_logs` (and accepts POSTs at `/__xr_log`).
 
-=== Import via URL (same-origin through tunnel) ===
-Place files under app/ (served at /). Sample: app/models/Duck.glb
+Alternate scripts:
 
-On Quest, open (relative path preferred — same origin, no CORS):
-  https://xr-dev.messiahstudios.site/?modelurl=/models/Duck.glb
+  npm run boot:test     # release + server
+  npm run serve:tunnel  # same server on port 5173 (if your tunnel targets 5173)
 
-Or absolute same host:
-  https://xr-dev.messiahstudios.site/?modelurl=https%3A%2F%2Fxr-dev.messiahstudios.site%2Fmodels%2FDuck.glb
+==============================================================================
+2) POINT A TUNNEL AT LOCALHOST
+==============================================================================
+Example with Cloudflare Tunnel (any similar HTTPS tunnel works):
 
-Logs: look for "Import URL fetching…" / "Import URL loaded" on /__xr_logs.
-Drop your own .glb into app/models/ and change the path. Do not use localhost URLs on Quest.
+  Published application / public hostname
+    → Service: http://localhost:8080
+       (or http://127.0.0.1:8080 / http://host.docker.internal:8080 as needed)
 
-Filter the live log page for [XRSetup] and XRControllerModels.
-If the HTML toolbar is missing in-headset MR, hold BOTH grips ~2.5s to exit.
+Keep the tunnel client HEALTHY while testing.
 
-You do not need CIDR routes or Hostname routes (Beta) for this public hostname;
-Published application routes carry the traffic.
+WSL note: if cloudflared runs in WSL but Node runs on Windows, do not use WSL
+`localhost` for the Windows server — use the Windows host IP, or bind the
+server to 0.0.0.0 and route accordingly.
 
-=== Option B (only if Cloudflare Service is http://localhost:5173) ===
+You do not need CIDR routes for a simple public hostname; a published app
+route to localhost is enough for Quest testing.
+
+==============================================================================
+3) OPEN ON QUEST
+==============================================================================
+In Meta Quest Browser, open YOUR https hostname, e.g.:
+
+  https://YOUR-TUNNEL-HOST.example/
+
+Hard-refresh after rebuilding so `sculptgl.js` updates.
+
+On a headset browser, WebXR Sculpt setup should auto-open when immersive XR is
+supported. Use “Use desktop instead” to stay in 2D; the corner “XR setup…” chip
+remains available.
+
+==============================================================================
+4) LIVE LOGS (laptop)
+==============================================================================
+While the Quest page is open:
+
+  http://127.0.0.1:8080/__xr_logs
+
+Or the same path through your tunnel:
+
+  https://YOUR-TUNNEL-HOST.example/__xr_logs
+
+Filter for [XRSetup], XRControllerModels, Import URL, MR VIEW.
+
+If the HTML toolbar is missing in-headset MR, hold BOTH grip (squeeze) buttons
+~2.5 seconds to exit.
+
+==============================================================================
+5) IMPORT VIA URL (SAME ORIGIN)
+==============================================================================
+Place meshes under `app/` (served at `/`). Sample after release:
+
+  app/models/Duck.glb
+
+On Quest (relative URL — same origin, no CORS hassle):
+
+  https://YOUR-TUNNEL-HOST.example/?modelurl=/models/Duck.glb
+
+Desktop Files → Import URL also works for HTTPS hosts that send CORS
+(`Access-Control-Allow-Origin`). Do not use `http://localhost/...` on Quest —
+the headset cannot see your PC’s localhost.
+
+==============================================================================
+6) OPTIONAL — PORT 5173
+==============================================================================
+If your tunnel service is `http://localhost:5173`:
+
   npm run xr-dev
-Then set Cloudflare Service to http://localhost:5173 to match.
 
-=== WSL / split host ===
-If cloudflared runs in WSL but http-server runs on Windows, point the route at
-the Windows host IP (not WSL localhost), or bind http-server to 0.0.0.0 and
-adjust package.json server / serve:tunnel -a as needed.
+and keep Cloudflare (or other) Service matching that port.
+
+==============================================================================
+EXAMPLE (Messiah Studios — replace with yours)
+==============================================================================
+One working pattern used while developing this fork:
+
+  Tunnel hostname:  https://xr-dev.messiahstudios.site
+  Local service:    http://localhost:8080
+  Quest opens:      https://xr-dev.messiahstudios.site
+  Logs:             http://localhost:8080/__xr_logs
+
+Treat that as an illustration only. Publish your own hostname for your own
+tunnel; do not assume that example URL is always online.
+
+==============================================================================
+SECURITY NOTES
+==============================================================================
+- Tunnel docs should never store API tokens, certs, or Zero Trust secrets.
+- A public hostname only serves traffic while YOUR tunnel + `npm run server`
+  are running.
+- Prefer temporary / Zero Trust access policies if you do not want the app
+  open to the whole internet during testing.
