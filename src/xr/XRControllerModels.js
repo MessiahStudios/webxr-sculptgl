@@ -163,7 +163,7 @@ class XRControllerModels {
     // Sweep orphans (async GLB loads / incomplete prior session) so they don't freeze in place.
     var orphans = [];
     this._threeScene.children.forEach(function (c) {
-      if (c && c.name && String(c.name).indexOf('xr-controller-') === 0)
+      if (c && c.name && (String(c.name).indexOf('xr-controller-') === 0 || c.name === 'xr-sculpt-dock'))
         orphans.push(c);
     });
     orphans.forEach(function (c) {
@@ -298,7 +298,7 @@ class XRControllerModels {
     var self = this;
     var gen = this._sessionGen;
     if (this._sculptDock) {
-      this._sculptDock.attachToGrip(root);
+      this._sculptDock.attachToGrip(root, this._threeScene);
       return;
     }
     if (this._sculptDockLoading) return;
@@ -315,7 +315,7 @@ class XRControllerModels {
         }
         self._entries.forEach(function (ent, src) {
           if (src.handedness === 'left')
-            self._sculptDock.attachToGrip(ent.root);
+            self._sculptDock.attachToGrip(ent.root, self._threeScene);
         });
       })
       .catch(function (err) {
@@ -324,7 +324,7 @@ class XRControllerModels {
       });
   }
 
-  _updatePoses(frame, refSpace) {
+  _updatePoses(frame, refSpace, view) {
     var self = this;
     this._entries.forEach(function (entry, inputSource) {
       if (!entry.space) return;
@@ -342,8 +342,26 @@ class XRControllerModels {
       if (self._sculptDock)
         self._sculptDock.updateInput(inputSource);
     });
+    // Wrist dock: follow left grip position, face the headset (not grip rotation).
+    var hx;
+    var hy;
+    var hz;
+    try {
+      var viewer = frame.getViewerPose(refSpace);
+      var vp = viewer && viewer.transform && viewer.transform.position;
+      if (vp) {
+        hx = vp.x;
+        hy = vp.y;
+        hz = vp.z;
+      }
+    } catch (e) { /* viewer pose optional */ }
+    if (hx == null && view && view.transform && view.transform.position) {
+      hx = view.transform.position.x;
+      hy = view.transform.position.y;
+      hz = view.transform.position.z;
+    }
     if (this._sculptDock && this._sculptDock.tick)
-      this._sculptDock.tick();
+      this._sculptDock.tick(hx, hy, hz);
   }
 
   /**
@@ -361,7 +379,7 @@ class XRControllerModels {
       });
     }
 
-    this._updatePoses(frame, refSpace);
+    this._updatePoses(frame, refSpace, view);
     this._threeScene.updateMatrixWorld(true);
 
     // SculptGL camera view is inv(eye)*stage for the clay. Controllers are already in

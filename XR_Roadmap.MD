@@ -339,8 +339,8 @@ Other community approaches (for context, not dependencies):
 |---|---|---|
 | Session + enter/exit | `src/xr/WebXRSession.js` | MR/VR start, frame loop, grip-exit, stage UI hooks |
 | Setup panel | `src/xr/XRSetup.js` | Mode + controller profile before enter |
-| Controllers | `src/xr/XRControllerModels.js` | Official WebXR input-profile GLBs + dock attach |
-| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | BRUSH / SURF / OPTS / SPACE; paint; file/scene; Transform |
+| Controllers | `src/xr/XRControllerModels.js` | Official WebXR input-profile GLBs; poses dock host; passes viewer pose for billboard |
+| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | BRUSH / SURF / OPTS / SPACE; paint; file/scene; Transform; **head-facing float near left grip** |
 | Project continuity | `src/xr/XRProjectStore.js` + `Scene.saveXRProject` / `loadXRProject` / `exportXRMesh` | IndexedDB `.sgl`; OBJ/PLY/STL export download |
 | Mesh Transform | `src/editing/tools/Transform.js` + `editing/Gizmo.js` | XR gizmo + free-grab + L+R multi-select |
 | Stereo / stage / ray sculpt | `src/Scene.js` | `drawXRFrame`, `updateXRSculptInput`, stage fit, XR file/scene helpers |
@@ -354,6 +354,8 @@ Other community approaches (for context, not dependencies):
 What you actually use on Quest today — the living “feature poster,” not just a checklist.
 
 ### Dock tabs (left controller)
+
+The dock **follows the left grip** and **always faces the headset** (independent of wrist twist). It floats **above the button deck** so newcomers can still see X / Y / stick / squeeze while learning — presence helper, not a cover over the controller.
 
 | Tab label | Internal id | Job |
 |---|---|---|
@@ -440,14 +442,15 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ### Where we are (2026-07)
 
-Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export, Clear/Add. Packaging (docs, spectator) and **glTF/GLB import** (desktop + XR) are the next product gaps — not core brush invention.
+Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add. The left dock now **billboards toward the headset** and sits **clear of the controller face** so button discovery stays possible. Remaining near-term gaps are packaging polish (README link to tunnel DIY, spectator) — not core brush invention.
 
 ```
-██████████████████████░░  ~85% of first-class XR surface
+███████████████████████░  ~90% of first-class XR surface
 │                       │
 ├─ Done: session · Workspace · BRUSH/SURF tools · Transform · paint wheel
 │        · R/I · recovery · Save/Load/Export · Import GLB · Clear/Add
-└─ Next: README/tunnel docs · spectator · Import URL UX
+│        · head-facing dock (floats clear of left buttons)
+└─ Next: README↔tunnel link · spectator · Import URL UX
 Stretch: dock slot swap · hands · remesh · other-HMD
 ```
 
@@ -460,6 +463,8 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] Stereo draw without one eye wiping the other  
 - [x] Official controller models (WebXR input profiles)  
 - [x] Left-hand **Sculpt Dock** — tabs **BRUSH / SURF / OPTS / SPACE** (labels; internals still `shape`/`surface`/…)  
+- [x] Dock **faces the headset** while tracking left-arm position (grip follow, world billboard — not wrist-locked)  
+- [x] Dock floats **above the button deck** so new users can still see left-controller controls  
 - [x] Right-trigger sculpt with ray picking  
 - [x] Brush, inflate, pinch, crease, smooth, flatten, paint, masking  
 - [x] Drag + Move (limited grab); Twist (wrist roll / stick); Local Scale (push-pull / stick)  
@@ -474,6 +479,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Clear scene** + **Add** sphere/cube/cylinder/torus from Opts  
 - [x] Remote log relay for Quest debugging  
 - [x] Dual-grip hold to exit when DOM overlay is missing in MR  
+- [x] DIY HTTPS tunnel notes (`tools/xr-tunnel.txt`) for Quest testing  
 
 ### Next (near-term)
 
@@ -481,6 +487,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 2. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
 3. [ ] **Spectator** desktop view polish while headset is active  
 4. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
+5. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
 
 **Files language (keep clean):**
 

@@ -1,5 +1,6 @@
 /**
- * Left-hand "Sculpt Dock" — canvas panel on the grip.
+ * Left-hand "Sculpt Dock" — floats near the left grip and always faces the headset.
+ * Offset sits above/clear of the controller so new users can still see the real buttons.
  *
  * Controls (deliberately separated so workspace-adjust doesn't flip tabs):
  *   X button     → cycle tabs (brush / surf / opts / workspace)
@@ -226,6 +227,21 @@ class XRSculptDock {
     this._brushToastValue = null;
     this._squeezeHeld = false;
 
+    // Follow left grip in local space, but float above the button deck (not on top of it)
+    // so Quest newcomers can still see X/Y/stick/squeeze while learning. +Y ≈ toward the
+    // ring/top of a Touch controller; -Z pulls slightly toward the viewer.
+    this._gripRoot = null;
+    this._watchOffset = new THREE.Vector3(0.0, 0.20, -0.07);
+    this._tmpHead = new THREE.Vector3();
+    this._tmpWorldPos = new THREE.Vector3();
+    this._tmpToHead = new THREE.Vector3();
+    this._tmpUp = new THREE.Vector3(0, 1, 0);
+    this._tmpX = new THREE.Vector3();
+    this._tmpY = new THREE.Vector3();
+    this._tmpRotMat = new THREE.Matrix4();
+    this._orientTarget = new THREE.Quaternion();
+    this._orientReady = false;
+
     var self = this;
     this.state.subscribe(function () {
       self._paintCanvas();
@@ -245,8 +261,15 @@ class XRSculptDock {
     this._wirePaintPickCallback();
   }
 
-  /** Per-frame refresh while Workspace HUD, enter hint, brush toast, or eyedropper is live. */
-  tick() {
+  /**
+   * Per-frame: billboard dock toward the headset, then refresh canvas when HUD/toast needs it.
+   * @param {number} [hx] viewer position X in ref space
+   * @param {number} [hy]
+   * @param {number} [hz]
+   */
+  tick(hx, hy, hz) {
+    if (hx != null && hy != null && hz != null)
+      this._faceHead(hx, hy, hz);
     if (!this._canvas) return;
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     var hud = this._scene.getXRWorkspaceHud && this._scene.getXRWorkspaceHud();
@@ -263,6 +286,52 @@ class XRSculptDock {
     if (key === this._lastWorkspaceHudLine) return;
     this._lastWorkspaceHudLine = key;
     this._paintCanvas();
+  }
+
+  /**
+   * Watch pose: world position = grip × offset; +Z of the plane faces the headset.
+   * Not a grip child for rotation — Quest grip matrices are written with matrixAutoUpdate
+   * false, which breaks Object3D.lookAt parenting and left the panel edge-on.
+   */
+  _faceHead(hx, hy, hz) {
+    var g = this._panelGroup;
+    var grip = this._gripRoot;
+    if (!g || !grip) return;
+
+    var gp = grip.parent;
+    if (gp) gp.updateWorldMatrix(true, false);
+    if (grip.matrixAutoUpdate) grip.updateMatrix();
+    if (gp)
+      grip.matrixWorld.multiplyMatrices(gp.matrixWorld, grip.matrix);
+    else
+      grip.matrixWorld.copy(grip.matrix);
+
+    var worldPos = this._tmpWorldPos.copy(this._watchOffset).applyMatrix4(grip.matrixWorld);
+    g.position.copy(worldPos);
+
+    var toHead = this._tmpToHead.subVectors(this._tmpHead.set(hx, hy, hz), worldPos);
+    if (toHead.lengthSq() < 1e-8) return;
+    toHead.normalize();
+
+    var up = this._tmpUp.set(0, 1, 0);
+    var xAxis = this._tmpX.crossVectors(up, toHead);
+    if (xAxis.lengthSq() < 1e-6) {
+      up.set(1, 0, 0);
+      xAxis.crossVectors(up, toHead);
+    }
+    xAxis.normalize();
+    var yAxis = this._tmpY.crossVectors(toHead, xAxis).normalize();
+
+    // PlaneGeometry faces +Z — aim +Z at the headset so text is readable.
+    this._tmpRotMat.makeBasis(xAxis, yAxis, toHead);
+    this._orientTarget.setFromRotationMatrix(this._tmpRotMat);
+
+    if (!this._orientReady) {
+      g.quaternion.copy(this._orientTarget);
+      this._orientReady = true;
+      return;
+    }
+    g.quaternion.slerp(this._orientTarget, 0.6);
   }
 
   _flashBrushAdjust(kind, value) {
@@ -334,7 +403,11 @@ class XRSculptDock {
     this._applyAndLog();
   }
 
-  attachToGrip(gripRoot) {
+  /**
+   * @param {THREE.Object3D} gripRoot left controller root (XR grip pose)
+   * @param {THREE.Scene} [threeScene] XR overlay scene — panel is parented here, not under grip
+   */
+  attachToGrip(gripRoot, threeScene) {
     if (!gripRoot) return;
     this.detach();
 
@@ -355,19 +428,23 @@ class XRSculptDock {
     });
     this._material = mat;
 
-    var w = 0.28;
-    var h = 0.24;
+    var w = 0.26;
+    var h = 0.22;
     var geo = new THREE.PlaneGeometry(w, h, 1, 1);
     this._mesh = new THREE.Mesh(geo, mat);
 
     this._panelGroup = new THREE.Group();
     this._panelGroup.name = 'xr-sculpt-dock';
     this._panelGroup.add(this._mesh);
-    this._panelGroup.position.set(0.05, 0.08, -0.16);
-    this._panelGroup.rotation.set(-0.35, -0.12, 0.04);
-    this._panelGroup.scale.set(1.15, 1.15, 1.15);
+    // Slightly under life-size so the controller stays readable beside/under the panel.
+    this._panelGroup.scale.set(1.0, 1.0, 1.0);
+    this._orientReady = false;
+    this._gripRoot = gripRoot;
 
-    gripRoot.add(this._panelGroup);
+    // Parent to the XR scene (same space as controllers), not the grip — so wrist
+    // rotation does not drag the panel edge-on; _faceHead writes world pose each frame.
+    var host = threeScene || gripRoot.parent || gripRoot;
+    host.add(this._panelGroup);
     this.syncFromDesktop();
   }
 
@@ -375,6 +452,8 @@ class XRSculptDock {
     if (this._panelGroup && this._panelGroup.parent)
       this._panelGroup.parent.remove(this._panelGroup);
     this._panelGroup = null;
+    this._gripRoot = null;
+    this._orientReady = false;
     if (this._mesh) {
       this._mesh.geometry.dispose();
       this._mesh = null;
