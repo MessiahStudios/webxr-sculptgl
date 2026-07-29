@@ -168,7 +168,7 @@ class Gui {
     var ctrlAbout = this._topbar.addMenu();
     ctrlAbout.domContainer.innerHTML = TR('about');
     ctrlAbout.domContainer.addEventListener('mousedown', function () {
-      window.open('http://stephaneginier.com', '_blank');
+      window.open('https://github.com/MessiahStudios/webxr-sculptgl', '_blank');
     });
   }
 

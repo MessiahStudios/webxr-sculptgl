@@ -37,14 +37,17 @@ class GuiSculpting {
     var menu = this._menu = guiParent.addMenu(TR('sculptTitle'));
     menu.open();
 
+    // Title once; combobox has no side label (avoids "Tool" reading twice).
     menu.addTitle(TR('sculptTool'));
 
-    // sculpt tool
+    // Must be a real Array — yagui Combobox uses options.length to decide parseInt.
+    // A plain {} makes getValue() return strings ("7"), so Drag !== Enums.Tools.DRAG and
+    // canBeContinuous() wrongly stays true → preUpdate re-picks every frame and kills drag.
     var optTools = [];
     for (var i = 0, nbTools = Tools.length; i < nbTools; ++i) {
       if (Tools[i]) optTools[i] = TR(Tools[i].uiName);
     }
-    this._ctrlSculpt = menu.addCombobox(TR('sculptTool'), this._sculptManager.getToolIndex(), this.onChangeTool.bind(this), optTools);
+    this._ctrlSculpt = menu.addCombobox('', this._sculptManager.getToolIndex(), this.onChangeTool.bind(this), optTools);
 
     GuiSculptingTools.initGuiTools(this._sculptManager, this._menu, this._main);
 
@@ -77,7 +80,7 @@ class GuiSculpting {
   }
 
   getSelectedTool() {
-    return this._ctrlSculpt.getValue();
+    return this._ctrlSculpt.getValue() | 0;
   }
 
   releaseInvertSign() {
@@ -90,6 +93,7 @@ class GuiSculpting {
   }
 
   onChangeTool(newValue) {
+    newValue = newValue | 0; // force number (HTML <select> / yagui can yield strings)
     GuiSculptingTools.hide(this._sculptManager.getToolIndex());
     this._sculptManager.setToolIndex(newValue);
     GuiSculptingTools.show(newValue);

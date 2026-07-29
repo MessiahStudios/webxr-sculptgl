@@ -86,6 +86,13 @@ class SculptGL extends Scene {
     this._initHammerEvents();
   }
 
+  setXRSessionActive(active) {
+    super.setXRSessionActive(active);
+    // Quest fires incomplete touch/pointer events during XR; Hammer pan expects e.center.
+    if (this._hammer)
+      this._hammer.options.enable = !active;
+  }
+
   _initHammerRecognizers() {
     var hm = this._hammer;
     // double tap
@@ -166,8 +173,10 @@ class SculptGL extends Scene {
   // MOBILE EVENTS
   ////////////////
   onPanStart(e) {
+    if (this.isXRSessionActive && this.isXRSessionActive()) return;
     if (e.pointerType === 'mouse')
       return;
+    if (!e || !e.center) return;
     this._focusGui = false;
     var evProxy = this._eventProxy;
     evProxy.pageX = e.center.x;
@@ -176,8 +185,10 @@ class SculptGL extends Scene {
   }
 
   onPanMove(e) {
+    if (this.isXRSessionActive && this.isXRSessionActive()) return;
     if (e.pointerType === 'mouse')
       return;
+    if (!e || !e.center) return;
     var evProxy = this._eventProxy;
     evProxy.pageX = e.center.x;
     evProxy.pageY = e.center.y;
@@ -212,6 +223,7 @@ class SculptGL extends Scene {
   }
 
   onPanEnd(e) {
+    if (this.isXRSessionActive && this.isXRSessionActive()) return;
     if (e.pointerType === 'mouse')
       return;
     this.onDeviceUp();
@@ -222,9 +234,11 @@ class SculptGL extends Scene {
   }
 
   onDoubleTap(e) {
+    if (this.isXRSessionActive && this.isXRSessionActive()) return;
     if (this._focusGui) {
       return;
     }
+    if (!e || !e.center) return;
 
     var evProxy = this._eventProxy;
     evProxy.pageX = e.center.x;
@@ -286,11 +300,17 @@ class SculptGL extends Scene {
   // LOAD FILES
   ////////////////
   getFileType(name) {
-    var lower = name.toLowerCase();
+    if (!name) return;
+    // URL paths may include ?query / #hash — strip before extension check
+    var base = String(name).split(/[?#]/)[0];
+    var slash = Math.max(base.lastIndexOf('/'), base.lastIndexOf('\\'));
+    var lower = (slash >= 0 ? base.slice(slash + 1) : base).toLowerCase();
     if (lower.endsWith('.obj')) return 'obj';
     if (lower.endsWith('.sgl')) return 'sgl';
     if (lower.endsWith('.stl')) return 'stl';
     if (lower.endsWith('.ply')) return 'ply';
+    if (lower.endsWith('.glb')) return 'glb';
+    if (lower.endsWith('.gltf')) return 'gltf';
     return;
   }
 
@@ -313,11 +333,22 @@ class SculptGL extends Scene {
     var reader = new FileReader();
     var self = this;
     reader.onload = function (evt) {
-      self.loadScene(evt.target.result, fileType);
-      document.getElementById('fileopen').value = '';
+      var result = self.loadScene(evt.target.result, fileType);
+      if (result && typeof result.then === 'function') {
+        result.then(function () {
+          var el = document.getElementById('fileopen');
+          if (el) el.value = '';
+        }).catch(function () {
+          var el2 = document.getElementById('fileopen');
+          if (el2) el2.value = '';
+        });
+      } else {
+        var el3 = document.getElementById('fileopen');
+        if (el3) el3.value = '';
+      }
     };
 
-    if (fileType === 'obj')
+    if (fileType === 'obj' || fileType === 'gltf')
       reader.readAsText(file);
     else
       reader.readAsArrayBuffer(file);

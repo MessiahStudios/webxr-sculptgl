@@ -1,0 +1,56 @@
+XR / Cloudflare tunnel — testing boot sequence
+
+=== BOOT SEQUENCE (Option A) — default for xr-dev.messiahstudios.site ===
+Use this when your Cloudflare Published application route is:
+  Service: http://localhost:8080
+
+1) Ensure cloudflared is running (tunnel xr-dev HEALTHY in Zero Trust).
+
+2) In this repo on the MSI, run ONE of:
+     npm run boot:test
+   (release build, then serve app/ on http://127.0.0.1:8080 , no cache)
+
+   If plain PowerShell rejects chained commands when you type by hand, use:
+     npm run release
+     npm run server
+   or Command Prompt / cmd with: npm run release && npm run server
+
+3) On the MSI browser, confirm SculptGL loads:
+     http://localhost:8080
+   or http://127.0.0.1:8080
+
+4) On Quest (Meta Quest Browser), open:
+     https://xr-dev.messiahstudios.site
+
+5) On your laptop, open the live Quest console relay:
+     http://localhost:8080/__xr_logs
+   (or https://xr-dev.messiahstudios.site/__xr_logs through the tunnel)
+
+6) Leave the server terminal open while testing.
+
+=== Import via URL (same-origin through tunnel) ===
+Place files under app/ (served at /). Sample: app/models/Duck.glb
+
+On Quest, open (relative path preferred — same origin, no CORS):
+  https://xr-dev.messiahstudios.site/?modelurl=/models/Duck.glb
+
+Or absolute same host:
+  https://xr-dev.messiahstudios.site/?modelurl=https%3A%2F%2Fxr-dev.messiahstudios.site%2Fmodels%2FDuck.glb
+
+Logs: look for "Import URL fetching…" / "Import URL loaded" on /__xr_logs.
+Drop your own .glb into app/models/ and change the path. Do not use localhost URLs on Quest.
+
+Filter the live log page for [XRSetup] and XRControllerModels.
+If the HTML toolbar is missing in-headset MR, hold BOTH grips ~2.5s to exit.
+
+You do not need CIDR routes or Hostname routes (Beta) for this public hostname;
+Published application routes carry the traffic.
+
+=== Option B (only if Cloudflare Service is http://localhost:5173) ===
+  npm run xr-dev
+Then set Cloudflare Service to http://localhost:5173 to match.
+
+=== WSL / split host ===
+If cloudflared runs in WSL but http-server runs on Windows, point the route at
+the Windows host IP (not WSL localhost), or bind http-server to 0.0.0.0 and
+adjust package.json server / serve:tunnel -a as needed.

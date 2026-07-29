@@ -42,8 +42,14 @@ class Brush extends SculptBase {
     } else {
       var aNormal = this.areaNormal(iVertsFront);
       if (!aNormal)
+        aNormal = this.areaNormal(iVertsInRadius);
+      if (!aNormal)
         return;
-      var aCenter = this._lockPosition ? picking.getIntersectionPoint() : this.areaCenter(iVertsFront);
+      var aCenter = this._lockPosition ? picking.getIntersectionPoint() : this.areaCenter(iVertsFront.length ? iVertsFront : iVertsInRadius);
+      if (!aCenter)
+        aCenter = picking.getIntersectionPoint();
+      if (!aCenter)
+        return;
       var off = Math.sqrt(r2) * 0.1;
       vec3.scaleAndAdd(aCenter, aCenter, aNormal, this._negative ? -off : off);
       Flatten.prototype.flatten.call(this, iVertsInRadius, aNormal, aCenter, picking.getIntersectionPoint(), r2, intensity, picking);

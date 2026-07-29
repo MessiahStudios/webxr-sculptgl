@@ -97,7 +97,12 @@ var readUrlParameters = function () {
   for (var i = 0, nbVars = vars.length; i < nbVars; i++) {
     var pair = vars[i].split('=', 2);
     if (pair.length !== 2) continue;
-    params[pair[0].toLowerCase()] = pair[1];
+    var key = pair[0].toLowerCase();
+    var val = pair[1];
+    try {
+      val = decodeURIComponent(val.replace(/\+/g, ' '));
+    } catch (e) { /* keep raw */ }
+    params[key] = val;
   }
   return params;
 };
@@ -121,7 +126,9 @@ var getOptionsURL = function () {
 
   // misc
   options.language = params.language; // english/chinese/korean/japanese/russian/turkish/swedish/french/german
-  options.scalecenter = queryBool(params.scalecenter, false);
+  // Default ON — match upstream “scale and center” so imports land near primitive size.
+  // Override with ?scalecenter=false when you need author units.
+  options.scalecenter = queryBool(params.scalecenter, true);
 
   // display
   options.grid = queryBool(params.grid, true);

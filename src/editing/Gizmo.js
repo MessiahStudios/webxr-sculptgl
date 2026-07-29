@@ -348,7 +348,15 @@ class Gizmo {
     var eye = camera.computePosition();
 
     this._lastDistToEye = this._isEditing ? this._lastDistToEye : vec3.dist(eye, trMesh);
-    var scaleFactor = (this._lastDistToEye * GIZMO_SIZE) / camera.getConstantScreen();
+    var scaleFactor;
+    if (this._main.isXRSessionActive && this._main.isXRSessionActive()) {
+      // Scene-unit gizmo: readable at arm's reach after Workspace stage scale.
+      var fit = this._main._xrStageFit;
+      var meshR = fit && fit.radius ? fit.radius : Math.max(1, this._lastDistToEye * 0.2);
+      scaleFactor = Math.max(meshR * 0.35, this._lastDistToEye * 0.08);
+    } else {
+      scaleFactor = (this._lastDistToEye * GIZMO_SIZE) / camera.getConstantScreen();
+    }
 
     var traScale = mat4.create();
     mat4.translate(traScale, traScale, trMesh);
@@ -758,6 +766,10 @@ class Gizmo {
     this._isEditing = true;
     var type = sel._type;
     this._saveEditMatrices();
+    this._xrEditOffsetReady = false;
+    this._xrPlaneOffsetReady = false;
+    this._xrRotAngle0Ready = false;
+    this._xrScaleDist0 = 0;
 
     if (type & ROT_XYZ) this._startRotateEdit();
     else if (type & TRANS_XYZ) this._startTranslateEdit();
@@ -769,6 +781,182 @@ class Gizmo {
 
   onMouseUp() {
     this._isEditing = false;
+  }
+
+  /**
+   * XR: update gizmo pose, then pick a handle with the controller ray (scene space).
+   * @returns {boolean} true if a handle is hovered / being edited
+   */
+  pickXR(vNearScene, vFarScene) {
+    if (this._isEditing) {
+      this.updateXREdit(vNearScene, vFarScene);
+      return true;
+    }
+
+    this._updateMatrices();
+    var picking = this._main.getPicking();
+    var prevMesh = picking.getMesh();
+    var prevFace = picking.getPickedFace && picking.getPickedFace();
+    var prevInter = picking.getIntersectionPoint && picking.getIntersectionPoint()
+      ? picking.getIntersectionPoint().slice() : null;
+
+    picking.intersectionSceneRayMeshes(vNearScene, vFarScene, this._pickables);
+
+    if (this._selected) this._selected._isSelected = false;
+    var geo = picking.getMesh();
+    if (!geo || !geo._gizmo) {
+      this._selected = null;
+      // Restore clay pick — miss on gizmo must not null out the sculpt mesh
+      // (Scene may still call pickVerticesInSphere using a stale hit flag).
+      picking._mesh = prevMesh;
+      if (prevFace !== undefined && picking._pickedFace !== undefined)
+        picking._pickedFace = prevFace;
+      if (prevInter && picking._interPoint)
+        vec3.copy(picking._interPoint, prevInter);
+      return false;
+    }
+
+    this._selected = geo._gizmo;
+    this._selected._isSelected = true;
+    vec3.copy(this._selected._lastInter, picking.getIntersectionPoint());
+    return true;
+  }
+
+  /** Begin XR edit on the currently hovered handle (same as mouse down). */
+  startXREdit() {
+    return this.onMouseDown();
+  }
+
+  endXREdit() {
+    this.onMouseUp();
+  }
+
+  /**
+   * Drive active gizmo edit from an XR scene-space ray (3D, not screen mouse).
+   * Translate / plane / uniform-ish scale use tip projection; rotate uses tip orbit angle.
+   */
+  updateXREdit(vNearScene, vFarScene) {
+    if (!this._isEditing || !this._selected) return;
+    var type = this._selected._type;
+    if (type & ROT_XYZ) this._updateXRRotateEdit(vNearScene, vFarScene);
+    else if (type & TRANS_XYZ) this._updateXRTranslateEdit(vNearScene, vFarScene);
+    else if (type & PLANE_XYZ) this._updateXRPlaneEdit(vNearScene, vFarScene);
+    else if (type & SCALE_XYZW) this._updateXRScaleEdit(vNearScene, vFarScene);
+    this._main.render();
+  }
+
+  _rayToEditSpace(vNearScene, vFarScene, outNear, outFar) {
+    vec3.transformMat4(outNear, vNearScene, this._editTransInv);
+    vec3.transformMat4(outFar, vFarScene, this._editTransInv);
+  }
+
+  _updateXRTranslateEdit(vNearScene, vFarScene) {
+    var near = [0, 0, 0];
+    var far = [0, 0, 0];
+    this._rayToEditSpace(vNearScene, vFarScene, near, far);
+    var axis = this._selected._nbAxis;
+    if (axis < 0) return;
+
+    // Closest point between ray and axis line (origin → e_axis) in edit-trans space.
+    var dRay = [far[0] - near[0], far[1] - near[1], far[2] - near[2]];
+    var len = Math.sqrt(dRay[0] * dRay[0] + dRay[1] * dRay[1] + dRay[2] * dRay[2]) || 1;
+    dRay[0] /= len; dRay[1] /= len; dRay[2] /= len;
+
+    var a = [0, 0, 0];
+    a[axis] = 1;
+    var a01 = -vec3.dot(dRay, a);
+    var b0 = vec3.dot(near, dRay);
+    var det = Math.abs(1.0 - a01 * a01);
+    if (det < 1e-8) return;
+    var b1 = -vec3.dot(near, a);
+    var inter = [0, 0, 0];
+    inter[axis] = (a01 * b0 - b1) / det;
+    // Subtract grab offset so first frame doesn't jump
+    if (!this._xrEditOffsetReady) {
+      this._xrEditOffset = inter[axis];
+      this._xrEditOffsetReady = true;
+    }
+    inter[axis] -= this._xrEditOffset;
+    this._updateMatrixTranslate(inter);
+  }
+
+  _updateXRPlaneEdit(vNearScene, vFarScene) {
+    var near = [0, 0, 0];
+    var far = [0, 0, 0];
+    this._rayToEditSpace(vNearScene, vFarScene, near, far);
+    var axis = this._selected._nbAxis;
+    var n = [0, 0, 0];
+    n[axis] = 1;
+    var dist1 = vec3.dot(near, n);
+    var dist2 = vec3.dot(far, n);
+    if (dist1 === dist2) return;
+    var val = -dist1 / (dist2 - dist1);
+    var inter = [
+      near[0] + (far[0] - near[0]) * val,
+      near[1] + (far[1] - near[1]) * val,
+      near[2] + (far[2] - near[2]) * val
+    ];
+    if (!this._xrPlaneOffsetReady) {
+      this._xrPlaneOffset = inter.slice();
+      this._xrPlaneOffsetReady = true;
+    }
+    inter[0] -= this._xrPlaneOffset[0];
+    inter[1] -= this._xrPlaneOffset[1];
+    inter[2] -= this._xrPlaneOffset[2];
+    inter[axis] = 0;
+    this._updateMatrixTranslate(inter);
+  }
+
+  _updateXRScaleEdit(vNearScene, vFarScene) {
+    var center = [0, 0, 0];
+    this._computeCenterGizmo(center);
+    var tip = vNearScene;
+    var dist = vec3.dist(tip, center);
+    if (!this._xrScaleDist0) {
+      this._xrScaleDist0 = Math.max(1e-4, dist);
+      return;
+    }
+    var ratio = Math.max(0.05, dist / this._xrScaleDist0);
+    var nbAxis = this._selected._nbAxis;
+    var inter = [1, 1, 1];
+    if (nbAxis === -1) {
+      inter[0] = inter[1] = inter[2] = ratio;
+    } else {
+      inter[nbAxis] = ratio;
+    }
+    var meshes = this._main.getSelectedMeshes();
+    for (var i = 0; i < meshes.length; ++i) {
+      var edim = meshes[i].getEditMatrix();
+      mat4.identity(edim);
+      mat4.scale(edim, edim, inter);
+      this._scaleRotateEditMatrix(edim, i);
+    }
+  }
+
+  _updateXRRotateEdit(vNearScene, vFarScene) {
+    var center = [0, 0, 0];
+    this._computeCenterGizmo(center);
+    var tip = [vNearScene[0] - center[0], vNearScene[1] - center[1], vNearScene[2] - center[2]];
+    var axis = this._selected._nbAxis;
+    var angle = 0;
+    if (axis === 0) angle = Math.atan2(tip[2], tip[1]);
+    else if (axis === 1) angle = Math.atan2(tip[0], tip[2]);
+    else angle = Math.atan2(tip[1], tip[0]);
+    if (!this._xrRotAngle0Ready) {
+      this._xrRotAngle0 = angle;
+      this._xrRotAngle0Ready = true;
+      return;
+    }
+    var delta = angle - this._xrRotAngle0;
+    var meshes = this._main.getSelectedMeshes();
+    for (var i = 0; i < meshes.length; ++i) {
+      var mrot = meshes[i].getEditMatrix();
+      mat4.identity(mrot);
+      if (axis === 0) mat4.rotateX(mrot, mrot, -delta);
+      else if (axis === 1) mat4.rotateY(mrot, mrot, -delta);
+      else mat4.rotateZ(mrot, mrot, -delta);
+      this._scaleRotateEditMatrix(mrot, i);
+    }
   }
 }
 

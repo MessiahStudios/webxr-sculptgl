@@ -1,5 +1,6 @@
 uniform int uBackgroundType;
 uniform float uBlur;
+uniform int uDirectOutput;
 
 void main() {
   vec3 color;
@@ -14,5 +15,9 @@ void main() {
       color = sphericalHarmonics(dir);
     }
   }
-  gl_FragColor = encodeRGBM(color);
+  // XR VR draws background straight to the headset layer (no RGBM merge pass).
+  if (uDirectOutput == 1)
+    gl_FragColor = vec4(linearTosRGB(color), 1.0);
+  else
+    gl_FragColor = encodeRGBM(color);
 }

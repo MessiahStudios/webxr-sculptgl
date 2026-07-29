@@ -24,8 +24,30 @@ class Paint extends SculptBase {
   }
 
   end() {
-    this._pickColor = false;
-    super.end();
+    // Leave _pickColor to the UI (desktop checkbox / XR eyedropper opt).
+    SculptBase.prototype.end.call(this);
+  }
+
+  /**
+   * XR: sample surface color instead of painting while eyedropper is on.
+   */
+  startXR() {
+    if (this._pickColor) {
+      var picking = this._main.getPicking();
+      if (!picking.getMesh())
+        return false;
+      this.pickColor(picking);
+      return true;
+    }
+    return SculptBase.prototype.startXR.call(this);
+  }
+
+  updateXR() {
+    if (this._pickColor) {
+      this.updatePickColor();
+      return;
+    }
+    SculptBase.prototype.updateXR.call(this);
   }
 
   pushState(force) {

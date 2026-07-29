@@ -1,21 +1,28 @@
 {
-  "name": "SculptGL",
-  "homepage": "https://github.com/stephomi/sculptgl",
+  "name": "webxr-sculptgl",
+  "homepage": "https://github.com/MessiahStudios/webxr-sculptgl",
   "version": "0.9.0",
-  "description": "A WebGL digital sculpting app",
-  "author": "Stéphane GINIER",
+  "description": "WebXR Sculpt by Messiah Studios — Quest MR/VR digital clay, forked from SculptGL",
+  "author": "Messiah Studios; original SculptGL by Stéphane GINIER",
   "license": "MIT",
   "main": "main.js",
   "dependencies": {
+    "@webxr-input-profiles/assets": "^1.0.20",
+    "@webxr-input-profiles/motion-controllers": "^1.0.0",
     "file-saver": "^2.0.2",
     "gl-matrix": "^3.1.0",
     "hammerjs": "^2.0.8",
     "http-server": "^14.1.1",
     "raw-loader": "^4.0.2",
+    "regenerator-runtime": "^0.14.1",
+    "three": "^0.184.0",
     "yagui": "^2.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.8.3",
+    "@babel/plugin-transform-class-static-block": "^7.28.6",
+    "@babel/plugin-transform-private-methods": "^7.28.6",
+    "@babel/plugin-transform-private-property-in-object": "^7.28.6",
     "@babel/preset-env": "^7.8.3",
     "babel-loader": "^8.0.6",
     "copy-webpack-plugin": "^7.0.0",
@@ -25,19 +32,22 @@
     "webpack-cli": "^4.5.0"
   },
   "scripts": {
-    "dev": "node_modules/.bin/webpack -w",
-    "server": "http-server app -p 8080",
-    "release": "node_modules/.bin/webpack --env release",
-    "webad": "node_modules/.bin/webpack --env webad",
-    "website": "node_modules/.bin/webpack --env website",
+    "dev": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js -w",
+    "server": "node tools/xr-dev-server.js",
+    "serve:tunnel": "set XR_DEV_PORT=5173&& node tools/xr-dev-server.js",
+    "boot:test": "npm run release && npm run server",
+    "xr-dev": "npm run release && npm run serve:tunnel",
+    "release": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env release",
+    "webad": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env webad",
+    "website": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env website",
     "buildElectron": "yarn release && rm -rf standalone/app/ && cp -R app/ standalone/ && cp package.json standalone",
     "standalone": "yarn buildElectron && cd standalone && node buildStandalone.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/stephomi/sculptgl.git"
+    "url": "https://github.com/MessiahStudios/webxr-sculptgl.git"
   },
   "bugs": {
-    "url": "https://github.com/stephomi/sculptgl/issues"
+    "url": "https://github.com/MessiahStudios/webxr-sculptgl/issues"
   }
 }

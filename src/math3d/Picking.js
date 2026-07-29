@@ -200,6 +200,77 @@ class Picking {
     return this.intersectionRayMesh(mesh, vNear, vFar);
   }
 
+  /**
+   * Scene-space ray vs meshes (WebXR controller target ray after undoing the stage matrix).
+   * vNear/vFar are in the same space as mesh.getMatrix().
+   */
+  intersectionSceneRayMeshes(vNearScene, vFarScene, meshes = this._main.getMeshes()) {
+    var nearDistance = Infinity;
+    var nearMesh = null;
+    var nearFace = -1;
+
+    for (var i = 0, nbMeshes = meshes.length; i < nbMeshes; ++i) {
+      var mesh = meshes[i];
+      if (!mesh.isVisible())
+        continue;
+
+      mat4.invert(_TMP_INV, mesh.getMatrix());
+      vec3.transformMat4(_TMP_NEAR_1, vNearScene, _TMP_INV);
+      vec3.transformMat4(_TMP_FAR, vFarScene, _TMP_INV);
+      if (!this.intersectionRayMesh(mesh, _TMP_NEAR_1, _TMP_FAR))
+        continue;
+
+      var interTest = this.getIntersectionPoint();
+      var testDistance = vec3.dist(_TMP_NEAR_1, interTest) * mesh.getScale();
+      if (testDistance < nearDistance) {
+        nearDistance = testDistance;
+        nearMesh = mesh;
+        vec3.copy(_TMP_INTER_1, interTest);
+        nearFace = this.getPickedFace();
+      }
+    }
+
+    this._mesh = nearMesh;
+    vec3.copy(this._interPoint, _TMP_INTER_1);
+    this._pickedFace = nearFace;
+    if (nearFace !== -1)
+      this.applyXRBrushRadius();
+    return !!nearMesh;
+  }
+
+  /** Same as intersectionSceneRayMeshes but for one mesh (symmetry / stroke continue). */
+  intersectionSceneRayMesh(mesh, vNearScene, vFarScene) {
+    if (!mesh) return false;
+    mat4.invert(_TMP_INV, mesh.getMatrix());
+    vec3.transformMat4(_TMP_NEAR_1, vNearScene, _TMP_INV);
+    vec3.transformMat4(_TMP_FAR, vFarScene, _TMP_INV);
+    var hit = this.intersectionRayMesh(mesh, _TMP_NEAR_1, _TMP_FAR);
+    if (hit)
+      this.applyXRBrushRadius();
+    return hit;
+  }
+
+  /**
+   * Desktop brush radius is screen pixels; XR maps that to scene-space units.
+   * (A fixed 0.025m radius is invisible on a mesh with radius ~40 scene units.)
+   */
+  applyXRBrushRadius() {
+    if (!this._mesh) return;
+    var tool = this._main.getSculptManager().getCurrentTool();
+    var screenR = (tool && tool._radius) ? tool._radius : 50;
+    var meshRadius = 20.0;
+    if (this._main.computeBoundingBoxMeshes && this._main.computeRadiusFromBoundingBox) {
+      var box = this._main.computeBoundingBoxMeshes([this._mesh]);
+      var r = this._main.computeRadiusFromBoundingBox(box);
+      if (isFinite(r) && r > 0.01) meshRadius = r;
+    }
+    // Slider 50 → ~10% of mesh radius (visible clay push at Quest stage scale).
+    var worldR = (screenR / 50.0) * meshRadius * 0.10;
+    worldR = Math.min(meshRadius * 0.4, Math.max(meshRadius * 0.02, worldR));
+    this._rWorld2 = worldR * worldR;
+    this._rLocal2 = this._rWorld2 / this._mesh.getScale2();
+  }
+
   /** Intersection between a ray and a mesh */
   intersectionRayMesh(mesh, vNearOrig, vFarOrig) {
     // resest picking
@@ -267,6 +338,10 @@ class Picking {
   /** Find all the vertices inside the sphere */
   pickVerticesInSphere(rLocal2) {
     var mesh = this._mesh;
+    if (!mesh || typeof mesh.getVertices !== 'function' || !mesh.getVertices()) {
+      this._pickedVertices = new Uint32Array(0);
+      return this._pickedVertices;
+    }
     var vAr = mesh.getVertices();
     var vertSculptFlags = mesh.getVerticesSculptFlags();
     var inter = this.getIntersectionPoint();

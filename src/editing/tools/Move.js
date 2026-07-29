@@ -2,6 +2,11 @@ import { vec3, mat4 } from 'gl-matrix';
 import Geometry from 'math3d/Geometry';
 import SculptBase from 'editing/tools/SculptBase';
 
+var _TMP_NEAR = [0.0, 0.0, 0.0];
+var _TMP_FAR = [0.0, 0.0, 0.0];
+var _TMP_INV = mat4.create();
+var _TMP_DIR = [0.0, 0.0, 0.0];
+
 class Move extends SculptBase {
 
   constructor(main) {
@@ -22,6 +27,14 @@ class Move extends SculptBase {
       vProxy: null
     };
     this._idAlpha = 0;
+    this._xrMoveActive = false;
+    this._xrMoveIVerts = null;
+    this._xrMoveIVertsSym = null;
+    this._xrMoveRadius2 = 0;
+    this._xrMoveLast = null;
+    this._xrMoveLastSym = null;
+    this._xrMoveAccum = null;
+    this._xrMoveAccumSym = null;
   }
 
   startSculpt() {
@@ -63,6 +76,20 @@ class Move extends SculptBase {
 
   copyVerticesProxy(picking, moveData) {
     var iVerts = picking.getPickedVertices();
+    var vAr = this.getMesh().getVertices();
+    var vProxy = moveData.vProxy;
+    for (var i = 0, nbVerts = iVerts.length; i < nbVerts; ++i) {
+      var ind = iVerts[i] * 3;
+      var j = i * 3;
+      vAr[ind] = vProxy[j];
+      vAr[ind + 1] = vProxy[j + 1];
+      vAr[ind + 2] = vProxy[j + 2];
+    }
+  }
+
+  /** Like copyVerticesProxy but uses a stashed index list (XR-safe). */
+  _copyProxyIndices(iVerts, moveData) {
+    if (!iVerts || !moveData.vProxy) return;
     var vAr = this.getMesh().getVertices();
     var vProxy = moveData.vProxy;
     for (var i = 0, nbVerts = iVerts.length; i < nbVerts; ++i) {
@@ -170,6 +197,143 @@ class Move extends SculptBase {
     var eyeDir = picking.getEyeDirection();
     vec3.sub(eyeDir, vFar, vNear);
     vec3.normalize(eyeDir, eyeDir);
+  }
+
+  /**
+   * XR only — desktop path above is unchanged.
+   * Limited Drag: slide the grab along the controller ray (frame deltas),
+   * keep the original vertex set + falloff, clamp so aim/hand drift can't explode.
+   */
+  startXR() {
+    var main = this._main;
+    var picking = main.getPicking();
+    var mesh = picking.getMesh();
+    if (!mesh)
+      return false;
+
+    mesh = main.setOrUnsetMesh(mesh, false);
+    if (!mesh)
+      return false;
+
+    picking.initAlpha();
+    this.pushState();
+    picking.applyXRBrushRadius();
+    this.initMoveData(picking, this._moveData);
+    this._xrMoveIVerts = new Uint32Array(picking.getPickedVertices());
+    this._xrMoveRadius2 = picking.getLocalRadius2();
+    this._xrMoveLast = vec3.clone(this._moveData.center);
+    this._xrMoveAccum = [0.0, 0.0, 0.0];
+    this._xrMoveLastSym = null;
+    this._xrMoveAccumSym = null;
+    this._xrMoveActive = true;
+
+    this._xrMoveIVertsSym = null;
+    if (main.getSculptManager().getSymmetry() && main._xrRayNear && main._xrRayFar) {
+      var pickingSym = main.getPickingSymmetry();
+      pickingSym.intersectionSceneRayMesh(mesh, main._xrRayNear, main._xrRayFar);
+      pickingSym.setLocalRadius2(this._xrMoveRadius2);
+      if (pickingSym.getMesh()) {
+        this.initMoveData(pickingSym, this._moveDataSym);
+        this._xrMoveIVertsSym = new Uint32Array(pickingSym.getPickedVertices());
+        this._xrMoveLastSym = vec3.clone(this._moveDataSym.center);
+        this._xrMoveAccumSym = [0.0, 0.0, 0.0];
+      }
+    }
+    return true;
+  }
+
+  /** Clamp vector length in-place; returns clamped length. */
+  _clampVec(v, maxLen) {
+    var len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if (len > maxLen && len > 1e-12) {
+      var s = maxLen / len;
+      v[0] *= s;
+      v[1] *= s;
+      v[2] *= s;
+      return maxLen;
+    }
+    return len;
+  }
+
+  updateXR() {
+    var main = this._main;
+    var picking = main.getPicking();
+    var mesh = this.getMesh();
+    if (!mesh || !this._xrMoveActive || !this._moveData.vProxy || !this._xrMoveLast || !main._xrRayNear || !main._xrRayFar)
+      return;
+
+    mat4.invert(_TMP_INV, mesh.getMatrix());
+    vec3.transformMat4(_TMP_NEAR, main._xrRayNear, _TMP_INV);
+    vec3.transformMat4(_TMP_FAR, main._xrRayFar, _TMP_INV);
+
+    // Slide grab along current ray (same idea as Drag XR), then accumulate.
+    var newPos = Geometry.vertexOnLine(this._xrMoveLast, _TMP_NEAR, _TMP_FAR);
+    vec3.sub(_TMP_DIR, newPos, this._xrMoveLast);
+    vec3.copy(this._xrMoveLast, newPos);
+
+    var radius = Math.sqrt(this._xrMoveRadius2);
+    // Per-frame cap stops one wild aim flick from shredding topology.
+    this._clampVec(_TMP_DIR, radius * 0.35);
+    vec3.add(this._xrMoveAccum, this._xrMoveAccum, _TMP_DIR);
+    // Total pull stays within ~1 brush radius — "limited drag", not free translate.
+    this._clampVec(this._xrMoveAccum, radius * 1.15);
+
+    var pickingSym = main.getPickingSymmetry();
+    var useSym = !!(main.getSculptManager().getSymmetry() && this._moveDataSym.vProxy && this._xrMoveIVertsSym);
+
+    picking._mesh = mesh;
+    picking.updateAlpha(this._lockPosition);
+    picking.setIdAlpha(this._idAlpha);
+
+    this._copyProxyIndices(this._xrMoveIVerts, this._moveData);
+
+    if (this._negative) {
+      var n = picking.computePickedNormal();
+      var along = vec3.dot(this._xrMoveAccum, n);
+      vec3.scale(this._moveData.dir, n, along * this._intensity);
+    } else {
+      vec3.scale(this._moveData.dir, this._xrMoveAccum, this._intensity);
+    }
+
+    this.move(this._xrMoveIVerts, this._moveData.center, this._xrMoveRadius2, this._moveData, picking);
+
+    if (useSym && this._xrMoveLastSym && this._xrMoveAccumSym) {
+      // Slide the mirrored grab on a mirrored ray (desktop Move parity).
+      var nearSym = [_TMP_NEAR[0], _TMP_NEAR[1], _TMP_NEAR[2]];
+      var farSym = [_TMP_FAR[0], _TMP_FAR[1], _TMP_FAR[2]];
+      Geometry.mirrorPoint(nearSym, mesh.getSymmetryOrigin(), mesh.getSymmetryNormal());
+      Geometry.mirrorPoint(farSym, mesh.getSymmetryOrigin(), mesh.getSymmetryNormal());
+      var newSym = Geometry.vertexOnLine(this._xrMoveLastSym, nearSym, farSym);
+      vec3.sub(_TMP_DIR, newSym, this._xrMoveLastSym);
+      vec3.copy(this._xrMoveLastSym, newSym);
+      this._clampVec(_TMP_DIR, radius * 0.35);
+      vec3.add(this._xrMoveAccumSym, this._xrMoveAccumSym, _TMP_DIR);
+      this._clampVec(this._xrMoveAccumSym, radius * 1.15);
+
+      pickingSym._mesh = mesh;
+      pickingSym.updateAlpha(false);
+      pickingSym.setIdAlpha(this._idAlpha);
+      this._copyProxyIndices(this._xrMoveIVertsSym, this._moveDataSym);
+      vec3.scale(this._moveDataSym.dir, this._xrMoveAccumSym, this._intensity);
+      this.move(this._xrMoveIVertsSym, this._moveDataSym.center, this._xrMoveRadius2, this._moveDataSym, pickingSym);
+    }
+
+    mesh.updateGeometry(mesh.getFacesFromVertices(this._xrMoveIVerts), this._xrMoveIVerts);
+    if (useSym && this._xrMoveIVertsSym)
+      mesh.updateGeometry(mesh.getFacesFromVertices(this._xrMoveIVertsSym), this._xrMoveIVertsSym);
+    this.updateMeshBuffers();
+  }
+
+  end() {
+    this._xrMoveActive = false;
+    this._xrMoveIVerts = null;
+    this._xrMoveIVertsSym = null;
+    this._xrMoveLast = null;
+    this._xrMoveLastSym = null;
+    this._xrMoveAccum = null;
+    this._xrMoveAccumSym = null;
+    this._xrMoveRadius2 = 0;
+    SculptBase.prototype.end.call(this);
   }
 }
 

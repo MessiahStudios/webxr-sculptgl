@@ -23,7 +23,7 @@ class SculptManager {
   }
 
   setToolIndex(id) {
-    this._toolIndex = id;
+    this._toolIndex = id | 0;
   }
 
   getToolIndex() {
@@ -77,6 +77,19 @@ class SculptManager {
     if (this._main.getPicking().getMesh() && this.isUsingContinuous())
       this._sculptTimer = window.setInterval(tool._cbContinuous, 16.6);
     return canEdit;
+  }
+
+  startXR() {
+    var tool = this.getCurrentTool();
+    if (!tool.startXR)
+      return false;
+    return tool.startXR();
+  }
+
+  updateXR() {
+    var tool = this.getCurrentTool();
+    if (tool.updateXR)
+      tool.updateXR();
   }
 
   end() {

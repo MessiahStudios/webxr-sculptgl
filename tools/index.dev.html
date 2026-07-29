@@ -3,12 +3,12 @@
 
 <head>
   <meta charset='utf-8' />
-  <meta name='description' content='SculptGL is a small sculpting application powered by JavaScript and webGL.'>
-  <meta name='author' content='stéphane GINIER'>
+  <meta name='description' content='WebXR Sculpt by Messiah Studios — Meta Quest MR/VR digital clay, forked from SculptGL.'>
+  <meta name='author' content='Messiah Studios; original SculptGL by Stéphane Ginier'>
   <meta name='mobile-web-app-capable' content='yes'>
   <meta name='apple-mobile-web-app-capable' content='yes'>
 
-  <title> SculptGL - A WebGL sculpting app </title>
+  <title>WebXR Sculpt | Messiah Studios</title>
 
   <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,600' rel='stylesheet' type='text/css'>
   <link rel='stylesheet' href='css/yagui.css' type='text/css' />
@@ -24,14 +24,22 @@
   };
 
   window.addEventListener('load', function () {
-    var app = new window.SculptGL();
-    app.start();
+    if (typeof window.SculptGL !== 'function') {
+      console.error('SculptGL: window.SculptGL is missing. Is sculptgl.js loaded (check Network for 404/blocked)? Any red errors above this line?');
+      return;
+    }
+    try {
+      var app = new window.SculptGL();
+      app.start();
+    } catch (err) {
+      console.error('SculptGL: start() failed', err);
+    }
   });
   </script>
 </head>
 
 <body oncontextmenu='return false;'>
-  <input type='file' id='fileopen' multiple style='display: none' />
+  <input type='file' id='fileopen' multiple accept='.obj,.ply,.stl,.sgl,.glb,.gltf,model/gltf-binary,model/gltf+json' style='display: none' />
   <input type='file' id='backgroundopen' style='display: none' />
   <input type='file' id='alphaopen' style='display: none' />
   <input type='file' id='textureopen' style='display: none' />
@@ -39,6 +47,32 @@
 
   <div id='viewport'>
     <canvas id='canvas'></canvas>
+  </div>
+
+  <div id='webxr-dom-overlay-root' style='position:fixed;inset:0;pointer-events:none;z-index:2147483000;touch-action:manipulation;'>
+    <div id='webxr-bar' style='pointer-events:auto;position:fixed;bottom:16px;right:16px;left:auto;z-index:1;display:none;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;width:auto;max-width:min(360px,calc(100vw - 32px));min-height:0;padding:8px;background:rgba(20,22,28,0.92);border-radius:10px;border:1px solid #444;font-family:Open Sans,sans-serif;box-sizing:border-box;box-shadow:0 6px 24px rgba(0,0,0,0.35);'>
+      <button id='webxr-enter-mr' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#222;color:#eee;font-size:15px;'>
+        XR setup…
+      </button>
+      <button id='webxr-exit' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #644;background:#422;color:#eee;font-size:15px;'>
+        Exit MR
+      </button>
+      <button id='webxr-recenter' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#1f2a38;color:#eee;font-size:15px;'>
+        Recenter
+      </button>
+      <button id='webxr-closer' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#24361f;color:#eee;font-size:15px;'>
+        Closer
+      </button>
+      <button id='webxr-farther' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#24361f;color:#eee;font-size:15px;'>
+        Farther
+      </button>
+      <button id='webxr-scale-down' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#2d2236;color:#eee;font-size:15px;'>
+        Smaller
+      </button>
+      <button id='webxr-scale-up' type='button' style='display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#2d2236;color:#eee;font-size:15px;'>
+        Larger
+      </button>
+    </div>
   </div>
 
   <script src='sculptgl.js'></script>

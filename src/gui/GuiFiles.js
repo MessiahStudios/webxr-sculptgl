@@ -28,6 +28,7 @@ class GuiFiles {
     // import
     menu.addTitle(TR('fileImportTitle'));
     menu.addButton(TR('fileAdd'), this, 'addFile' /*, 'CTRL+O/I'*/ );
+    menu.addButton(TR('fileAddURL'), this, 'addFileURL');
     menu.addCheckbox(TR('fileAutoMatrix'), this._main, '_autoMatrix');
     menu.addCheckbox(TR('fileVertexSRGB'), this._main, '_vertexSRGB');
 
@@ -40,7 +41,7 @@ class GuiFiles {
     menu.addButton(TR('fileExportSTL'), this, 'saveFileAsSTL');
     menu.addCheckbox('OBJ color zbrush', this, '_objColorZbrush');
     menu.addCheckbox('OBJ color append', this, '_objColorAppended');
-    menu.addButton(TR('sketchfabTitle'), this._ctrlGui, 'exportSketchfab');
+    // Sketchfab upload kept in Export code but omitted from UI — this fork is local/XR-first.
 
     // export texture
     menu.addTitle(TR('fileExportTextureTitle'));
@@ -53,6 +54,23 @@ class GuiFiles {
 
   addFile() {
     document.getElementById('fileopen').click();
+  }
+
+  /** Fetch mesh from HTTPS URL (CORS required). Same path as ?modelurl=. */
+  addFileURL() {
+    var sample = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF-Binary/Duck.glb';
+    var url = window.prompt(
+      'Import mesh URL (obj/ply/stl/sgl/glb/gltf).\nNeeds HTTPS + CORS. Cancel to abort.',
+      sample
+    );
+    if (!url) return;
+    url = url.trim();
+    if (!url) return;
+    if (!this._main.getFileType(url)) {
+      window.alert('Unknown file type — use a URL ending in .obj .ply .stl .sgl .glb or .gltf');
+      return;
+    }
+    this._main.addModelURL(url);
   }
 
   onTextureSize(value) {

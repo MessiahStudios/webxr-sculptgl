@@ -11,7 +11,7 @@ ShaderBackground.vertexName = ShaderBackground.fragmentName = 'Background';
 ShaderBackground.uniforms = {};
 ShaderBackground.attributes = {};
 
-ShaderBackground.uniformNames = ['uTexture0', 'uBackgroundType', 'uIblTransform', 'uSPH', 'uBlur', 'uEnvSize'];
+ShaderBackground.uniformNames = ['uTexture0', 'uBackgroundType', 'uIblTransform', 'uSPH', 'uBlur', 'uEnvSize', 'uDirectOutput'];
 
 ShaderBackground.vertex = [
   'attribute vec2 aVertex;',
@@ -72,6 +72,7 @@ ShaderBackground.updateUniforms = function (bg) {
   if (env.size) gl.uniform2fv(uniforms.uEnvSize, env.size);
 
   gl.uniform1f(uniforms.uBlur, bg.getBlur());
+  gl.uniform1i(uniforms.uDirectOutput, main.isXRSessionActive && main.isXRSessionActive() ? 1 : 0);
 };
 
 export default ShaderBackground;

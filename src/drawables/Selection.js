@@ -173,6 +173,56 @@ class Selection {
 
     this._isEditMode = false;
   }
+
+  /**
+   * WebXR: same red ring + center dot (+ symmetry dot) as desktop, using world radius
+   * from XR brush sizing (not screen-pixel projection).
+   */
+  renderXR(main, drawCircle) {
+    var picking = main.getPicking();
+    if (!picking.getMesh())
+      return;
+
+    var worldRadius = picking.getWorldRadius();
+    if (!worldRadius || !isFinite(worldRadius) || worldRadius <= 0)
+      return;
+
+    var camera = main.getCamera();
+    var pickingSym = main.getPickingSymmetry();
+    var constRadius = worldRadius * 0.08;
+    var mesh = picking.getMesh();
+
+    picking.polyLerp(mesh.getNormals(), _TMP_AXIS);
+    vec3.transformMat3(_TMP_AXIS, _TMP_AXIS, mat3.normalFromMat4(_TMP_MAT, mesh.getMatrix()));
+    vec3.normalize(_TMP_AXIS, _TMP_AXIS);
+    var rad = Math.acos(Math.min(1.0, Math.max(-1.0, vec3.dot(_BASE, _TMP_AXIS))));
+    vec3.cross(_TMP_AXIS, _BASE, _TMP_AXIS);
+
+    mat4.identity(_TMP_MAT);
+    mat4.translate(_TMP_MAT, _TMP_MAT, vec3.transformMat4(_TMP_VEC, picking.getIntersectionPoint(), mesh.getMatrix()));
+    mat4.rotate(_TMP_MAT, _TMP_MAT, rad, _TMP_AXIS);
+
+    mat4.mul(_TMP_MATPV, camera.getProjection(), camera.getView());
+
+    mat4.scale(this._cacheCircleMVP, _TMP_MAT, vec3.set(_TMP_VEC, worldRadius, worldRadius, worldRadius));
+    mat4.mul(this._cacheCircleMVP, _TMP_MATPV, this._cacheCircleMVP);
+
+    mat4.scale(this._cacheDotMVP, _TMP_MAT, vec3.set(_TMP_VEC, constRadius, constRadius, constRadius));
+    mat4.mul(this._cacheDotMVP, _TMP_MATPV, this._cacheDotMVP);
+
+    var drawSym = !!(main.getSculptManager().getSymmetry() && pickingSym.getMesh());
+    if (drawSym) {
+      vec3.transformMat4(_TMP_VEC, pickingSym.getIntersectionPoint(), mesh.getMatrix());
+      mat4.identity(_TMP_MAT);
+      mat4.translate(_TMP_MAT, _TMP_MAT, _TMP_VEC);
+      mat4.rotate(_TMP_MAT, _TMP_MAT, rad, _TMP_AXIS);
+      mat4.scale(_TMP_MAT, _TMP_MAT, vec3.set(_TMP_VEC, constRadius, constRadius, constRadius));
+      mat4.mul(this._cacheDotSymMVP, _TMP_MATPV, _TMP_MAT);
+    }
+
+    vec3.set(this._color, 0.8, drawCircle ? 0.0 : 0.4, 0.0);
+    ShaderLib[Enums.Shader.SELECTION].getOrCreate(this._gl).draw(this, !!drawCircle, drawSym);
+  }
 }
 
 export default Selection;

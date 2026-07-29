@@ -19,7 +19,7 @@ ShaderBase.activeAttributes = {
 ShaderBase.showSymmetryLine = getOptionsURL().mirrorline;
 ShaderBase.darkenUnselected = getOptionsURL().darkenunselected;
 ShaderBase.uniformNames = {};
-ShaderBase.uniformNames.commonUniforms = ['uMV', 'uMVP', 'uN', 'uEM', 'uEN', 'uFlat', 'uPlaneO', 'uPlaneN', 'uSym', 'uCurvature', 'uAlpha', 'uFov', 'uDarken'];
+ShaderBase.uniformNames.commonUniforms = ['uMV', 'uMVP', 'uN', 'uEM', 'uEN', 'uFlat', 'uPlaneO', 'uPlaneN', 'uSym', 'uCurvature', 'uAlpha', 'uFov', 'uDarken', 'uDirectOutput'];
 
 ShaderBase.strings = {};
 ShaderBase.strings.colorSpaceGLSL = colorSpaceGLSL;
@@ -38,18 +38,18 @@ ShaderBase.strings.fragColorUniforms = [
   'uniform int uDarken;',
   'uniform float uCurvature;',
   'uniform float uFov;',
+  'uniform int uDirectOutput;',
   'varying float vMasking;',
   'uniform int uFlat;'
 ].join('\n');
 ShaderBase.strings.fragColorFunction = [
   curvatureGLSL,
   colorSpaceGLSL,
-  '#extension GL_OES_standard_derivatives : enable',
   'vec3 getNormal() {',
-  '  #ifndef GL_OES_standard_derivatives',
-  '    return normalize(gl_FrontFacing ? vNormal : -vNormal);',
-  '  #else',
+  '  #ifdef SCULPTGL_USE_DERIVATIVES',
   '    return uFlat == 0 ? normalize(gl_FrontFacing ? vNormal : -vNormal) : -normalize(cross(dFdy(vVertex), dFdx(vVertex)));',
+  '  #else',
+  '    return normalize(gl_FrontFacing ? vNormal : -vNormal);',
   '  #endif',
   '}',
   'vec4 encodeFragColor(const in vec3 frag, const in float alpha) {',
@@ -58,6 +58,10 @@ ShaderBase.strings.fragColorFunction = [
   '  col *= (0.3 + 0.7 * vMasking);',
   '  if(uSym == 1 && abs(dot(uPlaneN, vVertex - uPlaneO)) < 0.15)',
   '      col = min(col * 1.5, 1.0);',
+  // Desktop draws into an RGBM RTT then ShaderMerge decodes. XR draws straight to the
+  // headset layer — RGBM alpha would look like transparency (ghost mesh in MR).
+  '  if (uDirectOutput == 1)',
+  '    return vec4(linearTosRGB(col) * alpha, alpha);',
   '  return alpha != 1.0 ? vec4(col * alpha, alpha) : encodeRGBM(col);',
   '}'
 ].join('\n');
@@ -105,8 +109,21 @@ ShaderBase.getOrCreate = function (gl) {
   gl.shaderSource(vShader, processShader(this.vertex + vname));
   gl.compileShader(vShader);
 
+  // All our fragment shaders are GLSL ES 1.00 (#version 100). dFdx/dFdy are NOT core there,
+  // even on a WebGL2 context — enabling SCULPTGL_USE_DERIVATIVES without the extension line
+  // breaks Matcap/PBR/etc. (dfdx/dfdy undefined). Only use derivatives when the extension exists.
+  var stdDerivExt = null;
+  try {
+    stdDerivExt = gl.getExtension('OES_standard_derivatives');
+  } catch (e) { /* ignore */ }
+  var hasDerivatives = !!stdDerivExt;
+  var fragPreamble = '';
+  if (hasDerivatives) {
+    fragPreamble = '#extension GL_OES_standard_derivatives : enable\n#define SCULPTGL_USE_DERIVATIVES 1\n';
+  }
+
   var fShader = gl.createShader(gl.FRAGMENT_SHADER);
-  gl.shaderSource(fShader, processShader(this.fragment + fname));
+  gl.shaderSource(fShader, processShader(fragPreamble + this.fragment + fname));
   gl.compileShader(fShader);
 
   var program = this.program = gl.createProgram();
@@ -167,7 +184,8 @@ ShaderBase.updateUniforms = (function () {
     gl.uniform1i(uniforms.uSym, useSym ? 1 : 0);
     gl.uniform1f(uniforms.uAlpha, mesh.getOpacity());
 
-    gl.uniform1f(uniforms.uCurvature, mesh.getCurvature());
+    gl.uniform1f(uniforms.uCurvature, main.isXRSessionActive && main.isXRSessionActive() ? 0.0 : mesh.getCurvature());
+    gl.uniform1i(uniforms.uDirectOutput, main.isXRSessionActive && main.isXRSessionActive() ? 1 : 0);
     var cam = main.getCamera();
     gl.uniform1f(uniforms.uFov, cam.isOrthographic() ? -Math.abs(cam._trans[2]) * 25.0 : cam.getFov());
   };

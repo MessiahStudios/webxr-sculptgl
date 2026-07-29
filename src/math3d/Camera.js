@@ -128,6 +128,21 @@ class Camera {
     return this._proj;
   }
 
+  /**
+   * WebXR-only: replace orbit camera matrices for the current eye.
+   * Call each XRView; do not mix with updateView() / mouse orbit in the same frame.
+   * @param {XRView} xrView
+   * @param {mat4|null} stageMat if set, applied as mat4.mul(view, view, stageMat) after inverting the eye pose (places content in the room).
+   */
+  applyXRView(xrView, stageMat) {
+    mat4.invert(this._view, xrView.transform.matrix);
+    if (stageMat) {
+      mat4.mul(_TMP_MAT, this._view, stageMat);
+      mat4.copy(this._view, _TMP_MAT);
+    }
+    mat4.copy(this._proj, xrView.projectionMatrix);
+  }
+
   getProjectionType() {
     return this._projectionType;
   }

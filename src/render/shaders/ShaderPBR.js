@@ -161,7 +161,13 @@ ShaderPBR.updateUniforms = function (mesh, main) {
   gl.uniform3fv(uniforms.uAlbedo, mesh.getAlbedo());
   gl.uniform1f(uniforms.uRoughness, mesh.getRoughness());
   gl.uniform1f(uniforms.uMetallic, mesh.getMetallic());
-  gl.uniform1f(uniforms.uExposure, ShaderPBR.exposure);
+  var exp = ShaderPBR.exposure;
+  if (main.isXRSessionActive && main.isXRSessionActive() &&
+      main.isXRPassthroughComposite && main.isXRPassthroughComposite()) {
+    // Keep MR readable without washing the mesh into a "ghost" look.
+    exp *= 1.25;
+  }
+  gl.uniform1f(uniforms.uExposure, exp);
 
   var env = ShaderPBR.environments[ShaderPBR.idEnv];
   gl.uniform3fv(uniforms.uSPH, env.sph);

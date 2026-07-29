@@ -25,8 +25,9 @@ var TR = {
   // file
   fileTitle: 'Files (import/export)',
   fileImportTitle: 'Import',
-  fileAdd: 'Add (obj, sgl, ply, stl)',
-  fileAutoMatrix: 'Scale and center',
+  fileAdd: 'Add (obj, sgl, ply, stl, glb)',
+  fileAddURL: 'Import URL (https…)',
+  fileAutoMatrix: 'Scale & center',
   fileVertexSRGB: 'sRGB vertex color',
   fileExportSceneTitle: 'Export Scene',
   fileExportAll: 'Export all',

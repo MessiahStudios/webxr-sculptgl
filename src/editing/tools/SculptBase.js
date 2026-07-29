@@ -1,3 +1,4 @@
+import { vec3 } from 'gl-matrix';
 import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
 
@@ -51,12 +52,46 @@ class SculptBase {
     this.pushState();
     this._lastMouseX = main._mouseX;
     this._lastMouseY = main._mouseY;
+    this._xrLastHit = null;
     this.startSculpt();
 
     return true;
   }
 
+  /**
+   * WebXR: picking already resolved via controller scene-space ray.
+   */
+  startXR() {
+    var main = this._main;
+    var picking = main.getPicking();
+    var mesh = picking.getMesh();
+    if (!mesh || typeof this.stroke !== 'function')
+      return false;
+
+    mesh = main.setOrUnsetMesh(mesh, false);
+    if (!mesh)
+      return false;
+
+    picking.initAlpha();
+    var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;
+    if (pickingSym) {
+      if (main._xrRayNear && main._xrRayFar)
+        pickingSym.intersectionSceneRayMesh(mesh, main._xrRayNear, main._xrRayFar);
+      pickingSym.initAlpha();
+    }
+
+    this.pushState();
+    this._xrLastHit = null;
+    this._xrLastStrokeAt = 0;
+    if (this._lockPosition === true)
+      return true;
+    this.makeStrokeXR(picking, pickingSym);
+    return true;
+  }
+
   end() {
+    this._xrLastHit = null;
+    this._xrLastStrokeAt = 0;
     if (this.getMesh())
       this.getMesh().balanceOctree();
   }
@@ -185,6 +220,73 @@ class SculptBase {
     return pick1 || pick2;
   }
 
+  /**
+   * WebXR stroke: picking already holds the ray hit; spacing uses 3D world distance.
+   * Symmetry mirrors the scene ray via Picking(_xSym) — same as desktop makeStroke.
+   */
+  makeStrokeXR(picking, pickingSym) {
+    var main = this._main;
+    var mesh = this.getMesh();
+    if (!mesh || !picking.getMesh())
+      return false;
+
+    var hitLocal = picking.getIntersectionPoint();
+    var hitWorld = [0.0, 0.0, 0.0];
+    vec3.transformMat4(hitWorld, hitLocal, mesh.getMatrix());
+
+    if (this._xrLastHit) {
+      var minSpacing = Math.sqrt(picking.getWorldRadius2()) * 0.22;
+      var moved = vec3.dist(this._xrLastHit, hitWorld);
+      // Desktop continuous: brush keeps deforming while held still. XR: allow a stroke ~30Hz when parked.
+      if (moved < minSpacing) {
+        var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (this._xrLastStrokeAt && (now - this._xrLastStrokeAt) < 33)
+          return true;
+      }
+    }
+    if (!this._xrLastHit)
+      this._xrLastHit = [0.0, 0.0, 0.0];
+    vec3.copy(this._xrLastHit, hitWorld);
+    this._xrLastStrokeAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+    picking.pickVerticesInSphere(picking.getLocalRadius2());
+    picking.computePickedNormal();
+    picking.updateAlpha(false);
+
+    var dynTopo = mesh.isDynamic && !this._lockPosition;
+    if (dynTopo)
+      this.stroke(picking, false);
+
+    var pick2 = null;
+    if (pickingSym && main._xrRayNear && main._xrRayFar) {
+      pickingSym.intersectionSceneRayMesh(mesh, main._xrRayNear, main._xrRayFar);
+      pick2 = pickingSym.getMesh();
+      if (pick2) {
+        pickingSym.setLocalRadius2(picking.getLocalRadius2());
+        pickingSym.pickVerticesInSphere(pickingSym.getLocalRadius2());
+        pickingSym.computePickedNormal();
+        pickingSym.updateAlpha(false);
+      }
+    }
+
+    if (!dynTopo)
+      this.stroke(picking, false);
+    if (pick2)
+      this.stroke(pickingSym, true);
+
+    this.updateMeshBuffers();
+    return true;
+  }
+
+  updateXR() {
+    if (this._lockPosition === true)
+      return;
+    var main = this._main;
+    var picking = main.getPicking();
+    var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;
+    this.makeStrokeXR(picking, pickingSym);
+  }
+
   updateMeshBuffers() {
     var mesh = this.getMesh();
     if (mesh.isDynamic)
@@ -236,7 +338,7 @@ class SculptBase {
       anz += nAr[ind + 2] * f;
     }
     var len = Math.sqrt(anx * anx + any * any + anz * anz);
-    if (len === 0.0)
+    if (len === 0.0 || !isFinite(len))
       return;
     len = 1.0 / len;
     return [anx * len, any * len, anz * len];
@@ -244,6 +346,7 @@ class SculptBase {
 
   /** Compute average center of a group of vertices (with culling) */
   areaCenter(iVerts) {
+    if (!iVerts || !iVerts.length) return;
     var mesh = this.getMesh();
     var vAr = mesh.getVertices();
     var mAr = mesh.getMaterials();
@@ -260,6 +363,7 @@ class SculptBase {
       ay += vAr[ind + 1] * f;
       az += vAr[ind + 2] * f;
     }
+    if (acc <= 1e-8) return;
     return [ax / acc, ay / acc, az / acc];
   }
 

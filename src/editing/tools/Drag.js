@@ -2,6 +2,10 @@ import { vec3, mat4 } from 'gl-matrix';
 import Geometry from 'math3d/Geometry';
 import SculptBase from 'editing/tools/SculptBase';
 
+var _TMP_NEAR = [0.0, 0.0, 0.0];
+var _TMP_FAR = [0.0, 0.0, 0.0];
+var _TMP_INV = mat4.create();
+
 class Drag extends SculptBase {
 
   constructor(main) {
@@ -11,6 +15,7 @@ class Drag extends SculptBase {
     this._dragDir = [0.0, 0.0, 0.0];
     this._dragDirSym = [0.0, 0.0, 0.0];
     this._idAlpha = 0;
+    this._xrDragCenter = null;
   }
 
   sculptStroke() {
@@ -144,6 +149,101 @@ class Drag extends SculptBase {
     var eyeDir = picking.getEyeDirection();
     vec3.sub(eyeDir, vFar, vNear);
     vec3.normalize(eyeDir, eyeDir);
+  }
+
+  /**
+   * XR only — desktop path above is unchanged.
+   * Mirrors updateDragDir using the controller scene ray, and keeps our own grab
+   * center because Scene re-picks the surface before updateXR.
+   */
+  startXR() {
+    var main = this._main;
+    var picking = main.getPicking();
+    var mesh = picking.getMesh();
+    if (!mesh)
+      return false;
+
+    mesh = main.setOrUnsetMesh(mesh, false);
+    if (!mesh)
+      return false;
+
+    picking.initAlpha();
+    this.pushState();
+    this._xrDragCenter = vec3.clone(picking.getIntersectionPoint());
+
+    if (main.getSculptManager().getSymmetry() && main._xrRayNear && main._xrRayFar) {
+      var pickingSym = main.getPickingSymmetry();
+      pickingSym.intersectionSceneRayMesh(mesh, main._xrRayNear, main._xrRayFar);
+      pickingSym.initAlpha();
+    }
+    return true;
+  }
+
+  updateXR() {
+    var main = this._main;
+    var picking = main.getPicking();
+    var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;
+    this.makeStrokeXR(picking, pickingSym);
+  }
+
+  makeStrokeXR(picking, pickingSym) {
+    var main = this._main;
+    var mesh = this.getMesh();
+    if (!mesh || !this._xrDragCenter || !main._xrRayNear || !main._xrRayFar)
+      return false;
+
+    mat4.invert(_TMP_INV, mesh.getMatrix());
+    vec3.transformMat4(_TMP_NEAR, main._xrRayNear, _TMP_INV);
+    vec3.transformMat4(_TMP_FAR, main._xrRayFar, _TMP_INV);
+
+    // Snapshot grab point before sliding — symmetry must use the *previous* center.
+    var prevCenter = vec3.clone(this._xrDragCenter);
+    var newPos = Geometry.vertexOnLine(prevCenter, _TMP_NEAR, _TMP_FAR);
+    vec3.sub(this._dragDir, newPos, prevCenter);
+    if (vec3.sqrLen(this._dragDir) < 1e-16)
+      return true;
+
+    picking._mesh = mesh;
+    picking.setIntersectionPoint(newPos);
+    vec3.copy(this._xrDragCenter, newPos);
+    picking.applyXRBrushRadius();
+    picking.pickVerticesInSphere(picking.getLocalRadius2());
+    picking.computePickedNormal();
+
+    var eyeDir = picking.getEyeDirection();
+    vec3.sub(eyeDir, _TMP_FAR, _TMP_NEAR);
+    vec3.normalize(eyeDir, eyeDir);
+
+    if (mesh.isDynamic)
+      this.stroke(picking, false);
+
+    if (pickingSym) {
+      var centerSym = vec3.clone(prevCenter);
+      Geometry.mirrorPoint(centerSym, mesh.getSymmetryOrigin(), mesh.getSymmetryNormal());
+
+      vec3.transformMat4(_TMP_NEAR, main._xrRayNear, _TMP_INV);
+      vec3.transformMat4(_TMP_FAR, main._xrRayFar, _TMP_INV);
+      Geometry.mirrorPoint(_TMP_NEAR, mesh.getSymmetryOrigin(), mesh.getSymmetryNormal());
+      Geometry.mirrorPoint(_TMP_FAR, mesh.getSymmetryOrigin(), mesh.getSymmetryNormal());
+
+      var newSym = Geometry.vertexOnLine(centerSym, _TMP_NEAR, _TMP_FAR);
+      vec3.sub(this._dragDirSym, newSym, centerSym);
+      pickingSym._mesh = mesh;
+      pickingSym.setIntersectionPoint(newSym);
+      pickingSym.setLocalRadius2(picking.getLocalRadius2());
+      pickingSym.pickVerticesInSphere(pickingSym.getLocalRadius2());
+    }
+
+    if (!mesh.isDynamic) this.stroke(picking, false);
+    if (pickingSym) this.stroke(pickingSym, true);
+
+    this.updateMeshBuffers();
+    return true;
+  }
+
+  end() {
+    this._xrDragCenter = null;
+    SculptBase.prototype.end.call(this);
   }
 }
 
