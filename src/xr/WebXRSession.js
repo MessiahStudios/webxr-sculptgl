@@ -641,7 +641,7 @@ class WebXRSession {
     }
     if (!pose) return;
 
-    this._scene.updateXROrbitInput(frame, session);
+    this._scene.updateXROrbitInput(frame, session, refSpace);
     this._scene.updateXRSculptInput(frame, session, refSpace);
     this._scene.drawXRFrame(frame, pose, session, refSpace);
 
@@ -739,16 +739,24 @@ class WebXRSession {
       return;
     }
     var gripped = 0;
+    var rightTrig = false;
     var i;
     var sources = session.inputSources;
     for (i = 0; i < sources.length; ++i) {
       var gp = sources[i].gamepad;
-      if (!gp || !gp.buttons || !gp.buttons[1]) continue;
-      var b = gp.buttons[1];
-      if (b.pressed || b.value > 0.35)
+      if (!gp || !gp.buttons) continue;
+      if (gp.buttons[1] && (gp.buttons[1].pressed || gp.buttons[1].value > 0.35))
         gripped++;
+      // Both grips + trigger = Smooth-hold, not exit.
+      if (sources[i].handedness === 'right' && gp.buttons[0] &&
+          (gp.buttons[0].pressed || gp.buttons[0].value > 0.3))
+        rightTrig = true;
     }
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (gripped >= 2 && rightTrig) {
+      this._gripExitStart = null;
+      return;
+    }
     if (gripped >= 2) {
       if (this._gripExitStart == null) this._gripExitStart = now;
       if (now - this._gripExitStart > 2500) {

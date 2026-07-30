@@ -350,10 +350,13 @@ class Gizmo {
     this._lastDistToEye = this._isEditing ? this._lastDistToEye : vec3.dist(eye, trMesh);
     var scaleFactor;
     if (this._main.isXRSessionActive && this._main.isXRSessionActive()) {
-      // Scene-unit gizmo: readable at arm's reach after Workspace stage scale.
-      var fit = this._main._xrStageFit;
-      var meshR = fit && fit.radius ? fit.radius : Math.max(1, this._lastDistToEye * 0.2);
-      scaleFactor = Math.max(meshR * 0.35, this._lastDistToEye * 0.08);
+      // Grow with the live selection — stale _xrStageFit.radius left the gizmo stranded
+      // inside scaled / transformed meshes.
+      var selR = this._selectionRadiusXR();
+      var viewR = Math.max(0.05, this._lastDistToEye * 0.14);
+      scaleFactor = Math.max(selR * 0.55, viewR);
+      // Keep handles outside the mass but still grabable when zoomed far out.
+      scaleFactor = Math.min(scaleFactor, Math.max(selR * 1.15, viewR * 2.5));
     } else {
       scaleFactor = (this._lastDistToEye * GIZMO_SIZE) / camera.getConstantScreen();
     }
@@ -382,6 +385,30 @@ class Gizmo {
     this._scaleY.updateFinalMatrix(traScale);
     this._scaleZ.updateFinalMatrix(traScale);
     this._scaleW.updateFinalMatrix(traScale);
+  }
+
+  /** Approx selection radius in scene units (includes edit-matrix scale). */
+  _selectionRadiusXR() {
+    var main = this._main;
+    var meshes = main.getSelectedMeshes();
+    if (!meshes || !meshes.length) return Math.max(0.2, this._lastDistToEye * 0.2);
+
+    var maxScale = 1.0;
+    var i;
+    for (i = 0; i < meshes.length; ++i) {
+      var em = meshes[i].getEditMatrix && meshes[i].getEditMatrix();
+      if (!em) continue;
+      var sx = Math.sqrt(em[0] * em[0] + em[1] * em[1] + em[2] * em[2]);
+      var sy = Math.sqrt(em[4] * em[4] + em[5] * em[5] + em[6] * em[6]);
+      var sz = Math.sqrt(em[8] * em[8] + em[9] * em[9] + em[10] * em[10]);
+      maxScale = Math.max(maxScale, sx, sy, sz);
+    }
+
+    var box = main.computeBoundingBoxMeshes(meshes);
+    var r = 0.2;
+    if (box && isFinite(box[0]) && main.computeRadiusFromBoundingBox)
+      r = Math.max(0.2, main.computeRadiusFromBoundingBox(box));
+    return r * maxScale;
   }
 
   _drawGizmo(elt) {

@@ -324,6 +324,19 @@ class XRControllerModels {
       });
   }
 
+  /** Apply right-grip temporary negative before sculpt strokes this frame. */
+  sampleDockNegative(session) {
+    if (this._sculptDock && this._sculptDock.sampleRightGripNegative)
+      this._sculptDock.sampleRightGripNegative(session);
+  }
+
+  clearDockNegative() {
+    if (!this._sculptDock) return;
+    this._sculptDock._rightGripNeg = false;
+    if (this._sculptDock._applyLiveNegative)
+      this._sculptDock._applyLiveNegative();
+  }
+
   _updatePoses(frame, refSpace, view) {
     var self = this;
     this._entries.forEach(function (entry, inputSource) {

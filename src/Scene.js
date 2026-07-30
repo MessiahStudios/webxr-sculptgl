@@ -39,11 +39,16 @@ class Scene {
     this._xrDistanceOffset = 0.0;
     this._xrOrbitYaw = 0.0;
     this._xrOrbitPitch = 0.0;
+    this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
     this._xrEnterFeedbackUntil = 0;
     this._xrSculpting = false;
+    this._xrSmoothLatch = false;
+    this._xrToolBeforeSmooth = -1;
+    this._xrSmoothHold = false;
     this._xrSculptLogged = false;
     this._xrSculptDiagAt = 0;
     this._xrTriggerLatched = false;
+    this._xrTriggerReleaseFrames = 0;
     this._xrRayNear = null;
     this._xrRayFar = null;
     this._xrRayUp = null;
@@ -259,9 +264,12 @@ class Scene {
       centerX: 0, centerY: 0, centerZ: 0,
       scale: 1, distance: 0.85, radius: 1, scaledRadius: 1
     };
-    // Keep center ahead of the user even after orbit (orbit rotates content about stage origin).
+    var off = this._xrOrbitViewOffset || [0.0, 0.0, 0.0];
+    // Orbit rotates about selection COM (f.center*). View offset keeps the room stable when that
+    // COM is updated after Transform (otherwise T(-C) changes → snap).
     mat4.identity(this._xrStageMatrix);
     mat4.translate(this._xrStageMatrix, this._xrStageMatrix, [0.0, 1.25, -f.distance]);
+    mat4.translate(this._xrStageMatrix, this._xrStageMatrix, off);
     mat4.rotateY(this._xrStageMatrix, this._xrStageMatrix, this._xrOrbitYaw || 0);
     mat4.rotateX(this._xrStageMatrix, this._xrStageMatrix, this._xrOrbitPitch || 0);
     mat4.scale(this._xrStageMatrix, this._xrStageMatrix, [f.scale, f.scale, f.scale]);
@@ -301,27 +309,169 @@ class Scene {
     this._xrOrbitPitch = 0.0;
     this._xrDistanceOffset = 0.0;
     this._xrEntryScale = 1.0;
+    this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
     this.fitXRStageToScene();
   }
 
   /**
-   * Orbit clay around its stage pivot (right thumbstick, or Workspace squeeze+stick).
-   * @param {number} dx stick X (-1..1)
-   * @param {number} dy stick Y (-1..1)
+   * Point the XR orbit pivot at the selection COM (bbox center).
+   * When the COM moves (Transform bake / reselect), compensate the view translation so the
+   * clay does not jump in the room — then stick orbit feels like turning around the object.
+   * @param {boolean} [compensate=true]
    */
-  orbitXRStage(dx, dy) {
+  syncXROrbitPivotToSelection(compensate) {
+    var meshes = this.getSelectedMeshes();
+    if (!meshes || meshes.length === 0) {
+      var one = this.getMesh();
+      meshes = one ? [one] : this.getMeshes();
+    }
+    if (!meshes || !meshes.length) return;
+    var box = this.computeBoundingBoxMeshes(meshes);
+    if (!isFinite(box[0])) return;
+
+    var cx = (box[0] + box[3]) * 0.5;
+    var cy = (box[1] + box[4]) * 0.5;
+    var cz = (box[2] + box[5]) * 0.5;
+
+    if (!this._xrStageFit) {
+      this.fitXRStageToScene();
+      return;
+    }
+
+    var f = this._xrStageFit;
+    var oldCx = f.centerX;
+    var oldCy = f.centerY;
+    var oldCz = f.centerZ;
+    var ddx = cx - oldCx;
+    var ddy = cy - oldCy;
+    var ddz = cz - oldCz;
+    if (Math.abs(ddx) + Math.abs(ddy) + Math.abs(ddz) < 1e-7)
+      return;
+
+    if (compensate !== false) {
+      // Matrix order: T * offset * Ry * Rx * S * T(-C)
+      // Changing C→C' shifts content by R*(S*(C-C')) = -R*S*(C'-C). Add +R*S*(C'-C) to offset.
+      var s = f.scale || 1;
+      var x = ddx * s;
+      var y = ddy * s;
+      var z = ddz * s;
+      var pitch = this._xrOrbitPitch || 0;
+      var yaw = this._xrOrbitYaw || 0;
+      var cosP = Math.cos(pitch);
+      var sinP = Math.sin(pitch);
+      var y1 = y * cosP - z * sinP;
+      var z1 = y * sinP + z * cosP;
+      var cosY = Math.cos(yaw);
+      var sinY = Math.sin(yaw);
+      var x2 = x * cosY + z1 * sinY;
+      var z2 = -x * sinY + z1 * cosY;
+      if (!this._xrOrbitViewOffset)
+        this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
+      this._xrOrbitViewOffset[0] += x2;
+      this._xrOrbitViewOffset[1] += y1;
+      this._xrOrbitViewOffset[2] += z2;
+    }
+
+    f.centerX = cx;
+    f.centerY = cy;
+    f.centerZ = cz;
+  }
+
+  /**
+   * Right stick: X = orbit yaw around selection COM,
+   * Y = dolly along the line from object → headset (not fixed stage Z).
+   * @param {number} dx
+   * @param {number} dy
+   * @param {{x:number,y:number,z:number}|null} [viewerPos] headset position in ref space
+   */
+  orbitXRStage(dx, dy, viewerPos) {
     var dead = 0.18;
     if (Math.abs(dx) < dead) dx = 0;
     if (Math.abs(dy) < dead) dy = 0;
     if (!dx && !dy) return;
-    // Per-frame rates feel snappy at ~72–90Hz Quest.
-    this._xrOrbitYaw += dx * 0.045;
+
+    // Keep pivot on selection COM; compensate so re-anchor after Transform doesn't snap.
+    this.syncXROrbitPivotToSelection(true);
+
+    if (dx)
+      this._xrOrbitYaw += dx * 0.045;
+
+    // Stick Y: move sculpture along viewer↔object axis (toward/away from what you're looking at).
+    if (dy)
+      this._dollyXRAlongView(dy, viewerPos);
+
+    if (!this._xrStageFit) this.fitXRStageToScene();
+    else this._rebuildXRStageMatrix();
+  }
+
+  /**
+   * Dolly closer/farther along the headset → selection line (ref space).
+   * Stick up (typically dy < 0) → closer; stick down → farther.
+   */
+  _dollyXRAlongView(dy, viewerPos) {
+    if (!this._xrOrbitViewOffset)
+      this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
+
+    // Selection COM in ref space (maps to eye + offset after stage matrix).
+    var f = this._xrStageFit;
+    if (!f) return;
+    var off = this._xrOrbitViewOffset;
+    var comX = off[0];
+    var comY = 1.25 + off[1];
+    var comZ = -f.distance + off[2];
+
+    var hx = viewerPos ? viewerPos.x : 0.0;
+    var hy = viewerPos ? viewerPos.y : 1.6;
+    var hz = viewerPos ? viewerPos.z : 0.0;
+
+    var dirX = hx - comX;
+    var dirY = hy - comY;
+    var dirZ = hz - comZ;
+    var len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+    if (len < 1e-4) {
+      // Fallback: toward +Z (user behind sculpture on default stage).
+      dirX = 0; dirY = 0; dirZ = 1; len = 1;
+    } else {
+      dirX /= len; dirY /= len; dirZ /= len;
+    }
+
+    // Stick up → closer (move COM toward head). Keep a minimum separation.
+    var amount = -dy * 0.04;
+    var newDist = len - amount;
+    if (newDist < 0.35) amount = len - 0.35;
+    if (newDist > 3.5) amount = len - 3.5;
+
+    off[0] += dirX * amount;
+    off[1] += dirY * amount;
+    off[2] += dirZ * amount;
+  }
+
+  /**
+   * Pitch tilt only (Workspace squeeze + stick Y) — keep separate from view dolly.
+   */
+  tiltXRStage(dy) {
+    var dead = 0.18;
+    if (Math.abs(dy) < dead) return;
     this._xrOrbitPitch += dy * 0.035;
     var lim = 1.25;
     if (this._xrOrbitPitch > lim) this._xrOrbitPitch = lim;
     if (this._xrOrbitPitch < -lim) this._xrOrbitPitch = -lim;
     if (!this._xrStageFit) this.fitXRStageToScene();
     else this._rebuildXRStageMatrix();
+  }
+
+  /** Dolly stage distance (Workspace tab) without recomputing scale/center from the full scene. */
+  _adjustXRViewDistance(delta) {
+    this._xrDistanceOffset = Math.min(1.8, Math.max(-0.8, this._xrDistanceOffset + delta));
+    if (!this._xrStageFit) {
+      this.fitXRStageToScene();
+      return;
+    }
+    var f = this._xrStageFit;
+    var scaledR = f.scaledRadius != null ? f.scaledRadius : (f.radius * f.scale);
+    var clearance = 0.55;
+    var distance = scaledR + clearance + this._xrDistanceOffset;
+    f.distance = Math.min(2.6, Math.max(scaledR + 0.4, distance));
   }
 
   /**
@@ -337,8 +487,9 @@ class Scene {
   }
 
   offsetXRDistance(delta) {
-    this._xrDistanceOffset = Math.min(1.8, Math.max(-0.8, this._xrDistanceOffset + delta));
-    this.fitXRStageToScene();
+    this._adjustXRViewDistance(delta);
+    if (!this._xrStageFit) this.fitXRStageToScene();
+    else this._rebuildXRStageMatrix();
   }
 
   scaleXRStage(mult) {
@@ -613,16 +764,19 @@ class Scene {
   }
 
   /**
-   * Right thumbstick orbits the clay — unless Twist/LocalScale is actively sculpting
-   * (those tools consume the stick as twist/scale assist).
+   * Right thumbstick: orbit yaw around selection COM (X) + dolly along view (Y).
+   * Only paused while a stroke is active (or Smooth-hold) so grabs aren't fought.
    */
-  updateXROrbitInput(frame, session) {
+  updateXROrbitInput(frame, session, refSpace) {
     if (!session || !frame) return;
-    if (this._xrSculpting) {
-      var tIdx = this.getSculptManager().getToolIndex();
-      if (tIdx === Enums.Tools.TWIST || tIdx === Enums.Tools.LOCALSCALE)
-        return;
-    }
+    if (this._xrSculpting) return;
+    if (this._xrSmoothHold) return;
+    var viewerPos = null;
+    try {
+      var viewer = refSpace ? frame.getViewerPose(refSpace) : null;
+      var p = viewer && viewer.transform && viewer.transform.position;
+      if (p) viewerPos = { x: p.x, y: p.y, z: p.z };
+    } catch (e) { /* optional */ }
     var sources = session.inputSources;
     var i;
     for (i = 0; i < sources.length; ++i) {
@@ -633,9 +787,39 @@ class Scene {
       // Quest Touch: thumbstick is usually axes[2], axes[3]
       var x = a.length >= 4 ? (a[2] || 0) : (a[0] || 0);
       var y = a.length >= 4 ? (a[3] || 0) : (a[1] || 0);
-      this.orbitXRStage(x, y);
+      this.orbitXRStage(x, y, viewerPos);
       return;
     }
+  }
+
+  _applyXRSmoothHold(want) {
+    var sm = this.getSculptManager();
+    this._xrSmoothHold = !!want;
+    if (want) {
+      if (this._xrSmoothLatch) return;
+      var cur = sm.getToolIndex();
+      // Transform keeps its own grab grammar — don't steal it for Smooth-hold.
+      if (cur === Enums.Tools.TRANSFORM) return;
+      if (cur === Enums.Tools.SMOOTH) {
+        this._xrSmoothLatch = true;
+        this._xrToolBeforeSmooth = -1;
+        return;
+      }
+      this._xrToolBeforeSmooth = cur;
+      sm.setToolIndex(Enums.Tools.SMOOTH);
+      this._xrSmoothLatch = true;
+      XRRemoteLog.see('MR', 'SMOOTH hold — both grips (release to restore tool)');
+      return;
+    }
+    if (!this._xrSmoothLatch) return;
+    if (this._xrSculpting) {
+      this._xrSculpting = false;
+      sm.end();
+    }
+    if (this._xrToolBeforeSmooth >= 0 && sm.getToolIndex() === Enums.Tools.SMOOTH)
+      sm.setToolIndex(this._xrToolBeforeSmooth);
+    this._xrToolBeforeSmooth = -1;
+    this._xrSmoothLatch = false;
   }
 
   /** XR undo — same path as desktop GuiStates.onUndo. */
@@ -855,34 +1039,74 @@ class Scene {
     var i;
     var chosen = null;
     var triggerValue = 0;
+    var leftGrip = false;
+    var rightGrip = false;
     this._xrMultiSelect = false;
     for (i = 0; i < sources.length; ++i) {
       var srcScan = sources[i];
-      if (srcScan.handedness === 'left' && srcScan.gamepad && srcScan.gamepad.buttons) {
+      var gpScan = srcScan.gamepad;
+      if (gpScan && gpScan.buttons && gpScan.buttons[1]) {
+        var sq = gpScan.buttons[1];
+        if (sq.pressed || sq.value > 0.55) {
+          if (srcScan.handedness === 'left') leftGrip = true;
+          if (srcScan.handedness === 'right') rightGrip = true;
+        }
+      }
+      if (srcScan.handedness === 'left' && gpScan && gpScan.buttons) {
         // Left index trigger = multi-select modifier (desktop Ctrl) while Transform is active.
-        var ltrig = srcScan.gamepad.buttons[0];
+        var ltrig = gpScan.buttons[0];
         if (ltrig && (ltrig.pressed || ltrig.value > 0.45))
           this._xrMultiSelect = true;
       }
       if (srcScan.handedness !== 'right' || !srcScan.targetRaySpace) continue;
-      var gp = srcScan.gamepad;
+      var gp = gpScan;
       // Quest: buttons[0] = main (index) trigger
       var btn = gp && gp.buttons && gp.buttons[0];
       triggerValue = btn ? (btn.value || 0) : 0;
       chosen = srcScan;
     }
 
-    // Hysteresis: avoid micro release/repress restarting Move with a deformed proxy
-    // (that compounds into "delete-like" shredding on long holds).
+    // Both grips = temporary Smooth (desktop Shift). Takes priority over right-grip negative.
+    this._applyXRSmoothHold(leftGrip && rightGrip);
+
+    // Right grip → temporary negative (skip while Smooth-hold so grips aren't fighting).
+    if (!this._xrSmoothHold && this._xrControllerModels && this._xrControllerModels.sampleDockNegative)
+      this._xrControllerModels.sampleDockNegative(session);
+    else if (this._xrSmoothHold && this._xrControllerModels && this._xrControllerModels.clearDockNegative)
+      this._xrControllerModels.clearDockNegative();
+
+    // Hysteresis: avoid micro release/repress restarting Move / Transform.
+    // Transform needs multi-frame release — logs still showed gizmo grab restarting
+    // every ~1–2s while trigger stayed at 0.6–1.0 (Quest analog jitter dips).
+    var toolIdxForTrig = this.getSculptManager().getToolIndex();
+    var xfTool = (toolIdxForTrig === Enums.Tools.TRANSFORM) ? this.getSculptManager().getCurrentTool() : null;
+    var xfBusy = !!(xfTool && (xfTool._xrMode === 'gizmo' || xfTool._xrMode === 'grab'));
+    var transformHold = toolIdxForTrig === Enums.Tools.TRANSFORM && (this._xrSculpting || xfBusy);
     if (this._xrTriggerLatched) {
-      if (triggerValue < 0.22) this._xrTriggerLatched = false;
+      var releaseAt = transformHold ? 0.08 : 0.22;
+      var needFrames = transformHold ? 5 : 1;
+      if (triggerValue < releaseAt) {
+        this._xrTriggerReleaseFrames = (this._xrTriggerReleaseFrames || 0) + 1;
+        if (this._xrTriggerReleaseFrames >= needFrames)
+          this._xrTriggerLatched = false;
+      } else {
+        this._xrTriggerReleaseFrames = 0;
+      }
     } else if (triggerValue > 0.42 || (chosen && chosen.gamepad && chosen.gamepad.buttons[0] && chosen.gamepad.buttons[0].pressed && triggerValue > 0.3)) {
       this._xrTriggerLatched = true;
+      this._xrTriggerReleaseFrames = 0;
     }
     var triggerPressed = !!this._xrTriggerLatched;
+    // Belt-and-suspenders: never end an active Transform stroke on a one-frame dip.
+    if (!triggerPressed && xfBusy && triggerValue > 0.05) {
+      triggerPressed = true;
+      this._xrTriggerLatched = true;
+      this._xrTriggerReleaseFrames = 0;
+    }
 
     if (!chosen) {
       this._xrTriggerLatched = false;
+      this._applyXRSmoothHold(false);
       if (this._xrSculpting) {
         this._xrSculpting = false;
         this.getSculptManager().end();

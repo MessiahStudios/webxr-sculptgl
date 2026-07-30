@@ -82,6 +82,10 @@ class Transform extends SculptBase {
     if (this._xrAwaitTriggerRelease)
       return false;
 
+    // Already in a grab/gizmo stroke — keep it (Scene should call updateXR, not restart).
+    if (this._xrMode === 'gizmo' || this._xrMode === 'grab')
+      return true;
+
     this._xrMode = null;
     this._xrGrabLogged = false;
 
@@ -173,6 +177,12 @@ class Transform extends SculptBase {
     this._forceToolMesh = null;
     // Snap visuals to baked verts (clears any leftover edit preview)
     this._main.render();
+    // Re-aim orbit at the moved selection COM without jumping the room view.
+    if (this._main.syncXROrbitPivotToSelection) {
+      this._main.syncXROrbitPivotToSelection(true);
+      if (this._main._rebuildXRStageMatrix)
+        this._main._rebuildXRStageMatrix();
+    }
   }
 
   applyEditMatrix(iVerts) {

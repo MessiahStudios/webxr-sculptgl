@@ -27,7 +27,7 @@ export var XR_TAB_LABELS = {
 export var XR_TAB_TOOLS = {
   shape: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'transform'],
   surface: ['smooth', 'flatten', 'paint', 'masking'],
-  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'clear', 'add', 'undo', 'redo', 'clay', 'negative', 'symmetry', 'culling'],
+  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
   workspace: []
 };
 
@@ -339,7 +339,6 @@ export function createXRSculptDockState() {
       }
       if (focus === 'eyedropper') state.set({ paintEyedropper: !state.paintEyedropper });
       else if (focus === 'clay') state.set({ clay: !state.clay });
-      else if (focus === 'negative') state.set({ negative: !state.negative });
       else if (focus === 'symmetry') state.set({ symmetry: !state.symmetry });
       else if (focus === 'culling') state.set({ culling: !state.culling });
       else if (focus === 'writeAlbedo') state.set({ writeAlbedo: !state.writeAlbedo });

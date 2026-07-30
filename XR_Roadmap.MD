@@ -157,7 +157,7 @@ WebXR is an open API — other headsets *may* enter a session — but Quest is w
 | Exit / session recovery | MR without DOM needs a reliable escape |
 | **Thin project continuity** (save / load / export) | Sculpting without a way back to disk breaks the loop |
 | **Mesh Transform + gizmo** | Place multiple primitives / imports relative to each other |
-| **Import external meshes** (OBJ/PLY/STL today; **glTF/GLB next**) | Bring Blender / CC0 assets into the clay scene |
+| **Import external meshes** (OBJ/PLY/STL/SGL/**GLB·glTF**) | Bring Blender / CC0 assets into the clay scene (GLB = geometry-first today; Materials track deepens fidelity) |
 
 ### Specialized / quieter
 
@@ -165,7 +165,7 @@ Masking, clay/culling/wireframe, twist & local scale (until usage proves otherwi
 
 ### Desktop (or much later)
 
-Full yagui denseness, deep multires/remesh, Sketchfab upload flows, background/matcap/environment editing, keyboard/tablet pressure, nested property sheets. **Exception:** glTF/GLB import is shared-core near-term (desktop + XR), not “desktop only.”
+Full yagui denseness, deep multires/remesh, Sketchfab upload flows, background/matcap/environment editing, keyboard/tablet pressure, nested property sheets. **Exceptions (shared core):** glTF/GLB import already spans desktop + XR; the **Materials / GLB / Paint** track (UVs, textures, honest export, UV tools, alphas) is also shared-core — Desktop owns dense editors, XR owns in-flow actions.
 
 ### Workspace vs mesh transform (important split)
 
@@ -361,7 +361,7 @@ The dock **follows the left grip** and **always faces the headset** (independent
 |---|---|---|
 | **BRUSH** | `shape` | Form brushes + grab tools + **Transform** |
 | **SURF** | `surface` | Smooth, Flatten, Paint, Mask |
-| **OPTS** | `opts` | Files, scene, paint opts, clay/negative/symmetry |
+| **OPTS** | `opts` | Files, scene, paint opts, clay/symmetry (negative = right grip) |
 | **SPACE** | `workspace` | Artist ↔ sculpture placement (never the mesh) |
 
 X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (or recenter in SPACE).
@@ -371,10 +371,11 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | Input | Action |
 |---|---|
 | Index trigger | Sculpt / Transform grab / gizmo handle |
-| A | Negative (sculpt) |
+| Grip (side) | **Hold = temporary negative/invert** on tools that support it (desktop Alt) |
+| Both grips | **Hold = temporary Smooth** (desktop Shift); then right trigger sculpts — exit still = both grips ~2.5s *without* trigger |
 | B | Undo |
+| Stick | **Orbit around selection** (↔) · **dolly closer/farther** (↕) — pivot updates after Transform |
 | Stick click | Redo |
-| Stick | Orbit (or tool assist while Twist / LocalScale held) |
 
 ### Left hand (dock + modifiers)
 
@@ -430,11 +431,13 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 
 ```
 In XR:     Save / Load last  →  IndexedDB (.sgl)
-Around XR: Desktop Files menu / 2D browser picker  →  OBJ PLY STL (GLB next)
+Around XR: Desktop Files menu / 2D browser picker  →  OBJ PLY STL SGL GLB/glTF
 Optional:  HTTPS URL fetch (addModelURL) when CORS allows
 ```
 
 File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR.
+
+**Honest import note:** GLB/glTF import today is **geometry-first** (world-baked positions + optional vertex colors). UVs, PBR maps, and material factors are not preserved yet — see **Materials / GLB / Paint track** below.
 
 ---
 
@@ -442,19 +445,20 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ### Where we are (2026-07)
 
-Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add. The left dock now **billboards toward the headset** and sits **clear of the controller face** so button discovery stays possible. Remaining near-term gaps are packaging polish (README link to tunnel DIY, spectator) — not core brush invention.
+Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add. The left dock now **billboards toward the headset** and sits **clear of the controller face** so button discovery stays possible. Near-term XR polish remains (README tunnel link, spectator). Opening **GLB import** also commits us to a longer **Materials / GLB / Paint** track so imported assets can carry expected UVs/textures and round-trip to formats that permit them.
 
 ```
 ███████████████████████░  ~90% of first-class XR surface
 │                       │
 ├─ Done: session · Workspace · BRUSH/SURF tools · Transform · paint wheel
-│        · R/I · recovery · Save/Load/Export · Import GLB · Clear/Add
+│        · R/I · recovery · Save/Load/Export · Import GLB (geometry-first)
 │        · head-facing dock (floats clear of left buttons)
-└─ Next: README↔tunnel link · spectator · Import URL UX
-Stretch: dock slot swap · hands · remesh · other-HMD
+├─ Next: README↔tunnel link · spectator · Import URL UX
+├─ Parallel track: Materials / GLB / Paint / UV (Desktop + XR shared core)
+└─ Stretch: dock slot swap · hands · remesh · other-HMD
 ```
 
-Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) → wheel lock / multi-select → tools**. Right: sculpt / Transform / negative / undo / redo.
+Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) → wheel lock / multi-select → tools**. Right: sculpt / Transform / **grip = negative** / undo / redo. **Both grips = Smooth hold** (desktop Shift).
 
 ### Done (working baseline)
 
@@ -480,6 +484,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] Remote log relay for Quest debugging  
 - [x] Dual-grip hold to exit when DOM overlay is missing in MR  
 - [x] DIY HTTPS tunnel notes (`tools/xr-tunnel.txt`) for Quest testing  
+- [x] **Right grip = temporary negative/invert** on tools that support it (removed from OPTS sticky toggle)  
 
 ### Next (near-term)
 
@@ -493,8 +498,9 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 
 | Action | Format | Purpose |
 |---|---|---|
-| **Save / Load** | `.sgl` | Native project continuity — IndexedDB in XR |
-| **Export** | `.obj` / `.ply` / `.stl` | Hand off to other programs |
+| **Save / Load** | `.sgl` | Native project continuity — IndexedDB in XR (geo + UV + vertex paint when present) |
+| **Export** | `.obj` / `.ply` / `.stl` | Hand off — only what each format honestly carries (see Materials track) |
+| **Export (planned)** | **`.glb` / `.gltf`** | Hand off with UVs + PBR when we can write them — not before |
 | **Import** | `.obj` / `.ply` / `.stl` / `.sgl` / **`.glb` / `.gltf`** | Adds to scene (desktop Files / 2D picker / XR OPTS Import) |
 | **Import URL** | HTTPS + CORS | Hosted CC0 / personal static hosts (`addModelURL`) |
 
@@ -508,6 +514,129 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [ ] Cloud / Sketchfab-style share from XR (optional; local continuity comes first)  
 - [ ] **Other-headset validation** (Pico / PC VR / etc.) — opportunistic  
 - [ ] Evaluate Nomad-era UX lessons without abandoning the open SculptGL core  
+
+---
+
+## Materials / GLB / Paint track
+
+> **Why this exists:** Shipping **geometry-first GLB import** opened the door for artists who expect UVs, textures, and a round-trip to the formats their pipeline permits. That fidelity work is a **shared Desktop + XR core track** — not an XR-only feature, and not a detour from clay. It sits beside interaction polish so neither blocks the other.
+
+**Loop we want:**
+
+```
+Import asset (keep what GLB/OBJ offers)
+  → sculpt form (Desktop + XR)
+  → paint / texture / alphas
+  → export only what the target format is allowed to carry
+```
+
+**Failure mode we avoid:** import a textured GLB → grey clay → export “GLB” that looks empty in Blender/viewers → trust collapses.
+
+### Foundations already in the core (build on these)
+
+| Capability | Today |
+|---|---|
+| UV buffers + OBJ/SGL UV round-trip | Yes (`MeshData` tex coords / UV faces) |
+| UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
+| Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock |
+| Brush **alpha** stamps (PNG/JPG falloff) | Yes — desktop sculpt UI; thin in XR |
+| GLB/glTF import | Yes — **positions (+ rare vertex colors) only** |
+| GLB/glTF export | **No** |
+| UV seam / unwrap editor | **No** |
+| Texture-map paint (albedo maps on disk) | **No** — paint is per-vertex |
+
+### Honest export payload (permitted info only)
+
+| Format | What we should promise |
+|---|---|
+| **`.sgl`** | Full project: geo + UVs + vertex paint + tool-relevant state |
+| **`.obj`** | Geo + UVs (+ limited material channels when we have them) |
+| **`.ply`** | Geo (± vertex color); no real UV/PBR maps |
+| **`.stl`** | Geo only |
+| **`.glb` / `.gltf`** | Geo + UVs + PBR factors/textures **only after** we can write them honestly |
+
+Never advertise a format for data it cannot hold.
+
+### Desktop vs XR on this track
+
+| Layer | Desktop | XR |
+|---|---|---|
+| Shared core | Preserve UVs/maps on import; weld topology; paint buffers; export writers | Same mesh / same buffers |
+| Dense creation | Seam editor, unwrap, texture slots, alpha library | — |
+| In-headset | — | Import/export continuity, paint, alpha pick/preview, map preview — not a full Blender UV suite in MR |
+
+Charter still applies: **Desktop invents density; XR gets the actions that keep sculpting flowing.**
+
+### Phase A — Preserve what people expect on import
+
+Necessary follow-through after geometry-first GLB.
+
+- [ ] **Keep UVs** when present (stop discarding `TEXCOORD_0`)  
+- [ ] **Weld / indexed topology** — avoid `toNonIndexed()` exploding verts so brushes stay connected  
+- [ ] **Bake or attach baseColor** (factors + optional texture sample → vertex color as first win)  
+- [ ] Carry **metal/rough factors** into vertex material defaults when maps aren’t ready yet  
+- [ ] **Draco** (`KHR_draco_mesh_compression`) so modern compressed GLBs open  
+- [ ] Optional **meshopt** / better external `.gltf` + `.bin` path later  
+- [ ] Multi-mesh / multi-material imports stay separate Multimeshes with clear selection  
+
+*Outcome:* imports look closer to “the file I made,” not anonymous grey clay.
+
+### Phase B — Export what the next app expects
+
+- [ ] Document per-format honesty in UI (OPTS / Files) — what travels, what doesn’t  
+- [ ] Strengthen **OBJ** (+ existing UV bake PNGs) as the textured hand-off until GLB-out lands  
+- [ ] **GLB/glTF export** when we have UVs and either vertex-bake-to-texture or real map paint  
+- [ ] XR OPTS: add GLB to export list only when writer exists (keep OBJ/PLY/STL until then)  
+- [ ] Round-trip test: Blender → GLB in → sculpt/paint → GLB/OBJ out → Blender/viewer  
+
+*Outcome:* artists trust the Files language; no surprise empty materials.
+
+### Phase C — Enhance painting
+
+- [ ] Richer **vertex** paint UX (channels, hardness, XR dock polish) — earn each control  
+- [ ] **Paint into textures** when UVs exist (albedo / rough / metal maps)  
+- [ ] Layers or mask-aware workflows if they earn their place (charter)  
+- [ ] Keep vertex paint as the always-available path (no UV required)  
+
+*Outcome:* paint serves both clay look *and* engine/DCC-ready maps.
+
+### Phase D — UV creation & editing
+
+- [ ] Keep imported UVs intact through sculpt ops that can break unwraps (document limits)  
+- [ ] Simple **project / planar / box** unwrap for primitives and UV-less meshes  
+- [ ] **Seam mark → unwrap → pack** (Desktop-first; density belongs on monitor)  
+- [ ] XR: preview UVs / “has UVs?” status — not a full seam editor in MR on day one  
+
+*Outcome:* texture paint and honest GLB export unlock without requiring Blender for every asset.
+
+### Phase E — Texture-based sculpting (alphas & stamps)
+
+Build on existing brush alpha stamps — don’t invent a second system.
+
+- [ ] First-class **alpha library** (load, preview, assign) on Desktop  
+- [ ] XR dock: pick / preview alpha without breaking sculpt flow  
+- [ ] Stronger **height / displacement** from greyscale stamps  
+- [ ] Optional stencil / projection workflows if they earn spatial presence  
+- [ ] Alphas that also inform paint intensity where it helps  
+
+*Outcome:* form-making uses images the way sculptors already expect (Nomad/ZBrush muscle memory), on open web + Quest.
+
+### Ordering reminder
+
+```
+A Preserve import  →  B Honest export  →  C Paint maps  →  D UV tools  →  E Alpha sculpt↑
+         │                    │
+         └──── can overlap with XR interaction polish ────┘
+```
+
+Do **not** ship GLB export before Phase A/B can tell the truth. Do **not** block Workspace/dock/sculpt polish waiting on a full texturing suite.
+
+### Engineering notes (this track)
+
+- Prefer **shared core** in `ImportGLTF`, mesh UV/paint buffers, and exporters — XR and Desktop both call the same path (`additive, not divergent`).  
+- `ShaderPBR` today is largely **vertex + IBL**; map samplers are a deliberate later step when texture paint exists.  
+- Controller GLBs already keep materials in Three — that path is **presentation**, not sculpt mesh data; don’t conflate the two.  
+- Compression loaders (Draco, etc.) stay lazy-chunked so cold start for non-GLB users stays light.
 
 ---
 
@@ -536,7 +665,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 | Floating desktop UI in headset | N/A | **No** — redesign for XR |
 | Official maintenance | No (abandoned) | Community XR continuation |
 
-SculptGL supplies rendering, brushes, mesh, and undo. Above that — Workspace, dock, XR workflow, and interaction philosophy — is increasingly this project’s own layer: not just an “XR port,” but spatial-first creative software on a shared core.
+SculptGL supplies rendering, brushes, mesh, and undo. Above that — Workspace, dock, XR workflow, and interaction philosophy — is increasingly this project’s own layer: not just an “XR port,” but spatial-first creative software on a shared core. The **Materials / GLB / Paint** track deepens that shared core so imports and exports match what artists expect from modern assets.
 
 ### Three layers of innovation
 

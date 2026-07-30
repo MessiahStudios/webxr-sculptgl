@@ -11,7 +11,7 @@
  *                 (disabled while paint color wheel is open; squeeze+Y = brightness only)
  *   workspace + stick → Y distance, X scale (never changes tabs)
  *   workspace + squeeze+stick → turntable yaw (X) / tilt (Y)
- *   right A      → negative
+ *   right grip   → hold = temporary negative (tools that support invert; like desktop Alt)
  *   right B      → undo
  *   right stick click → redo
  *   right stick  → orbit (or twist/scale assist while those tools are held)
@@ -207,10 +207,11 @@ class XRSculptDock {
     this._stickRepeatAtX = 0;
     this._tabBtn = false;
     this._actionBtn = false;
-    this._negBtn = false;
     this._undoBtn = false;
     this._redoBtn = false;
     this._loggedTool = null;
+    this._rightGripNeg = false;
+    this._rightNegHud = false;
     this._wheelLocked = true;
     this._wheelAiming = false;
     this._wheelTriggerBtn = false;
@@ -270,19 +271,23 @@ class XRSculptDock {
   tick(hx, hy, hz) {
     if (hx != null && hy != null && hz != null)
       this._faceHead(hx, hy, hz);
+    // After any dock applyState, re-assert grip invert so strokes see the live value.
+    this._applyLiveNegative();
     if (!this._canvas) return;
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     var hud = this._scene.getXRWorkspaceHud && this._scene.getXRWorkspaceHud();
     var toastLive = this._brushToastUntil && now < this._brushToastUntil;
     var eyedropHint = !!(this.state.paintEyedropper && this.state.tool === 'paint');
-    var need = this.state.tab === 'workspace' || (hud && hud.entryHint) || toastLive || this._squeezeHeld || eyedropHint;
+    var smoothHold = !!(this._scene._xrSmoothHold);
+    var need = this.state.tab === 'workspace' || (hud && hud.entryHint) || toastLive || this._squeezeHeld || eyedropHint ||
+      this._rightGripNeg || smoothHold;
     if (!need) {
       this._lastWorkspaceHudLine = null;
       return;
     }
     var key = (hud ? hud.line : '') + '|' + (hud && hud.entryHint ? '1' : '0') + '|' + this.state.tab +
       '|' + (toastLive ? this._brushToastKind + this._brushToastValue : '') + '|' + (this._squeezeHeld ? 'sq' : '') +
-      '|' + (eyedropHint ? 'ed' : '');
+      '|' + (eyedropHint ? 'ed' : '') + '|' + (this._rightGripNeg ? 'ng' : '') + '|' + (smoothHold ? 'sm' : '');
     if (key === this._lastWorkspaceHudLine) return;
     this._lastWorkspaceHudLine = key;
     this._paintCanvas();
@@ -332,6 +337,59 @@ class XRSculptDock {
       return;
     }
     g.quaternion.slerp(this._orientTarget, 0.6);
+  }
+
+  /**
+   * Desktop Alt equivalent: while right grip is held, invert _negative on tools that support it.
+   * Resting polarity stays in state.negative (per-tool default) — not an OPTS sticky toggle.
+   */
+  _toolSupportsNegative(tool) {
+    return !!(tool && Object.prototype.hasOwnProperty.call(tool, '_negative'));
+  }
+
+  _effectiveNegative() {
+    var base = !!this.state.negative;
+    if (!this._rightGripNeg) return base;
+    var sm = this._scene.getSculptManager();
+    var tool = sm && sm.getCurrentTool();
+    if (!this._toolSupportsNegative(tool)) return base;
+    return !base;
+  }
+
+  /** Read right squeeze before the sculpt stroke (input otherwise runs later during controller draw). */
+  sampleRightGripNegative(session) {
+    this._rightGripNeg = false;
+    if (!session || !session.inputSources) {
+      this._applyLiveNegative();
+      return;
+    }
+    var i;
+    for (i = 0; i < session.inputSources.length; ++i) {
+      var src = session.inputSources[i];
+      if (src.handedness !== 'right' || !src.gamepad || !src.gamepad.buttons) continue;
+      var b = src.gamepad.buttons[1];
+      this._rightGripNeg = !!(b && (b.pressed || b.value > 0.55));
+    }
+    this._applyLiveNegative();
+  }
+
+  _applyLiveNegative() {
+    var sm = this._scene.getSculptManager();
+    var tool = sm && sm.getCurrentTool();
+    if (!this._toolSupportsNegative(tool)) {
+      if (this._rightNegHud) {
+        this._rightNegHud = false;
+        this._lastWorkspaceHudLine = null;
+      }
+      return;
+    }
+    var want = this._effectiveNegative();
+    tool._negative = want;
+    if (want !== this._rightNegHud) {
+      this._rightNegHud = want;
+      this._lastWorkspaceHudLine = null;
+      if (this._canvas) this._paintCanvas();
+    }
   }
 
   _flashBrushAdjust(kind, value) {
@@ -518,14 +576,20 @@ class XRSculptDock {
     var toastLive = this._brushToastUntil && nowPaint < this._brushToastUntil;
     var squeezeHint = !!this._squeezeHeld && s.tab !== 'workspace';
     var eyedropHint = !!(s.paintEyedropper && s.tool === 'paint');
-    if (toastLive || squeezeHint || eyedropHint) {
-      ctx.fillStyle = toastLive ? 'rgba(255,180,90,0.42)' : (eyedropHint ? 'rgba(120,200,140,0.4)' : 'rgba(90,140,255,0.38)');
+    var smoothHold = !!(this._scene._xrSmoothHold);
+    var negHold = !!this._rightGripNeg && this._toolSupportsNegative(this._scene.getSculptManager() && this._scene.getSculptManager().getCurrentTool());
+    if (toastLive || squeezeHint || eyedropHint || smoothHold || negHold) {
+      ctx.fillStyle = toastLive ? 'rgba(255,180,90,0.42)' : (eyedropHint ? 'rgba(120,200,140,0.4)' : (smoothHold || negHold ? 'rgba(255,160,80,0.4)' : 'rgba(90,140,255,0.38)'));
       roundRect(ctx, 18, 80, w - 36, 28, 6);
       ctx.fill();
       ctx.fillStyle = '#fff8ee';
       ctx.font = 'bold 13px system-ui,Segoe UI,sans-serif';
       var toastMsg = 'HOLD squeeze · stick ↕ radius · stick ↔ intensity';
-      if (toastLive && this._brushToastKind === 'radius')
+      if (smoothHold)
+        toastMsg = 'SMOOTH hold — both grips · trigger sculpts · release grips to restore';
+      else if (negHold)
+        toastMsg = 'NEGATIVE — right grip held (release = normal)';
+      else if (toastLive && this._brushToastKind === 'radius')
         toastMsg = 'Radius → ' + this._brushToastValue;
       else if (toastLive && this._brushToastKind === 'intensity')
         toastMsg = 'Intensity → ' + this._brushToastValue + '%';
@@ -554,14 +618,12 @@ class XRSculptDock {
     } else {
       ctx.fillStyle = '#aab8e8';
       ctx.font = '13px system-ui,Segoe UI,sans-serif';
-      ctx.fillText(
-        (s.negative ? 'NEG ' : '') +
-        (s.clay ? 'CLAY ' : '') +
-        (s.symmetry ? 'SYM ' : '') +
-        (s.culling ? 'CULL' : '') +
-        '   ·  squeeze+stick = brush size / strength',
-        22, 96
-      );
+      var supportsNeg = this._toolSupportsNegative(this._scene.getSculptManager() && this._scene.getSculptManager().getCurrentTool());
+      var flags = '';
+      if (supportsNeg)
+        flags += this._effectiveNegative() ? 'NEG·ON  ' : 'grip=NEG  ';
+      flags += (s.clay ? 'CLAY ' : '') + (s.symmetry ? 'SYM ' : '') + (s.culling ? 'CULL' : '');
+      ctx.fillText(flags.trim() || 'left squeeze+stick = size / strength', 22, 96);
     }
 
     var line = 118;
@@ -622,7 +684,7 @@ class XRSculptDock {
       ctx.fillText('Y button: recenter + reset size', 22, line);
       line += 22;
       ctx.fillStyle = '#8899cc';
-      ctx.fillText('Right stick also orbits · X leaves Workspace', 22, line);
+      ctx.fillText('Right stick: ↔ orbit selection · ↕ closer/farther', 22, line);
     } else if (s.tab === 'opts') {
       ctx.fillStyle = '#ffd09a';
       if (s.tool === 'paint')
@@ -763,13 +825,15 @@ class XRSculptDock {
     ctx.fillStyle = 'rgba(255,255,255,0.42)';
     ctx.font = '11px system-ui,Segoe UI,sans-serif';
     if (s.tool === 'transform')
-      ctx.fillText('TRANSFORM · L+R click=multi · R alone=one · gizmo moves group', 22, h - 40);
+      ctx.fillText('TRANSFORM · stick ↔ orbit COM · stick ↕ dolly toward view', 22, h - 40);
+    else if (this._toolSupportsNegative(this._scene.getSculptManager() && this._scene.getSculptManager().getCurrentTool()))
+      ctx.fillText('Right grip=NEG · both grips=SMOOTH · left squeeze+stick = size', 22, h - 40);
     else
-      ctx.fillText('HOLD left squeeze + stick ↕ radius · ↔ intensity', 22, h - 40);
+      ctx.fillText('Both grips=SMOOTH · left squeeze+stick ↕ radius · ↔ intensity', 22, h - 40);
     if (s.tool === 'paint' && s.paintPicker === 'wheel')
       ctx.fillText('Wheel: aim = preview only · LEFT TRIGGER commits (paint keeps old until then)', 22, h - 22);
     else
-      ctx.fillText('X: tabs  ·  Right B: undo  ·  stick click: redo  ·  grips 2.5s exit', 22, h - 22);
+      ctx.fillText('X: tabs  ·  Right B: undo  ·  stick click: redo  ·  both grips 2.5s exit', 22, h - 22);
 
     this._texture.needsUpdate = true;
   }
@@ -964,7 +1028,7 @@ class XRSculptDock {
           if (Math.abs(st.x) > 0.35)
             this._scene.turntableXRStage(st.x);
           if (Math.abs(st.y) > 0.35)
-            this._scene.orbitXRStage(0, st.y);
+            this._scene.tiltXRStage(st.y);
         } else {
           if (Math.abs(st.x) > 0.45)
             this._scene.scaleXRStage(st.x > 0 ? 1.01 : 1 / 1.01);
@@ -987,7 +1051,7 @@ class XRSculptDock {
        * 3) paint + wheel     → see wheel block safeguards below
        * 4) else              → stick Y = tools; stick X = swatches/opts
        *
-       * Right hand (elsewhere): trigger = sculpt/paint; A = negative; B = undo; stick click = redo.
+       * Right hand (elsewhere): trigger = sculpt/paint; grip = hold negative; B = undo; stick click = redo.
        * Left trigger is ONLY used for wheel lock (never sculpts).
        */
       if (squeeze) {
@@ -1171,12 +1235,9 @@ class XRSculptDock {
         }
       }
     } else if (h === 'right') {
-      var aPress = !!(gp.buttons[4] && gp.buttons[4].pressed);
-      if (aPress && !this._negBtn) {
-        this.state.set({ negative: !this.state.negative });
-        this._applyAndLog();
-      }
-      this._negBtn = aPress;
+      // Right grip = temporary negative (also sampled before stroke; keep flag fresh for HUD).
+      var rGrip = !!(gp.buttons[1] && (gp.buttons[1].pressed || gp.buttons[1].value > 0.55));
+      this._rightGripNeg = rGrip;
 
       // Right B = Undo
       var bPress = !!(gp.buttons[5] && gp.buttons[5].pressed);
