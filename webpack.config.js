@@ -70,6 +70,11 @@ module.exports = function (env) {
       {
         from: 'node_modules/@webxr-input-profiles/assets/dist',
         to: 'webxr-profiles'
+      },
+      // Draco wasm/js for KHR_draco_mesh_compression (ImportGLTF → ./draco/)
+      {
+        from: 'node_modules/three/examples/jsm/libs/draco/gltf',
+        to: 'draco'
       }
     ],
   }));

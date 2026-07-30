@@ -948,9 +948,10 @@ class Scene {
   }
 
   /**
-   * Export meshes for other apps (OBJ / PLY / STL) via browser download → Quest Files when allowed.
-   * @param {'obj'|'ply'|'stl'} fmt
-   * @returns {{ name: string, fmt: string, bytes: number }}
+   * Export meshes for other apps via browser download → Quest Files when allowed.
+   * Formats only carry what they permit — see Export.formatInfo.
+   * @param {'obj'|'obj-maps'|'ply'|'stl'} fmt
+   * @returns {{ name: string, fmt: string, bytes: number }|Promise<{name:string,fmt:string,bytes:number}>}
    */
   exportXRMesh(fmt) {
     this._endXRSculptStroke();
@@ -958,6 +959,32 @@ class Scene {
     if (!meshes || !meshes.length)
       throw new Error('No meshes to export');
     var f = (fmt || 'obj').toLowerCase();
+
+    if (f === 'obj-maps' || f === 'objmaps' || f === 'obj+maps') {
+      var self = this;
+      var base = XRProjectStore.stampName('obj').replace(/\.obj$/i, '');
+      return Export.exportOBJMapsZip(this, meshes, {
+        baseName: base,
+        texSize: 1024,
+        colorZbrush: true,
+        colorAppend: false
+      }).then(function (out) {
+        XRRemoteLog.see('MR', 'Exported OBJ+maps zip (browser download)', {
+          name: out.name,
+          bytes: out.bytes,
+          baked: out.baked,
+          skipped: out.skipped,
+          payload: Export.formatInfo.detail('obj-maps')
+        });
+        return { name: out.name, fmt: 'obj-maps', bytes: out.bytes };
+      }).catch(function (err) {
+        XRRemoteLog.see('MR', 'OBJ+maps export failed', {
+          error: (err && err.message) || String(err)
+        });
+        throw err;
+      });
+    }
+
     var blob;
     var ext;
     if (f === 'ply') {
@@ -975,7 +1002,8 @@ class Scene {
     XRRemoteLog.see('MR', 'Exported .' + ext + ' (browser download)', {
       name: name,
       bytes: blob.size,
-      meshes: meshes.length
+      meshes: meshes.length,
+      payload: Export.formatInfo.detail(ext)
     });
     return { name: name, fmt: ext, bytes: blob.size };
   }

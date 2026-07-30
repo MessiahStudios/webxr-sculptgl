@@ -1,12 +1,7 @@
 import TR from 'gui/GuiTR';
 import { saveAs } from 'file-saver';
-import { zip } from 'zip';
 import Export from 'files/Export';
-
-import Rtt from 'drawables/Rtt';
-import ShaderPaintUV from 'render/shaders/ShaderPaintUV';
-import ShaderBlur from 'render/shaders/ShaderBlur';
-import Enums from 'misc/Enums';
+import BakeVertexMaps from 'files/BakeVertexMaps';
 
 class GuiFiles {
 
@@ -16,6 +11,7 @@ class GuiFiles {
     this._menu = null; // ui menu
     this._parent = guiParent;
     this._exportAll = true;
+    this._texSize = 1024;
 
     this._objColorZbrush = true;
     this._objColorAppended = false;
@@ -37,6 +33,7 @@ class GuiFiles {
     menu.addCheckbox(TR('fileExportAll'), this, '_exportAll');
     menu.addButton(TR('fileExportSGL'), this, 'saveFileAsSGL');
     menu.addButton(TR('fileExportOBJ'), this, 'saveFileAsOBJ' /*, 'CTRL+E'*/ );
+    menu.addButton(TR('fileExportOBJMaps'), this, 'saveFileAsOBJMaps');
     menu.addButton(TR('fileExportPLY'), this, 'saveFileAsPLY');
     menu.addButton(TR('fileExportSTL'), this, 'saveFileAsSTL');
     menu.addCheckbox('OBJ color zbrush', this, '_objColorZbrush');
@@ -84,111 +81,32 @@ class GuiFiles {
     return selected.length ? selected : undefined;
   }
 
-  _extractTexture(gl, width, height) {
-    var canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-
-    var pixels = new Uint8Array(4 * width * height);
-
-    var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    if (status !== gl.FRAMEBUFFER_COMPLETE) {
-      console.error('FRAMEBUFFER not complete');
-      return canvas;
-    }
-
-    gl.flush();
-    gl.finish();
-    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-    // copy pixels to canvas pixels (inverted image)
-    var ctx = canvas.getContext('2d');
-    var imageData = ctx.getImageData(0, 0, width, height);
-    imageData.data.set(pixels);
-    ctx.putImageData(imageData, 0, 0);
-
-    return canvas;
+  saveColor() {
+    this._saveTextureChannel(0, 'diffuse');
   }
 
-  _getRttPaint(gl) {
-    if (!this._rttPaint) {
-      this._rttPaint = new Rtt(gl, Enums.Shader.PAINTUV, null);
-      this._rttPaint.setWrapRepeat(true);
-      this._rttPaint.setFilterNearest(true);
-      ShaderBlur.INPUT_TEXTURE = this._getRttPaint();
-    }
-    return this._rttPaint;
+  saveRoughness() {
+    this._saveTextureChannel(1, 'roughness');
   }
 
-  _getRttBlur(gl) {
-    if (!this._rttBlur) {
-      this._rttBlur = new Rtt(gl, Enums.Shader.BLUR, null);
-    }
-    return this._rttBlur;
+  saveMetalness() {
+    this._saveTextureChannel(2, 'metalness');
   }
 
-  _saveTexture(filename) {
+  _saveTextureChannel(channel, filename) {
     var mesh = this._main.getMesh();
-    if (!mesh) {
-      return;
-    }
-
+    if (!mesh) return;
     if (!mesh.getTexCoords()) {
       window.alert('The selected mesh has no UV!');
       return;
     }
-
-    var gl = mesh.getGL();
-
-    var width = this._texSize;
-    var height = this._texSize;
-
-    var tmpShaderType = mesh.getShaderType();
-    mesh.setShaderType(Enums.Shader.PAINTUV);
-
-    var rttPaint = this._getRttPaint(gl);
-    rttPaint.onResize(width, height);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, rttPaint.getFramebuffer());
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    gl.viewport(0, 0, width, height);
-    mesh.render();
-
-    mesh.setShaderType(tmpShaderType);
-
-    this._blurImage(gl, width, height);
-
-    var canvas = this._extractTexture(gl, width, height);
-    canvas.toBlob(function (blob) {
+    var self = this;
+    BakeVertexMaps.bakeChannel(this._main, mesh, this._texSize || 1024, channel).then(function (blob) {
       saveAs(blob, filename + '.png');
-    }.bind(this));
-
-    // reset viewport size
-    this._main.onCanvasResize();
-  }
-
-  _blurImage(gl, width, height) {
-    var rttBlur = this._getRttBlur(gl);
-    rttBlur.onResize(width, height);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, rttBlur.getFramebuffer());
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    rttBlur.render(this._main);
-  }
-
-  saveColor() {
-    ShaderPaintUV.CHANNEL_VALUE = 0;
-    this._saveTexture('diffuse');
-  }
-
-  saveRoughness() {
-    ShaderPaintUV.CHANNEL_VALUE = 1;
-    this._saveTexture('roughness');
-  }
-
-  saveMetalness() {
-    ShaderPaintUV.CHANNEL_VALUE = 2;
-    this._saveTexture('metalness');
+    }).catch(function (err) {
+      window.alert((err && err.message) || 'Texture bake failed');
+      if (self._main.onCanvasResize) self._main.onCanvasResize();
+    });
   }
 
   saveFileAsSGL() {
@@ -203,6 +121,34 @@ class GuiFiles {
     this._save(Export.exportOBJ(meshes, this._objColorZbrush, this._objColorAppended), 'yourMesh.obj');
   }
 
+  /** OBJ + MTL + baked diffuse/rough/metal PNGs (UV meshes only) as a zip. */
+  saveFileAsOBJMaps() {
+    var meshes = this._getExportMeshes();
+    if (!meshes) return;
+    var hasUV = false;
+    var i;
+    for (i = 0; i < meshes.length; ++i) {
+      if (meshes[i].hasUV && meshes[i].hasUV()) {
+        hasUV = true;
+        break;
+      }
+    }
+    if (!hasUV) {
+      window.alert('No UVs on the export selection.\nImport a GLB/OBJ with UVs, or save plain .obj for geometry only.');
+      return;
+    }
+    var self = this;
+    Export.exportOBJMapsZip(this._main, meshes, {
+      baseName: 'yourMesh',
+      texSize: this._texSize || 1024,
+      colorZbrush: this._objColorZbrush,
+      colorAppend: this._objColorAppended
+    }).catch(function (err) {
+      window.alert((err && err.message) || 'OBJ+maps export failed');
+      if (self._main.onCanvasResize) self._main.onCanvasResize();
+    });
+  }
+
   saveFileAsPLY() {
     var meshes = this._getExportMeshes();
     if (!meshes) return;
@@ -215,18 +161,8 @@ class GuiFiles {
     this._save(Export.exportBinarySTL(meshes), 'yourMesh.stl');
   }
 
-  _save(data, fileName, useZip) {
-    if (!useZip) return saveAs(data, fileName);
-
-    zip.useWebWorkers = true;
-    zip.workerScriptsPath = 'worker/';
-    zip.createWriter(new zip.BlobWriter('application/zip'), function (zipWriter) {
-      zipWriter.add(fileName, new zip.BlobReader(data), function () {
-        zipWriter.close(function (blob) {
-          saveAs(blob, 'yourMesh.zip');
-        });
-      });
-    }, onerror);
+  _save(data, fileName) {
+    saveAs(data, fileName);
   }
 
   ////////////////

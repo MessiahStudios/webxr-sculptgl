@@ -48,7 +48,7 @@ export var XR_PAINT_OPTS = [
   'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
 
-export var XR_EXPORT_FMTS = ['obj', 'ply', 'stl'];
+export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'ply', 'stl'];
 
 export var PAINT_COLOR_PRESETS = [
   { name: 'clay', rgb: [1.0, 0.766, 0.336] },

@@ -3,12 +3,25 @@ import Utils from 'misc/Utils';
 
 var Export = {};
 
-/** Export OBJ file */
-Export.exportOBJ = function (meshes, colorZbrush = true, colorAppend = false) {
-  var data = 's 0\n';
+/**
+ * Export OBJ file.
+ * @param {Array} meshes
+ * @param {boolean} [colorZbrush=true]
+ * @param {boolean} [colorAppend=false]
+ * @param {{mtllib?:string, useMaterials?:boolean}|null} [opts]
+ */
+Export.exportOBJ = function (meshes, colorZbrush = true, colorAppend = false, opts) {
+  opts = opts || {};
+  var data = '';
+  if (opts.mtllib)
+    data += 'mtllib ' + opts.mtllib + '\n';
+  data += 's 0\n';
   var offsets = [1, 1];
   for (var i = 0, l = meshes.length; i < l; ++i) {
-    data += 'o mesh_' + i + '\n';
+    var matName = 'mesh_' + i;
+    data += 'o ' + matName + '\n';
+    if (opts.useMaterials)
+      data += 'usemtl ' + matName + '\n';
     data = Export.addMesh(meshes[i], data, offsets, colorZbrush, colorAppend);
   }
   return new Blob([data]);

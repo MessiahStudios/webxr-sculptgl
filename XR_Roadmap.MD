@@ -437,7 +437,7 @@ Optional:  HTTPS URL fetch (addModelURL) when CORS allows
 
 File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR.
 
-**Honest import note:** GLB/glTF import today is **geometry-first** (world-baked positions + optional vertex colors). UVs, PBR maps, and material factors are not preserved yet — see **Materials / GLB / Paint track** below.
+**Honest import note:** GLB/glTF import now keeps **indexed topology**, **UVs**, and bakes **baseColor** (+ map sample) plus **metal/rough factors** into vertex paint. Draco-compressed assets decode via `./draco/`. Full PBR map rendering and GLB export are still ahead — see **Materials / GLB / Paint track**.
 
 ---
 
@@ -479,7 +479,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] Undo / Redo in XR (Right B / stick click / Opts)  
 - [x] Intensity/radius always visible + squeeze+stick adjust (toast / haptic)  
 - [x] **Save / Load** `.sgl` (IndexedDB) + **Export** OBJ/PLY/STL from Opts  
-- [x] **Import** OBJ/PLY/STL/SGL/**GLB·glTF** (desktop Files + XR OPTS Import; geometry-first)  
+- [x] **Import** OBJ/PLY/STL/SGL/**GLB·glTF** (desktop Files + XR OPTS Import; UVs + color/metal-rough bake + Draco)  
 - [x] **Clear scene** + **Add** sphere/cube/cylinder/torus from Opts  
 - [x] Remote log relay for Quest debugging  
 - [x] Dual-grip hold to exit when DOM overlay is missing in MR  
@@ -488,7 +488,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 
 ### Next (near-term)
 
-1. [x] **glTF / GLB import** (shared core — desktop Files + XR OPTS Import; geometry-first via Three GLTFLoader)  
+1. [x] **glTF / GLB import** (shared core — desktop Files + XR OPTS Import; UVs, welded topo, baseColor/metal-rough bake, Draco)  
 2. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
 3. [ ] **Spectator** desktop view polish while headset is active  
 4. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
@@ -500,6 +500,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 |---|---|---|
 | **Save / Load** | `.sgl` | Native project continuity — IndexedDB in XR (geo + UV + vertex paint when present) |
 | **Export** | `.obj` / `.ply` / `.stl` | Hand off — only what each format honestly carries (see Materials track) |
+| **Export (textured)** | `.obj` + `.mtl` + PNG maps (zip) | Vertex paint baked to UV maps — best hand-off until GLB-out |
 | **Export (planned)** | **`.glb` / `.gltf`** | Hand off with UVs + PBR when we can write them — not before |
 | **Import** | `.obj` / `.ply` / `.stl` / `.sgl` / **`.glb` / `.gltf`** | Adds to scene (desktop Files / 2D picker / XR OPTS Import) |
 | **Import URL** | HTTPS + CORS | Hosted CC0 / personal static hosts (`addModelURL`) |
@@ -540,7 +541,7 @@ Import asset (keep what GLB/OBJ offers)
 | UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
 | Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock |
 | Brush **alpha** stamps (PNG/JPG falloff) | Yes — desktop sculpt UI; thin in XR |
-| GLB/glTF import | Yes — **positions (+ rare vertex colors) only** |
+| GLB/glTF import | Yes — **UVs + welded topo + baseColor/metal-rough bake + Draco** (maps not as live samplers yet) |
 | GLB/glTF export | **No** |
 | UV seam / unwrap editor | **No** |
 | Texture-map paint (albedo maps on disk) | **No** — paint is per-vertex |
@@ -571,22 +572,22 @@ Charter still applies: **Desktop invents density; XR gets the actions that keep 
 
 Necessary follow-through after geometry-first GLB.
 
-- [ ] **Keep UVs** when present (stop discarding `TEXCOORD_0`)  
-- [ ] **Weld / indexed topology** — avoid `toNonIndexed()` exploding verts so brushes stay connected  
-- [ ] **Bake or attach baseColor** (factors + optional texture sample → vertex color as first win)  
-- [ ] Carry **metal/rough factors** into vertex material defaults when maps aren’t ready yet  
-- [ ] **Draco** (`KHR_draco_mesh_compression`) so modern compressed GLBs open  
+- [x] **Keep UVs** when present (stop discarding `TEXCOORD_0`)  
+- [x] **Weld / indexed topology** — avoid `toNonIndexed()` exploding verts so brushes stay connected  
+- [x] **Bake or attach baseColor** (factors + optional texture sample → vertex color as first win)  
+- [x] Carry **metal/rough factors** into vertex material defaults when maps aren’t ready yet  
+- [x] **Draco** (`KHR_draco_mesh_compression`) so modern compressed GLBs open (`./draco/` decoder assets)  
 - [ ] Optional **meshopt** / better external `.gltf` + `.bin` path later  
-- [ ] Multi-mesh / multi-material imports stay separate Multimeshes with clear selection  
+- [x] Multi-mesh / multi-material imports stay separate Multimeshes with clear selection  
 
 *Outcome:* imports look closer to “the file I made,” not anonymous grey clay.
 
 ### Phase B — Export what the next app expects
 
-- [ ] Document per-format honesty in UI (OPTS / Files) — what travels, what doesn’t  
-- [ ] Strengthen **OBJ** (+ existing UV bake PNGs) as the textured hand-off until GLB-out lands  
+- [x] Document per-format honesty in UI (OPTS / Files) — what travels, what doesn’t  
+- [x] Strengthen **OBJ** (+ UV bake PNGs) as the textured hand-off until GLB-out lands (`Save .obj + maps` zip / XR `OBJ+MAPS`)  
 - [ ] **GLB/glTF export** when we have UVs and either vertex-bake-to-texture or real map paint  
-- [ ] XR OPTS: add GLB to export list only when writer exists (keep OBJ/PLY/STL until then)  
+- [x] XR OPTS: honest format cycle (`OBJ` / `OBJ+MAPS` / `PLY` / `STL`) — GLB only when writer exists  
 - [ ] Round-trip test: Blender → GLB in → sculpt/paint → GLB/OBJ out → Blender/viewer  
 
 *Outcome:* artists trust the Files language; no surprise empty materials.

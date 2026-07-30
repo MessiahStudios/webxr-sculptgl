@@ -102,12 +102,25 @@ function rgbCss(rgb) {
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
+function exportFmtLabel(fmt) {
+  var f = (fmt || 'obj').toLowerCase();
+  if (f === 'obj-maps') return 'OBJ+MAPS';
+  return f.toUpperCase();
+}
+
 function optLabel(ok, s) {
   if (ok === 'save') return 'SAVE project (.sgl)';
   if (ok === 'load') return 'LOAD last (.sgl) — replaces scene';
   if (ok === 'import') return 'IMPORT file — may fail in XR; prefer before enter';
-  if (ok === 'export') return 'EXPORT .' + (s.exportFmt || 'obj').toUpperCase();
-  if (ok === 'exportFmt') return 'export format: ' + (s.exportFmt || 'obj').toUpperCase();
+  if (ok === 'export') return 'EXPORT ' + exportFmtLabel(s.exportFmt);
+  if (ok === 'exportFmt') {
+    var f = (s.exportFmt || 'obj').toLowerCase();
+    if (f === 'obj') return 'format: OBJ — geo + UVs';
+    if (f === 'obj-maps') return 'format: OBJ+MAPS — zip w/ MTL+PNGs (needs UVs)';
+    if (f === 'ply') return 'format: PLY — geo ± color (no UVs)';
+    if (f === 'stl') return 'format: STL — geo only';
+    return 'export format: ' + exportFmtLabel(f);
+  }
   if (ok === 'clear') return 'CLEAR scene';
   if (ok === 'add') return 'ADD ' + (s.addShape || 'sphere').toUpperCase() + '  (stick ↔ type)';
   if (ok === 'undo') return 'UNDO  (or Right B)';
@@ -931,8 +944,17 @@ class XRSculptDock {
     }
     if (action === 'export') {
       try {
-        var out = this._scene.exportXRMesh(this.state.exportFmt || 'obj');
-        self._showFileToast('Exported .' + out.fmt.toUpperCase());
+        var pending = this._scene.exportXRMesh(this.state.exportFmt || 'obj');
+        if (pending && typeof pending.then === 'function') {
+          self._showFileToast('Baking maps…', 4000);
+          pending.then(function (out) {
+            self._showFileToast('Exported ' + exportFmtLabel(out.fmt), 4500);
+          }).catch(function (err) {
+            self._showFileToast('Export failed — ' + (err && err.message ? err.message : 'error'), 4500);
+          });
+        } else {
+          self._showFileToast('Exported ' + exportFmtLabel(pending.fmt));
+        }
       } catch (err) {
         self._showFileToast('Export failed — ' + (err && err.message ? err.message : 'error'));
       }
