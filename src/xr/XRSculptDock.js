@@ -113,6 +113,15 @@ function optLabel(ok, s) {
   if (ok === 'load') return 'LOAD last (.sgl) — replaces scene';
   if (ok === 'import') return 'IMPORT file — may fail in XR; prefer before enter';
   if (ok === 'export') return 'EXPORT ' + exportFmtLabel(s.exportFmt);
+  if (ok === 'snapshot') return 'LOCAL SNAPSHOT — virtual view PNG (no room)';
+  if (ok === 'record') return s.recording ? 'STOP RECORD — save video' : 'START RECORD — virtual view';
+  if (ok === 'recordFps') return 'record FPS: ' + (s.recordFps || 12);
+  if (ok === 'recordQuality') {
+    var q = s.recordQuality || 'balanced';
+    if (q === 'small') return 'record size: SMALL (640p, more compression)';
+    if (q === 'high') return 'record size: HIGH (1920p)';
+    return 'record size: BALANCED (1280p)';
+  }
   if (ok === 'exportFmt') {
     var f = (s.exportFmt || 'obj').toLowerCase();
     if (f === 'obj') return 'format: OBJ — geo + UVs';
@@ -258,6 +267,10 @@ class XRSculptDock {
 
     var self = this;
     this.state.subscribe(function () {
+      if (self._scene.setLocalRecordFps)
+        self._scene.setLocalRecordFps(self.state.recordFps || 12);
+      if (self._scene.setLocalRecordQuality)
+        self._scene.setLocalRecordQuality(self.state.recordQuality || 'balanced');
       self._paintCanvas();
     });
   }
@@ -958,6 +971,39 @@ class XRSculptDock {
       } catch (err) {
         self._showFileToast('Export failed — ' + (err && err.message ? err.message : 'error'));
       }
+      return;
+    }
+    if (action === 'snapshot') {
+      self._showFileToast('Capturing Local Snapshot…', 2000);
+      this._scene.captureLocalSnapshot().then(function (out) {
+        self._showFileToast('Snapshot · ' + out.name, 4500);
+      }).catch(function (err) {
+        self._showFileToast('Snapshot failed — ' + (err && err.message ? err.message : 'error'), 4500);
+      });
+      return;
+    }
+    if (action === 'record') {
+      if (this._scene.isLocalRecording && this._scene.isLocalRecording()) {
+        self._showFileToast('Stopping record…', 2000);
+        this._scene.stopLocalRecording().then(function (out) {
+          self.state.set({ recording: false });
+          self._showFileToast('Record · ' + out.name, 5000);
+        }).catch(function (err) {
+          self.state.set({ recording: false });
+          self._showFileToast('Stop failed — ' + (err && err.message ? err.message : 'error'), 4500);
+        });
+        return;
+      }
+      try {
+        var info = this._scene.startLocalRecording({
+          fps: this.state.recordFps || 12,
+          quality: this.state.recordQuality || 'balanced'
+        });
+        self.state.set({ recording: true });
+        self._showFileToast('Recording ' + info.fps + 'fps · ' + info.quality, 3500);
+      } catch (err) {
+        self._showFileToast('Record failed — ' + (err && err.message ? err.message : 'error'), 4500);
+      }
     }
   }
 
@@ -1016,7 +1062,7 @@ class XRSculptDock {
           if (action === 'undo') this._scene.undoXR();
           else if (action === 'redo') this._scene.redoXR();
           else if (action === 'paintAll') this._scene.paintAllXR();
-          else if (action === 'save' || action === 'load' || action === 'export' || action === 'import')
+          else if (action === 'save' || action === 'load' || action === 'export' || action === 'import' || action === 'snapshot' || action === 'record')
             this._runFileAction(action);
           else if (action === 'clear' || action === 'add')
             this._runSceneAction(action);

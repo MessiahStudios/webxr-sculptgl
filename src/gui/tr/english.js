@@ -21,6 +21,17 @@ var TR = {
   cameraOrthographic: 'Orthographic',
   cameraFov: 'Fov',
   cameraPivot: 'Picking pivot',
+  cameraSnapshotTitle: 'Local Snapshot',
+  cameraLocalSnapshot: 'Save PNG (virtual view)',
+  cameraRecordFps: 'Record FPS',
+  cameraRecordQuality: 'Record size',
+  cameraRecordQualitySmall: 'Small (640p, more compression)',
+  cameraRecordQualityBalanced: 'Balanced (1280p)',
+  cameraRecordQualityHigh: 'High (1920p)',
+  cameraRecordStart: 'Start record',
+  cameraRecordStop: 'Stop record',
+  cameraRecordIdle: 'Record status: idle',
+  cameraRecordActive: 'Record status: RECORDING…',
 
   // file
   fileTitle: 'Files (import/export)',
@@ -37,6 +48,8 @@ var TR = {
   fileExportPLY: 'Save .ply — geo ± color',
   fileExportSTL: 'Save .stl — geo only',
   fileExportHint: 'Formats only carry what they allow. GLB export comes later.',
+  fileLocalSnapshot: 'Local Snapshot (PNG)',
+  fileLocalSnapshotHint: 'Virtual sculpt view — not Quest Cast / not passthrough',
 
   fileExportTextureTitle: 'Export textures (needs UVs)',
   fileExportTextureSize: 'Size',

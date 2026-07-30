@@ -162,7 +162,9 @@ ShaderPBR.updateUniforms = function (mesh, main) {
   gl.uniform1f(uniforms.uRoughness, mesh.getRoughness());
   gl.uniform1f(uniforms.uMetallic, mesh.getMetallic());
   var exp = ShaderPBR.exposure;
-  if (main.isXRSessionActive && main.isXRSessionActive() &&
+  if (main._localSnapshotPass)
+    exp *= 1.35; // stills read darker off-screen without desktop RTT merge
+  else if (main.isXRSessionActive && main.isXRSessionActive() &&
       main.isXRPassthroughComposite && main.isXRPassthroughComposite()) {
     // Keep MR readable without washing the mesh into a "ghost" look.
     exp *= 1.25;

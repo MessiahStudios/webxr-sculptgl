@@ -27,12 +27,14 @@ export var XR_TAB_LABELS = {
 export var XR_TAB_TOOLS = {
   shape: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'transform'],
   surface: ['smooth', 'flatten', 'paint', 'masking'],
-  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
+  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
   workspace: []
 };
 
 /** Always-visible file continuity rows (before paint opts / brush flags). */
-export var XR_FILE_OPTS = ['save', 'load', 'import', 'export', 'exportFmt'];
+export var XR_FILE_OPTS = ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality'];
+export var XR_RECORD_FPS = [12, 15, 24];
+export var XR_RECORD_QUALITY = ['small', 'balanced', 'high'];
 
 /**
  * Scene / topology rows.
@@ -183,6 +185,9 @@ export function createXRSculptDockState() {
     matcap: 'default',
     exportFmt: 'obj',
     addShape: 'sphere',
+    recordFps: 12,
+    recordQuality: 'balanced',
+    recording: false,
 
     // Paint (desktop GuiTools PAINT parity)
     paintColorIdx: 0,
@@ -327,7 +332,7 @@ export function createXRSculptDockState() {
         return focus; // dock calls scene.undoXR / redoXR
       if (focus === 'paintAll')
         return 'paintAll'; // dock calls scene.paintAllXR
-      if (focus === 'save' || focus === 'load' || focus === 'export' || focus === 'import')
+      if (focus === 'save' || focus === 'load' || focus === 'export' || focus === 'import' || focus === 'snapshot' || focus === 'record')
         return focus; // dock calls scene file helpers / file picker
       if (focus === 'clear' || focus === 'add')
         return focus; // dock calls scene.clearXRScene / addXRShape
@@ -335,6 +340,18 @@ export function createXRSculptDockState() {
         var fi = XR_EXPORT_FMTS.indexOf(state.exportFmt || 'obj');
         if (fi < 0) fi = 0;
         state.set({ exportFmt: XR_EXPORT_FMTS[(fi + 1) % XR_EXPORT_FMTS.length] });
+        return null;
+      }
+      if (focus === 'recordFps') {
+        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 12);
+        if (fpi < 0) fpi = 0;
+        state.set({ recordFps: XR_RECORD_FPS[(fpi + 1) % XR_RECORD_FPS.length] });
+        return null;
+      }
+      if (focus === 'recordQuality') {
+        var qi = XR_RECORD_QUALITY.indexOf(state.recordQuality || 'balanced');
+        if (qi < 0) qi = 0;
+        state.set({ recordQuality: XR_RECORD_QUALITY[(qi + 1) % XR_RECORD_QUALITY.length] });
         return null;
       }
       if (focus === 'eyedropper') state.set({ paintEyedropper: !state.paintEyedropper });
@@ -374,6 +391,24 @@ export function createXRSculptDockState() {
           ? XR_EXPORT_FMTS[(fi + 1) % XR_EXPORT_FMTS.length]
           : XR_EXPORT_FMTS[(fi - 1 + XR_EXPORT_FMTS.length) % XR_EXPORT_FMTS.length];
         state.set({ exportFmt: next });
+        return;
+      }
+      if (focus === 'recordFps') {
+        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 12);
+        if (fpi < 0) fpi = 0;
+        var fnext = delta > 0
+          ? XR_RECORD_FPS[(fpi + 1) % XR_RECORD_FPS.length]
+          : XR_RECORD_FPS[(fpi - 1 + XR_RECORD_FPS.length) % XR_RECORD_FPS.length];
+        state.set({ recordFps: fnext });
+        return;
+      }
+      if (focus === 'recordQuality') {
+        var qi = XR_RECORD_QUALITY.indexOf(state.recordQuality || 'balanced');
+        if (qi < 0) qi = 0;
+        var qnext = delta > 0
+          ? XR_RECORD_QUALITY[(qi + 1) % XR_RECORD_QUALITY.length]
+          : XR_RECORD_QUALITY[(qi - 1 + XR_RECORD_QUALITY.length) % XR_RECORD_QUALITY.length];
+        state.set({ recordQuality: qnext });
         return;
       }
       if (focus === 'add') {

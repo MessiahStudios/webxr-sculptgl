@@ -23,6 +23,7 @@ import XRSetup from 'xr/XRSetup';
 import XRRemoteLog from 'xr/XRRemoteLog';
 import Export from 'files/Export';
 import XRProjectStore from 'xr/XRProjectStore';
+import LocalRecord from 'xr/LocalRecord';
 import { saveAs } from 'file-saver';
 
 class Scene {
@@ -55,6 +56,18 @@ class Scene {
     this._xrRayRight = null;
     this._xrRightStickX = 0;
     this._xrRightStickY = 0;
+    // Local Snapshot: last headset eye used for PNG capture of the virtual view.
+    this._xrSnapView = mat4.create();
+    this._xrSnapProj = mat4.create();
+    this._xrSnapReady = false;
+    this._xrSnapIsMR = false;
+    this._localSnapshotTarget = null; // { fb, tex, depth, w, h, canvas2d, ctx }
+    this._localSnapshotPass = false; // shaders: direct sRGB out (skip RGBM RTT encode)
+    this._localSnapshotBusy = false; // block concurrent desktop applyRender during FBO capture
+    this._localRecFps = 12;
+    this._localRecQuality = 'balanced';
+    this._localRec = null; // active recording session
+    this._localRecDesktopRaf = 0;
     mat4.identity(this._xrStageMatrix);
     mat4.translate(this._xrStageMatrix, this._xrStageMatrix, [0.0, 1.25, -0.65]);
 
@@ -204,6 +217,9 @@ class Scene {
     if (!active) {
       this._xrSessionMode = null;
       this._xrPassthroughComposite = false;
+      if (this.isLocalRecording()) this._startLocalRecordDesktopLoop();
+    } else {
+      this._stopLocalRecordDesktopLoop();
     }
   }
 
@@ -662,6 +678,12 @@ class Scene {
     this._preventRender = false;
     if (this._xrSessionActive)
       return;
+    // Don't draw the desktop path while a local snapshot/record FBO pass is mid-flight
+    // (shared GL context — would hitch the wrong framebuffer / viewport).
+    if (this._localSnapshotBusy) {
+      this.render();
+      return;
+    }
 
     this.updateMatricesAndSort();
 
@@ -683,6 +705,9 @@ class Scene {
     gl.enable(gl.DEPTH_TEST);
 
     this._sculptManager.postRender(); // draw sculpting gizmo stuffs
+
+    // Desktop Local Record: push the just-presented canvas frame into MediaRecorder.
+    this._notifyLocalRecordDisplayFrame();
   }
 
   _drawScene() {
@@ -1378,12 +1403,560 @@ class Scene {
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LEQUAL);
       gl.disable(gl.CULL_FACE);
+
+      // Keep left-eye (or first) matrices for Local Snapshot.
+      if (v === 0) {
+        mat4.copy(this._xrSnapView, cam._view);
+        mat4.copy(this._xrSnapProj, cam._proj);
+        this._xrSnapReady = true;
+        this._xrSnapIsMR = xrIsMR;
+      }
     }
 
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this._tickLocalRecording();
+  }
+
+  /**
+   * Local Snapshot — PNG of the virtual sculpt view (not Quest Cast / not passthrough).
+   * Desktop: copy the live WebGL canvas (same pixels the camera shows) — no offscreen FBO.
+   * XR: mono redraw from last headset eye into an FBO (headset FB is not readable as a canvas).
+   * @returns {Promise<{name:string, bytes:number}>}
+   */
+  captureLocalSnapshot() {
+    var self = this;
+    return new Promise(function (resolve, reject) {
+      try {
+        var canvas2d = self._xrSessionActive
+          ? self._renderLocalSnapshotToCanvas2D()
+          : self._captureDesktopCanvasTo2D();
+        if (!canvas2d) {
+          reject(new Error('Snapshot render failed'));
+          return;
+        }
+        canvas2d.toBlob(function (blob) {
+          if (!blob) {
+            reject(new Error('Snapshot encode failed'));
+            return;
+          }
+          var name = 'sculpt-snapshot-' + Date.now() + '.png';
+          saveAs(blob, name);
+          XRRemoteLog.see('MR', 'Local Snapshot saved', {
+            name: name,
+            bytes: blob.size,
+            xr: !!self._xrSessionActive,
+            mode: self._xrSessionActive ? 'fbo' : 'display',
+            note: 'virtual sculpt view only — no passthrough'
+          });
+          resolve({ name: name, bytes: blob.size });
+        }, 'image/png');
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Desktop still: present one full frame, then copy the on-screen canvas.
+   * Avoids the offscreen FBO path that was leaving a grey viewport on the live view.
+   * @returns {HTMLCanvasElement|null}
+   */
+  _captureDesktopCanvasTo2D() {
+    if (!this._canvas || !this._gl) return null;
+
+    // Heal any prior FBO snapshot/record that shrank the viewport.
+    var vw = this._canvasWidth | 0;
+    var vh = this._canvasHeight | 0;
+    if (vw > 0 && vh > 0) this._gl.viewport(0, 0, vw, vh);
+
+    this._localSnapshotPass = false;
+    this._localSnapshotBusy = false;
+    this._drawFullScene = true;
+    this._preventRender = false;
+    this.applyRender();
+
+    var src = this._canvas;
+    var w = src.width | 0;
+    var h = src.height | 0;
+    if (w < 2 || h < 2) return null;
+
+    var out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    var ctx = out.getContext('2d');
+    if (!ctx) return null;
+    // Same-frame drawImage works without preserveDrawingBuffer.
+    ctx.drawImage(src, 0, 0);
+    return out;
+  }
+
+  isLocalRecording() {
+    return !!(this._localRec && this._localRec.recording);
+  }
+
+  getLocalRecordFps() {
+    return this._localRecFps || 12;
+  }
+
+  setLocalRecordFps(fps) {
+    var n = fps | 0;
+    if (LocalRecord.FPS_OPTIONS.indexOf(n) < 0) n = 12;
+    this._localRecFps = n;
+    if (this._localRec) this._localRec.fps = n;
+  }
+
+  getLocalRecordQuality() {
+    return this._localRecQuality || 'balanced';
+  }
+
+  setLocalRecordQuality(id) {
+    if (!LocalRecord.QUALITY[id]) id = 'balanced';
+    this._localRecQuality = id;
+  }
+
+  /**
+   * Start recording virtual sculpt view to WebM/MP4.
+   * Desktop: capture the live WebGL canvas (same pixels the camera shows).
+   * XR: mono FBO path (headset framebuffer is not a recordable canvas).
+   * @param {{fps?:number, quality?:string}|null} [opts]
+   * @returns {{fps:number, quality:string, mime:string, width:number, height:number}}
+   */
+  startLocalRecording(opts) {
+    opts = opts || {};
+    if (this.isLocalRecording())
+      throw new Error('Already recording');
+    if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement === 'undefined')
+      throw new Error('Recording not supported in this browser');
+    if (!this._canvas || typeof this._canvas.captureStream !== 'function')
+      throw new Error('Canvas captureStream not supported in this browser');
+
+    if (opts.fps) this.setLocalRecordFps(opts.fps);
+    if (opts.quality) this.setLocalRecordQuality(opts.quality);
+
+    var fps = this.getLocalRecordFps();
+    var q = LocalRecord.QUALITY[this.getLocalRecordQuality()] || LocalRecord.QUALITY.balanced;
+    var mime = LocalRecord.pickMimeType();
+    if (!mime)
+      throw new Error('No supported video encoder (need WebM/VP8/VP9 or MP4)');
+
+    // Heal any leftover viewport shrink from older record builds.
+    if (this._gl && this._canvasWidth > 0 && this._canvasHeight > 0)
+      this._gl.viewport(0, 0, this._canvasWidth, this._canvasHeight);
+
+    var useDisplay = !this._xrSessionActive;
+    var w;
+    var h;
+    var canvas = null;
+    var ctx = null;
+    var stream;
+    var track;
+    var mode;
+
+    if (useDisplay) {
+      // Record exactly what the desktop camera presents — no offscreen re-draw.
+      mode = 'display';
+      w = this._canvasWidth | 0;
+      h = this._canvasHeight | 0;
+      if (w < 2 || h < 2) {
+        w = this._canvas.clientWidth | 0;
+        h = this._canvas.clientHeight | 0;
+      }
+      if (w & 1) w -= 1;
+      if (h & 1) h -= 1;
+      if (w < 2) w = 640;
+      if (h < 2) h = 360;
+      stream = this._canvas.captureStream(0);
+      track = stream.getVideoTracks()[0];
+    } else {
+      // XR: encode a mono virtual view via FBO (same path as Local Snapshot PNG).
+      mode = 'fbo';
+      var cssW = this._canvas.clientWidth || this._canvasWidth || 1280;
+      var cssH = this._canvas.clientHeight || this._canvasHeight || 720;
+      var aspect = (cssW > 0 && cssH > 0) ? (cssW / cssH) : (16 / 9);
+      w = Math.min(q.maxWidth, Math.max(320, cssW | 0));
+      h = Math.max(180, Math.round(w / aspect));
+      if (w & 1) w -= 1;
+      if (h & 1) h -= 1;
+
+      canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      ctx = canvas.getContext('2d');
+      stream = canvas.captureStream(0);
+      track = stream.getVideoTracks()[0];
+    }
+
+    var chunks = [];
+    var rec;
+    try {
+      rec = new MediaRecorder(stream, {
+        mimeType: mime,
+        videoBitsPerSecond: q.bits
+      });
+    } catch (e) {
+      rec = new MediaRecorder(stream);
+    }
+
+    var self = this;
+    rec.ondataavailable = function (ev) {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    };
+
+    this._localRec = {
+      recording: true,
+      mode: mode,
+      recorder: rec,
+      canvas: canvas,
+      ctx: ctx,
+      stream: stream,
+      track: track,
+      chunks: chunks,
+      fps: fps,
+      quality: q.id,
+      mime: mime || rec.mimeType || 'video/webm',
+      w: w,
+      h: h,
+      lastFrameAt: 0,
+      startedAt: (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(),
+      stopResolve: null,
+      stopReject: null
+    };
+
+    rec.onerror = function (ev) {
+      XRRemoteLog.see('MR', 'Local Record error', {
+        error: (ev && ev.error && ev.error.message) || 'MediaRecorder error'
+      });
+    };
+
+    rec.onstop = function () {
+      try {
+        var blob = new Blob(chunks, { type: self._localRec.mime });
+        var ext = LocalRecord.extForMime(self._localRec.mime);
+        var name = 'sculpt-record-' + Date.now() + '.' + ext;
+        saveAs(blob, name);
+        var elapsed = (((typeof performance !== 'undefined' && performance.now)
+          ? performance.now() : Date.now()) - self._localRec.startedAt) / 1000;
+        XRRemoteLog.see('MR', 'Local Record saved', {
+          name: name,
+          bytes: blob.size,
+          seconds: Math.round(elapsed * 10) / 10,
+          fps: self._localRec.fps,
+          quality: self._localRec.quality,
+          mode: self._localRec.mode,
+          size: self._localRec.w + 'x' + self._localRec.h
+        });
+        if (self._localRec.stopResolve)
+          self._localRec.stopResolve({ name: name, bytes: blob.size, seconds: elapsed });
+      } catch (err) {
+        if (self._localRec.stopReject) self._localRec.stopReject(err);
+      }
+      self._cleanupLocalRecording();
+    };
+
+    rec.start(1000);
+    this._startLocalRecordDesktopLoop();
+    // Prime first frame immediately.
+    this._tickLocalRecording(true);
+
+    XRRemoteLog.see('MR', 'Local Record started', {
+      fps: fps,
+      quality: q.id,
+      bits: q.bits,
+      mime: mime,
+      mode: mode,
+      size: w + 'x' + h
+    });
+
+    return { fps: fps, quality: q.id, mime: mime, width: w, height: h, mode: mode };
+  }
+
+  /**
+   * Stop recording and download the file.
+   * @returns {Promise<{name:string, bytes:number, seconds:number}>}
+   */
+  stopLocalRecording() {
+    var self = this;
+    return new Promise(function (resolve, reject) {
+      if (!self.isLocalRecording()) {
+        reject(new Error('Not recording'));
+        return;
+      }
+      self._localRec.stopResolve = resolve;
+      self._localRec.stopReject = reject;
+      self._localRec.recording = false;
+      try {
+        if (self._localRec.recorder.state !== 'inactive')
+          self._localRec.recorder.stop();
+      } catch (err) {
+        self._cleanupLocalRecording();
+        reject(err);
+      }
+    });
+  }
+
+  _cleanupLocalRecording() {
+    this._stopLocalRecordDesktopLoop();
+    var r = this._localRec;
+    this._localRec = null;
+    if (!r) return;
+    try {
+      // Don't stop tracks from the live WebGL canvas stream — only stop the recorder.
+      // Stopping canvas capture tracks can leave some browsers in a bad present state.
+      if (r.mode !== 'display') {
+        if (r.track) r.track.stop();
+        if (r.stream) {
+          var tracks = r.stream.getTracks();
+          var i;
+          for (i = 0; i < tracks.length; ++i) tracks[i].stop();
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Heal viewport if an older FBO record path left it shrunk.
+    if (!this._xrSessionActive && this._gl) {
+      var vw = this._canvasWidth | 0;
+      var vh = this._canvasHeight | 0;
+      if (vw > 0 && vh > 0) this._gl.viewport(0, 0, vw, vh);
+      if (this.render) this.render();
+    }
+  }
+
+  _startLocalRecordDesktopLoop() {
+    if (this._xrSessionActive) return;
+    if (this._localRecDesktopRaf) return;
+    var self = this;
+    var loop = function () {
+      self._localRecDesktopRaf = 0;
+      if (!self.isLocalRecording()) return;
+      self._tickLocalRecording(false);
+      self._localRecDesktopRaf = window.requestAnimationFrame(loop);
+    };
+    this._localRecDesktopRaf = window.requestAnimationFrame(loop);
+  }
+
+  _stopLocalRecordDesktopLoop() {
+    if (this._localRecDesktopRaf) {
+      window.cancelAnimationFrame(this._localRecDesktopRaf);
+      this._localRecDesktopRaf = 0;
+    }
+  }
+
+  /**
+   * After a desktop present: request a MediaRecorder frame (display-capture mode).
+   */
+  _notifyLocalRecordDisplayFrame() {
+    var rec = this._localRec;
+    if (!rec || !rec.recording || rec.mode !== 'display') return;
+    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    var minDt = 1000 / Math.max(1, rec.fps || 12);
+    if (rec.lastFrameAt && (now - rec.lastFrameAt) < minDt)
+      return;
+    rec.lastFrameAt = now;
+    try {
+      if (rec.track && typeof rec.track.requestFrame === 'function')
+        rec.track.requestFrame();
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Keep frames flowing while recording.
+   * Desktop display mode: request normal presents (no FBO).
+   * XR / FBO mode: redraw mono view into the encode canvas.
+   * @param {boolean} [force]
+   */
+  _tickLocalRecording(force) {
+    var rec = this._localRec;
+    if (!rec || !rec.recording) return;
+
+    if (rec.mode === 'display') {
+      // Keep the live canvas animating so captureStream has frames even when idle.
+      if (!this._xrSessionActive && this.render)
+        this.render();
+      return;
+    }
+
+    // FBO mono path (XR).
+    if (this._xrSessionActive && !this._xrSnapReady && !force) return;
+
+    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    var minDt = 1000 / Math.max(1, rec.fps || 12);
+    if (!force && rec.lastFrameAt && (now - rec.lastFrameAt) < minDt)
+      return;
+    rec.lastFrameAt = now;
+
+    try {
+      var src = this._renderLocalSnapshotToCanvas2D(rec.w, rec.h, { skipDesktopRefresh: true });
+      if (!src || !rec.ctx) return;
+      rec.ctx.drawImage(src, 0, 0, rec.w, rec.h);
+      if (rec.track && typeof rec.track.requestFrame === 'function')
+        rec.track.requestFrame();
+    } catch (err) {
+      console.warn('Local Record frame failed', err);
+    }
+  }
+
+  _ensureLocalSnapshotTarget(w, h) {
+    var gl = this._gl;
+    var t = this._localSnapshotTarget;
+    if (t && t.w === w && t.h === h) return t;
+
+    if (t) {
+      try {
+        if (t.fb) gl.deleteFramebuffer(t.fb);
+        if (t.tex) gl.deleteTexture(t.tex);
+        if (t.depth) gl.deleteRenderbuffer(t.depth);
+      } catch (e) { /* ignore */ }
+    }
+
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    var depth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL || gl.DEPTH_COMPONENT16, w, h);
+
+    var fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferRenderbuffer(
+      gl.FRAMEBUFFER,
+      gl.DEPTH_STENCIL_ATTACHMENT || gl.DEPTH_ATTACHMENT,
+      gl.RENDERBUFFER,
+      depth
+    );
+
+    var canvas2d = document.createElement('canvas');
+    canvas2d.width = w;
+    canvas2d.height = h;
+    this._localSnapshotTarget = {
+      fb: fb,
+      tex: tex,
+      depth: depth,
+      w: w,
+      h: h,
+      canvas2d: canvas2d,
+      ctx: canvas2d.getContext('2d')
+    };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return this._localSnapshotTarget;
+  }
+
+  /**
+   * @param {number} [forceW]
+   * @param {number} [forceH]
+   * @param {{skipDesktopRefresh?:boolean}} [opts] unused; kept for call-site compat
+   */
+  _renderLocalSnapshotToCanvas2D(forceW, forceH, opts) {
+    var gl = this._gl;
+    if (!gl) return null;
+    opts = opts || {};
+
+    var cssW = this._canvas.clientWidth || this._canvasWidth || 1280;
+    var cssH = this._canvas.clientHeight || this._canvasHeight || 720;
+    var w = forceW | 0;
+    var h = forceH | 0;
+    if (w < 64 || h < 64) {
+      w = Math.min(1920, Math.max(640, cssW | 0));
+      h = Math.min(1080, Math.max(360, cssH | 0));
+      if (cssW > 0 && cssH > 0) {
+        var aspect = cssW / cssH;
+        h = Math.round(w / aspect);
+      }
+    }
+
+    var target = this._ensureLocalSnapshotTarget(w, h);
+    var cam = this._camera;
+    var prevVp = gl.getParameter(gl.VIEWPORT);
+    this._localSnapshotBusy = true;
+    this._localSnapshotPass = true;
+
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+      gl.viewport(0, 0, w, h);
+      gl.disable(gl.SCISSOR_TEST);
+
+      if (this._xrSessionActive && this._xrSnapReady) {
+        cam.applyXRSnapshotMatrices(this._xrSnapView, this._xrSnapProj);
+        var fovY = 1.2;
+        if (Math.abs(this._xrSnapProj[5]) > 1e-6)
+          fovY = 2.0 * Math.atan(1.0 / this._xrSnapProj[5]);
+        mat4.perspective(cam._proj, fovY, w / h, cam._near || 0.05, cam._far || 5000.0);
+        gl.clearColor(0.18, 0.19, 0.22, 1.0);
+      } else {
+        var prevW = cam._width;
+        var prevH = cam._height;
+        cam._width = w;
+        cam._height = h;
+        if (cam.updateProjection) cam.updateProjection();
+        if (cam.updateView) cam.updateView();
+        gl.clearColor(0.18, 0.19, 0.22, 1.0);
+        this._localSnapshotRestoreCam = { w: prevW, h: prevH };
+      }
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+      this.updateMeshesXR();
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      gl.disable(gl.CULL_FACE);
+
+      // Studio-style still: grid + clay + env (same order as desktop opaque pass).
+      this._drawOpaqueMeshesXR(false);
+      this._drawTransparentMeshesXR();
+      var sm = this.getSculptManager();
+      if (sm.getToolIndex() === Enums.Tools.TRANSFORM) {
+        var xf = sm.getCurrentTool();
+        if (xf && xf.postRender) xf.postRender();
+      }
+
+      var pixels = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      var ctx = target.ctx;
+      var img = ctx.createImageData(w, h);
+      var y;
+      for (y = 0; y < h; ++y) {
+        var src = (h - 1 - y) * w * 4;
+        var dst = y * w * 4;
+        img.data.set(pixels.subarray(src, src + w * 4), dst);
+      }
+      ctx.putImageData(img, 0, 0);
+    } finally {
+      this._localSnapshotPass = false;
+      this._localSnapshotBusy = false;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      // Recording used a smaller viewport — restore full canvas or prior region.
+      var vpW = this._canvasWidth || (prevVp && prevVp[2]) || w;
+      var vpH = this._canvasHeight || (prevVp && prevVp[3]) || h;
+      gl.viewport(0, 0, vpW, vpH);
+      gl.clearColor(0.0, 0.0, 0.0, 0.0);
+
+      if (this._localSnapshotRestoreCam) {
+        cam._width = this._localSnapshotRestoreCam.w;
+        cam._height = this._localSnapshotRestoreCam.h;
+        if (cam.updateProjection) cam.updateProjection();
+        if (cam.updateView) cam.updateView();
+        this._localSnapshotRestoreCam = null;
+      }
+    }
+
+    // Desktop must not keep using this FBO path (it left a grey live view). If we
+    // somehow ran it outside XR, fully reset canvas/RTT state instead of a light redraw.
+    if (!this._xrSessionActive && this.onCanvasResize)
+      this.onCanvasResize();
+
+    return target.canvas2d;
   }
 
   startXRControllers(session, refSpace) {

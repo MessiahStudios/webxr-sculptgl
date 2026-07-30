@@ -42,10 +42,89 @@ class GuiCamera {
     optionsMode[Enums.CameraMode.SPHERICAL] = TR('cameraSpherical');
     optionsMode[Enums.CameraMode.PLANE] = TR('cameraPlane');
     menu.addCombobox('', camera.getMode(), this.onCameraModeChange.bind(this), optionsMode);
-    this._ctrlPivot = menu.addCheckbox(TR('cameraPivot'), camera.getUsePivot(), this.onPivotChange.bind(this));
+    menu.addCheckbox(TR('cameraPivot'), camera.getUsePivot(), this.onPivotChange.bind(this));
+
+    // Local Snapshot — capture what the camera sees (virtual view PNG / video).
+    menu.addTitle(TR('cameraSnapshotTitle'));
+    menu.addButton(TR('cameraLocalSnapshot'), this, 'saveLocalSnapshot');
+    this._recFps = this._main.getLocalRecordFps ? this._main.getLocalRecordFps() : 12;
+    this._recQuality = this._main.getLocalRecordQuality ? this._main.getLocalRecordQuality() : 'balanced';
+    var fpsOpts = { 12: '12 fps', 15: '15 fps', 24: '24 fps' };
+    this._ctrlRecFps = menu.addCombobox(TR('cameraRecordFps'), this._recFps, this.onRecFpsChange.bind(this), fpsOpts);
+    var qOpts = { small: TR('cameraRecordQualitySmall'), balanced: TR('cameraRecordQualityBalanced'), high: TR('cameraRecordQualityHigh') };
+    this._ctrlRecQuality = menu.addCombobox(TR('cameraRecordQuality'), this._recQuality, this.onRecQualityChange.bind(this), qOpts);
+    this._ctrlRecStatus = menu.addTitle(TR('cameraRecordIdle'));
+    this._ctrlRecToggle = menu.addButton(TR('cameraRecordStart'), this, 'toggleLocalRecord');
 
     // TR('CameraSpeed') ...
     menu.addSlider('speed', this._main, '_cameraSpeed', 0.05, 1.0, 0.001);
+    this._syncRecUi(false);
+  }
+
+  /** PNG of the current virtual sculpt view (same helper as XR OPTS). */
+  saveLocalSnapshot() {
+    this._main.captureLocalSnapshot().catch(function (err) {
+      window.alert((err && err.message) || 'Local Snapshot failed');
+    });
+  }
+
+  onRecFpsChange(value) {
+    this._recFps = value | 0;
+    if (this._main.setLocalRecordFps) this._main.setLocalRecordFps(this._recFps);
+  }
+
+  onRecQualityChange(value) {
+    this._recQuality = value;
+    if (this._main.setLocalRecordQuality) this._main.setLocalRecordQuality(value);
+  }
+
+  /**
+   * Topbar Menu buttons put the label on the <li> (MenuButton), not a .gui-button.
+   * Update that row text + status title so Start/Stop is obvious.
+   */
+  _syncRecUi(recording) {
+    var label = recording ? TR('cameraRecordStop') : TR('cameraRecordStart');
+    var status = recording ? TR('cameraRecordActive') : TR('cameraRecordIdle');
+    var btn = this._ctrlRecToggle;
+    if (btn && btn.domContainer) {
+      var line = btn.domContainer;
+      var span = btn.domSpan;
+      while (line.firstChild) line.removeChild(line.firstChild);
+      line.appendChild(document.createTextNode(label));
+      if (span) line.appendChild(span);
+      line.style.color = recording ? '#ff6b6b' : '';
+      line.style.fontWeight = recording ? 'bold' : '';
+    } else if (btn && btn.domButton) {
+      btn.domButton.innerHTML = label;
+      btn.domButton.style.background = recording ? 'rgba(180,40,40,0.55)' : '';
+    }
+    if (this._ctrlRecStatus && this._ctrlRecStatus.setText)
+      this._ctrlRecStatus.setText(status);
+    else if (this._ctrlRecStatus && this._ctrlRecStatus.domText)
+      this._ctrlRecStatus.domText.textContent = status;
+  }
+
+  toggleLocalRecord() {
+    var main = this._main;
+    var self = this;
+    if (main.isLocalRecording && main.isLocalRecording()) {
+      self._syncRecUi(false);
+      main.stopLocalRecording().then(function (out) {
+        self._syncRecUi(false);
+        window.alert('Saved ' + out.name + '\n' + Math.round(out.bytes / 1024) + ' KB');
+      }).catch(function (err) {
+        self._syncRecUi(!!(main.isLocalRecording && main.isLocalRecording()));
+        window.alert((err && err.message) || 'Stop record failed');
+      });
+      return;
+    }
+    try {
+      main.startLocalRecording({ fps: this._recFps, quality: this._recQuality });
+      this._syncRecUi(true);
+    } catch (err) {
+      this._syncRecUi(false);
+      window.alert((err && err.message) || 'Start record failed');
+    }
   }
 
   onCameraModeChange(value) {

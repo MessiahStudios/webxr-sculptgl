@@ -72,7 +72,7 @@ ShaderBackground.updateUniforms = function (bg) {
   if (env.size) gl.uniform2fv(uniforms.uEnvSize, env.size);
 
   gl.uniform1f(uniforms.uBlur, bg.getBlur());
-  gl.uniform1i(uniforms.uDirectOutput, main.isXRSessionActive && main.isXRSessionActive() ? 1 : 0);
+  gl.uniform1i(uniforms.uDirectOutput, (main.isXRSessionActive && main.isXRSessionActive()) || main._localSnapshotPass ? 1 : 0);
 };
 
 export default ShaderBackground;

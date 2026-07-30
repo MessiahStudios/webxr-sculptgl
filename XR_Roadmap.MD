@@ -158,10 +158,11 @@ WebXR is an open API — other headsets *may* enter a session — but Quest is w
 | **Thin project continuity** (save / load / export) | Sculpting without a way back to disk breaks the loop |
 | **Mesh Transform + gizmo** | Place multiple primitives / imports relative to each other |
 | **Import external meshes** (OBJ/PLY/STL/SGL/**GLB·glTF**) | Bring Blender / CC0 assets into the clay scene (GLB = geometry-first today; Materials track deepens fidelity) |
+| **Local Snapshot** (PNG + short video) | Review / share the *virtual* sculpt view — not Quest Cast |
 
 ### Specialized / quieter
 
-Masking, clay/culling/wireframe, twist & local scale (until usage proves otherwise), paint PBR knobs (hardness / roughness / metallic), controller models, spectator desktop.
+Masking, clay/culling/wireframe, twist & local scale (until usage proves otherwise), paint PBR knobs (hardness / roughness / metallic), controller models.
 
 ### Desktop (or much later)
 
@@ -322,7 +323,7 @@ That is the opposite of “rewrite sculpting for VR.” It is also different fro
 | Rendering | Single framebuffer, post FX | Stereo XR framebuffer; MR skips skybox/grid |
 | Brush radius | Screen pixels | Mapped to **mesh-scale world radius** in XR |
 | Tools | Full desktop set | Same tool classes; XR paths where 2D deltas fail |
-| GUI | yagui side panels | **In-world dock** + optional desktop spectator |
+| GUI | yagui side panels | **In-world dock** + desktop Files; **Local Snapshot**; later **Spectator** (invite) |
 | Undo | CTRL+Z / UI | Also **Right B** / stick-click / Opts |
 | Status | Abandoned | Active XR port on top of the frozen core |
 
@@ -340,7 +341,8 @@ Other community approaches (for context, not dependencies):
 | Session + enter/exit | `src/xr/WebXRSession.js` | MR/VR start, frame loop, grip-exit, stage UI hooks |
 | Setup panel | `src/xr/XRSetup.js` | Mode + controller profile before enter |
 | Controllers | `src/xr/XRControllerModels.js` | Official WebXR input-profile GLBs; poses dock host; passes viewer pose for billboard |
-| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | BRUSH / SURF / OPTS / SPACE; paint; file/scene; Transform; **head-facing float near left grip** |
+| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | BRUSH / SURF / OPTS / SPACE; paint; file/scene; Transform; **Local Snapshot / Record**; **head-facing float near left grip** |
+| Local capture | `src/xr/LocalRecord.js` + `Scene.captureLocalSnapshot` / `startLocalRecording` | Desktop live-canvas PNG/video; XR mono FBO virtual view |
 | Project continuity | `src/xr/XRProjectStore.js` + `Scene.saveXRProject` / `loadXRProject` / `exportXRMesh` | IndexedDB `.sgl`; OBJ/PLY/STL export download |
 | Mesh Transform | `src/editing/tools/Transform.js` + `editing/Gizmo.js` | XR gizmo + free-grab + L+R multi-select |
 | Stereo / stage / ray sculpt | `src/Scene.js` | `drawXRFrame`, `updateXRSculptInput`, stage fit, XR file/scene helpers |
@@ -403,7 +405,9 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | **SAVE project (.sgl)** | IndexedDB on the Quest origin |
 | **LOAD last (.sgl)** | **Replaces** scene, re-fits Workspace |
 | **IMPORT file** | Adds OBJ/PLY/STL/SGL/**GLB** — picker **may fail in XR**; prefer before enter / after exit |
-| **EXPORT** + format | OBJ / PLY / STL → browser download / Files |
+| **EXPORT** + format | OBJ / PLY / STL / OBJ+MAPS → browser download / Files |
+| **LOCAL SNAPSHOT** | PNG of the virtual sculpt view (no passthrough) |
+| **START / STOP RECORD** | WebM video of the virtual view (+ FPS / size rows) |
 | **CLEAR scene** | Empty clay |
 | **ADD …** | Stick ↔ cycles sphere/cube/cylinder/torus; Y places (**adds**, stacks at origin until Transform) |
 
@@ -445,16 +449,17 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ### Where we are (2026-07)
 
-Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add. The left dock now **billboards toward the headset** and sits **clear of the controller face** so button discovery stays possible. Near-term XR polish remains (README tunnel link, spectator). Opening **GLB import** also commits us to a longer **Materials / GLB / Paint** track so imported assets can carry expected UVs/textures and round-trip to formats that permit them.
+Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add, and **Local Snapshot** (PNG + Start/Stop video) on desktop and in XR. The left dock **billboards toward the headset** and sits **clear of the controller face**. Opening **GLB import** also commits us to the **Materials / GLB / Paint** track. **Spectator** (invite-code watch) and **Co-sculpt** remain separate collaboration features.
 
 ```
-███████████████████████░  ~90% of first-class XR surface
-│                       │
+████████████████████████░  ~92% of first-class XR surface
+│                        │
 ├─ Done: session · Workspace · BRUSH/SURF tools · Transform · paint wheel
-│        · R/I · recovery · Save/Load/Export · Import GLB (geometry-first)
-│        · head-facing dock (floats clear of left buttons)
-├─ Next: README↔tunnel link · spectator · Import URL UX
-├─ Parallel track: Materials / GLB / Paint / UV (Desktop + XR shared core)
+│        · R/I · recovery · Save/Load/Export · Import GLB (UVs + bake + Draco)
+│        · head-facing dock · Local Snapshot PNG + video (virtual view)
+├─ Next: README↔tunnel link · Import URL UX · XR presentation capture (stretch)
+├─ Parallel: Materials / GLB / Paint / UV
+├─ Collaboration (planned): Spectator (invite code) · Co-sculpt (later)
 └─ Stretch: dock slot swap · hands · remesh · other-HMD
 ```
 
@@ -485,15 +490,29 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] Dual-grip hold to exit when DOM overlay is missing in MR  
 - [x] DIY HTTPS tunnel notes (`tools/xr-tunnel.txt`) for Quest testing  
 - [x] **Right grip = temporary negative/invert** on tools that support it (removed from OPTS sticky toggle)  
+- [x] **Local Snapshot** — desktop + XR OPTS: PNG still + **Start/Stop record** (WebM; 12/15/24 fps; Small/Balanced/High). Desktop copies the live canvas; XR encodes a mono virtual view (clay + env/grid + gizmo).  
 
 ### Next (near-term)
 
 1. [x] **glTF / GLB import** (shared core — desktop Files + XR OPTS Import; UVs, welded topo, baseColor/metal-rough bake, Draco)  
 2. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
-3. [ ] **Spectator** desktop view polish while headset is active  
+3. [x] **Local Snapshot** — PNG + Start/Stop record (see Done + Collaboration & capture)  
 4. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
 5. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
 
+### Collaboration & capture (naming — keep distinct)
+
+| Feature | Meaning | Status |
+|---|---|---|
+| **Local Snapshot** | Image or short video of the *virtual* sculpt view on this device — review or send later | **Done** — PNG + Start/Stop record (desktop Camera menu · XR OPTS). Desktop = live canvas; XR = mono FBO (world + clay + gizmo; **not** dock UI / controller GLBs / passthrough) |
+| **XR presentation capture** | Composite dock + controller models (+ aim) into the same still/video for demos | Planned stretch — still *virtual*; still not Quest Cast |
+| **Spectator** | Friend opens *this app*, enters your invite code, watches your **live virtual** world (view-only; no MR for privacy) | Planned — needs signaling + WebRTC (or equivalent) |
+| **Cast / Stream** | Twitch, YouTube, Quest Cast, OS screen share — true “what I see in the headset” including system compositor | Outside our app — use for full WebXR showcase today |
+| **Co-sculpt** | Friend edits the same clay with you | Later — separate from Spectator |
+
+Do **not** call local mirror/debug “Spectator.” Do **not** promise passthrough or OS Cast inside WebXR.
+
+**Why XR video isn’t “what the headset sees”:** WebXR cannot read the OS compositor (passthrough, system UI, or Quest Cast). Our encode path redraws the sculpt scene only. Dock and controller models live on separate Three.js / canvas paths and are not in that FBO yet — that is **XR presentation capture**, not Local Snapshot.
 **Files language (keep clean):**
 
 | Action | Format | Purpose |
@@ -513,9 +532,11 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [ ] Hand tracking sculpt (optional path beside controllers)  
 - [ ] Multi-resolution / remesh flows that feel safe at Quest framerate  
 - [ ] Cloud / Sketchfab-style share from XR (optional; local continuity comes first)  
+- [ ] **Spectator** — invite-code live virtual watch (view-only; signaling + WebRTC; Desktop viewer v1)  
+- [ ] **XR presentation capture** — include dock + controller models in Local Snapshot/Record for demos (still virtual; Cast remains OS-level)  
+- [ ] **Co-sculpt** — shared editing (after Spectator)  
 - [ ] **Other-headset validation** (Pico / PC VR / etc.) — opportunistic  
 - [ ] Evaluate Nomad-era UX lessons without abandoning the open SculptGL core  
-
 ---
 
 ## Materials / GLB / Paint track

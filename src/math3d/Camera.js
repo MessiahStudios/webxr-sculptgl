@@ -143,6 +143,32 @@ class Camera {
     mat4.copy(this._proj, xrView.projectionMatrix);
   }
 
+  /** Apply stored XR view/proj (Local Snapshot mono pass). */
+  applyXRSnapshotMatrices(viewMat, projMat) {
+    if (viewMat) mat4.copy(this._view, viewMat);
+    if (projMat) mat4.copy(this._proj, projMat);
+  }
+
+  /**
+   * Build a mono perspective for Local Snapshot matching canvas aspect,
+   * keeping the XR view orientation (and approximate vertical FOV).
+   */
+  applyXRSnapshotView(xrView, stageMat, canvasW, canvasH) {
+    mat4.invert(this._view, xrView.transform.matrix);
+    if (stageMat) {
+      mat4.mul(_TMP_MAT, this._view, stageMat);
+      mat4.copy(this._view, _TMP_MAT);
+    }
+    var src = xrView.projectionMatrix;
+    var fovY = 1.2;
+    if (src && Math.abs(src[5]) > 1e-6)
+      fovY = 2.0 * Math.atan(1.0 / src[5]);
+    var aspect = (canvasW > 0 && canvasH > 0) ? (canvasW / canvasH) : (16 / 9);
+    var near = this._near || 0.05;
+    var far = this._far || 5000.0;
+    mat4.perspective(this._proj, fovY, aspect, near, far);
+  }
+
   getProjectionType() {
     return this._projectionType;
   }

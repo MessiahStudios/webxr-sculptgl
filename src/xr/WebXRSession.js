@@ -57,7 +57,19 @@ class WebXRSession {
     var closerBtn = document.getElementById('webxr-closer');
     var scaleUpBtn = document.getElementById('webxr-scale-up');
     var scaleDownBtn = document.getElementById('webxr-scale-down');
+    var snapshotBtn = document.getElementById('webxr-snapshot');
     if (!enterBtn || !exitBtn) return;
+
+    // Local Snapshot control (virtual-view PNG) — create if HTML template lacks it.
+    if (!snapshotBtn && bar) {
+      snapshotBtn = document.createElement('button');
+      snapshotBtn.id = 'webxr-snapshot';
+      snapshotBtn.type = 'button';
+      snapshotBtn.textContent = 'Local Snapshot';
+      snapshotBtn.title = 'Save PNG of the virtual sculpt view (not passthrough / not Quest Cast)';
+      snapshotBtn.style.cssText = 'display:none;padding:10px 14px;min-height:44px;cursor:pointer;border-radius:8px;border:1px solid #444;background:#1a3344;color:#eee;font-size:15px;';
+      bar.appendChild(snapshotBtn);
+    }
 
     this._enterBtn = enterBtn;
     this._exitBtn = exitBtn;
@@ -66,6 +78,7 @@ class WebXRSession {
     this._closerBtn = closerBtn;
     this._scaleUpBtn = scaleUpBtn;
     this._scaleDownBtn = scaleDownBtn;
+    this._snapshotBtn = snapshotBtn;
 
     var self = this;
     Promise.all([
@@ -122,6 +135,18 @@ class WebXRSession {
     if (closerBtn) closerBtn.addEventListener('click', function () { this._scene.offsetXRDistance(-0.15); }.bind(this));
     if (scaleUpBtn) scaleUpBtn.addEventListener('click', function () { this._scene.scaleXRStage(1.15); }.bind(this));
     if (scaleDownBtn) scaleDownBtn.addEventListener('click', function () { this._scene.scaleXRStage(1.0 / 1.15); }.bind(this));
+    if (snapshotBtn) {
+      snapshotBtn.addEventListener('click', function () {
+        xrSetupLog('click', {
+          control: 'webxr-snapshot',
+          action: 'local_snapshot',
+          expect: 'PNG download of virtual sculpt view'
+        });
+        this._scene.captureLocalSnapshot().catch(function (err) {
+          window.alert((err && err.message) || 'Local Snapshot failed');
+        });
+      }.bind(this));
+    }
   }
 
   /**
@@ -801,6 +826,9 @@ class WebXRSession {
 
     var scene = this._scene;
     scene.stopXRControllers();
+    if (scene.isLocalRecording && scene.isLocalRecording()) {
+      scene.stopLocalRecording().catch(function () { /* ignore */ });
+    }
     scene.setXRSessionActive(false);
 
     // XR overwrote Camera view/proj each eye — restore desktop orbit camera for picking/drag.

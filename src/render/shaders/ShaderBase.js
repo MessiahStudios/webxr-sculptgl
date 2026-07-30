@@ -185,7 +185,7 @@ ShaderBase.updateUniforms = (function () {
     gl.uniform1f(uniforms.uAlpha, mesh.getOpacity());
 
     gl.uniform1f(uniforms.uCurvature, main.isXRSessionActive && main.isXRSessionActive() ? 0.0 : mesh.getCurvature());
-    gl.uniform1i(uniforms.uDirectOutput, main.isXRSessionActive && main.isXRSessionActive() ? 1 : 0);
+    gl.uniform1i(uniforms.uDirectOutput, (main.isXRSessionActive && main.isXRSessionActive()) || main._localSnapshotPass ? 1 : 0);
     var cam = main.getCamera();
     gl.uniform1f(uniforms.uFov, cam.isOrthographic() ? -Math.abs(cam._trans[2]) * 25.0 : cam.getFov());
   };
