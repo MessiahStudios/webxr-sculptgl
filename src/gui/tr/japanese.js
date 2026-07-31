@@ -102,6 +102,7 @@ var TR = {
   sculptCrease: 'しわ',
   sculptDrag: 'ドラッグ',
   sculptPaint: 'ペイント',
+  sculptSoften: 'ソフトン',
   sculptMasking: null,
   sculptMove: null,
   sculptLocalScale: null,

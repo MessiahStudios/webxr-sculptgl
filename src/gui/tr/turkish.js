@@ -104,6 +104,7 @@ var TR = {
   sculptCrease: 'Kıvrım',
   sculptDrag: 'Sürükle',
   sculptPaint: 'Boya',
+  sculptSoften: 'Yumuşat',
   sculptMasking: 'Maskeleme (-Ctrl)',
   sculptMove: 'Taşı',
   sculptLocalScale: 'Yerel ölçek',

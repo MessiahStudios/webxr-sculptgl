@@ -1,6 +1,7 @@
 import Selection from 'drawables/Selection';
 import Tools from 'editing/tools/Tools';
 import Enums from 'misc/Enums';
+import XRRemoteLog from 'xr/XRRemoteLog';
 
 class SculptManager {
 
@@ -18,6 +19,7 @@ class SculptManager {
     this._sculptTimer = -1; // continuous interval timer
 
     this._selection = new Selection(main._gl); // the selection geometry (red hover circle)
+    this._desktopStrokeLogAt = 0;
 
     this.init();
   }
@@ -76,7 +78,53 @@ class SculptManager {
     var canEdit = tool.start(ctrl);
     if (this._main.getPicking().getMesh() && this.isUsingContinuous())
       this._sculptTimer = window.setInterval(tool._cbContinuous, 16.6);
+    this._logDesktopStrokeStart(canEdit, tool);
     return canEdit;
+  }
+
+  /** Throttled paint/surface stroke breadcrumbs for /__xr_logs while on desktop. */
+  _logDesktopStrokeStart(canEdit, tool) {
+    var main = this._main;
+    if (main.isXRSessionActive && main.isXRSessionActive())
+      return;
+    var idx = this._toolIndex;
+    var surface = idx === Enums.Tools.PAINT || idx === Enums.Tools.SOFTEN || idx === Enums.Tools.MASKING;
+    if (!surface) return;
+
+    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (this._desktopStrokeLogAt && (now - this._desktopStrokeLogAt) < 700)
+      return;
+    this._desktopStrokeLogAt = now;
+
+    var mesh = main.getPicking().getMesh() || main.getMesh();
+    var ui = (Tools[idx] && Tools[idx].uiName) || String(idx);
+    if (!canEdit || !mesh) {
+      XRRemoteLog.see('DESKTOP', 'Stroke missed — no mesh under cursor (' + ui + ')', {
+        tool: ui,
+        canEdit: !!canEdit
+      });
+      return;
+    }
+
+    var detail = {
+      tool: ui,
+      verts: mesh.getNbVertices ? mesh.getNbVertices() : 0,
+      hasUV: !!(mesh.hasUV && mesh.hasUV()),
+      hasPbrMaps: !!(mesh.hasPbrMaps && mesh.hasPbrMaps()),
+      shader: mesh.getShaderType ? mesh.getShaderType() : undefined,
+      radius: tool._radius,
+      intensity: tool._intensity,
+      hardness: tool._hardness
+    };
+    if (Object.prototype.hasOwnProperty.call(tool, '_writeAlbedo')) {
+      detail.writeAlbedo = !!tool._writeAlbedo;
+      detail.writeRoughness = !!tool._writeRoughness;
+      detail.writeMetalness = !!tool._writeMetalness;
+    }
+    if (Object.prototype.hasOwnProperty.call(tool, '_pickColor') && tool._pickColor)
+      detail.eyedropper = true;
+
+    XRRemoteLog.see('DESKTOP', 'Stroke start → ' + ui, detail);
   }
 
   startXR() {

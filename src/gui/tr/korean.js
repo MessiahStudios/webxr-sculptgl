@@ -104,6 +104,7 @@ var TR = {
   sculptCrease: '주름내기',
   sculptDrag: '잡아끌기',
   sculptPaint: '칠하기',
+  sculptSoften: '부드럽게',
   sculptMasking: '마스킹 (-Ctrl)',
   sculptMove: '잡아당기기',
   sculptLocalScale: '지역 스케일',

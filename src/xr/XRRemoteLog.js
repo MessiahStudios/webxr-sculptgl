@@ -1,13 +1,15 @@
 /**
- * Relays console + XR/MR view descriptions from Quest to the laptop via POST /__xr_log.
+ * Relays console + view/action descriptions to the laptop via POST /__xr_log.
  * Live view: http://127.0.0.1:8080/__xr_logs
  *
- * Prefer XRRemoteLog.see('MR', '...') for headset-visible state — those lines
- * describe what the user should see in passthrough / room space.
+ * Works for Quest AND desktop — same buffer/file.
+ * Prefer XRRemoteLog.see(mode, '...') for intentional product lines:
+ *   see('MR'|'VR', ...)     → source xr-view   (headset)
+ *   see('DESKTOP', ...)     → source desktop-view
  */
 var QUEUE = [];
 var FLUSH_MS = 200;
-var MAX_QUEUE = 120;
+var MAX_QUEUE = 400;
 var timer = null;
 var hooked = false;
 var sourceTag = 'client';
@@ -74,17 +76,20 @@ function wrap(level, original) {
 }
 
 /**
- * Human-readable "what you should see" log for MR/VR.
- * @param {'MR'|'VR'|'XR'} mode
+ * Human-readable "what happened / what you should see".
+ * @param {'MR'|'VR'|'XR'|'DESKTOP'} mode
  * @param {string} whatYouShouldSee
  * @param {object=} detail
  */
 function see(mode, whatYouShouldSee, detail) {
-  var prefix = '[' + (mode || 'XR') + ' VIEW]';
+  var m = mode || 'XR';
+  var isDesktop = m === 'DESKTOP' || m === 'Desktop';
+  var prefix = isDesktop ? '[DESKTOP]' : '[' + m + ' VIEW]';
+  var tag = isDesktop ? 'desktop-view' : 'xr-view';
   if (detail !== undefined)
-    enqueue('info', [prefix, whatYouShouldSee, detail], 'xr-view');
+    enqueue('info', [prefix, whatYouShouldSee, detail], tag);
   else
-    enqueue('info', [prefix, whatYouShouldSee], 'xr-view');
+    enqueue('info', [prefix, whatYouShouldSee], tag);
   try {
     var fn = origInfo || console.info;
     if (detail !== undefined)
@@ -121,12 +126,16 @@ function install() {
   console.warn = wrap('warn', origWarn);
   console.error = wrap('error', origError);
   window.addEventListener('error', function (ev) {
-    enqueue('error', [ev.message || 'window.error', ev.filename, ev.lineno]);
+    enqueue('error', [ev.message || 'window.error', ev.filename, ev.lineno, ev.error && ev.error.stack]);
   });
   window.addEventListener('unhandledrejection', function (ev) {
-    enqueue('error', ['unhandledrejection', ev.reason]);
+    enqueue('error', ['unhandledrejection', stringifyArg(ev.reason)]);
   });
-  enqueue('info', ['[XRRemoteLog] installed — MR/VR view logs appear as [MR VIEW] / [VR VIEW]', sourceTag, window.location.href]);
+  enqueue('info', [
+    '[XRRemoteLog] installed — desktop + Quest both POST here; open /__xr_logs',
+    'source=' + sourceTag,
+    window.location.href
+  ]);
   flush();
 }
 

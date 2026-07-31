@@ -3,7 +3,7 @@
  * Offset sits above/clear of the controller so new users can still see the real buttons.
  *
  * Controls (deliberately separated so workspace-adjust doesn't flip tabs):
- *   X button     → cycle tabs (brush / surf / opts / workspace)
+ *   X button     → cycle tabs (form / paint / opts / workspace)
  *   stick Y      → cycle tools (brush/surf) or option focus (opts)
  *   stick X      → nudge paint color / hardness / rough / metal (opts)
  *   Y button     → toggle/cycle focused option (opts) OR recenter (workspace)
@@ -715,8 +715,8 @@ class XRSculptDock {
       ctx.fillText('Right stick: ↔ orbit selection · ↕ closer/farther', 22, line);
     } else if (s.tab === 'opts') {
       ctx.fillStyle = '#ffd09a';
-      if (s.tool === 'paint')
-        ctx.fillText('PAINT OPTIONS — stick Y focus, X nudge, Y button cycle/toggle', 22, line);
+      if (s.tool === 'paint' || s.tool === 'soften')
+        ctx.fillText((s.tool === 'soften' ? 'SOFTEN' : 'PAINT') + ' OPTIONS — stick Y focus, X nudge, Y button cycle/toggle', 22, line);
       else
         ctx.fillText('OPTIONS — stick Y selects, Y button toggles', 22, line);
       line += 26;
@@ -740,7 +740,16 @@ class XRSculptDock {
     } else {
       ctx.fillStyle = '#8899cc';
       ctx.fillText(s.tool === 'paint' ? 'Tools · Paint palette below' : 'Tools (stick Y)', 22, line);
-      line += 24;
+      line += 20;
+      if (s.tool === 'paint') {
+        ctx.fillStyle = '#a8b4cc';
+        ctx.font = '12px system-ui,Segoe UI,sans-serif';
+        ctx.fillText('Matcap/Flat: color · PBR: clay R/M auto (edit in Opts)', 22, line);
+        line += 18;
+        ctx.font = '14px system-ui,Segoe UI,sans-serif';
+      } else {
+        line += 4;
+      }
       var tools = XR_TAB_TOOLS[s.tab] || [];
       var cols = 2;
       var cellW = 230;
@@ -757,10 +766,13 @@ class XRSculptDock {
         ctx.fill();
         ctx.fillStyle = sel ? '#e8ffe8' : '#b8c0d8';
         ctx.font = (sel ? 'bold ' : '') + '14px system-ui,Segoe UI,sans-serif';
-        ctx.fillText(tk, cx + 10, cy);
+        var label = tk;
+        if (tk === 'soften') label = 'blend colors';
+        else if (tk === 'masking') label = 'mask';
+        ctx.fillText(label, cx + 10, cy);
       }
 
-      if (s.tool === 'paint' && s.tab === 'surface') {
+      if (s.tool === 'paint' && s.tab === 'paint') {
         line += Math.ceil(tools.length / cols) * cellH + 12;
         // Mode chips
         ctx.fillStyle = s.paintPicker !== 'wheel' ? 'rgba(120,200,140,0.45)' : 'rgba(50,55,70,0.5)';
@@ -899,7 +911,8 @@ class XRSculptDock {
         paintSat: hsv.s,
         paintVal: hsv.v,
         roughness: Math.round(Math.max(0, Math.min(1, roughness)) * 100),
-        metallic: Math.round(Math.max(0, Math.min(1, metallic)) * 100)
+        metallic: Math.round(Math.max(0, Math.min(1, metallic)) * 100),
+        paintParamsUserTweaked: true
       });
       applyStateToSculptManager(self.state, self._scene);
       if (d > 0.04) {
@@ -1046,7 +1059,7 @@ class XRSculptDock {
       var xPressed = !!(gp.buttons[4] && gp.buttons[4].pressed);
       if (xPressed && !this._tabBtn) {
         this.state.cycleTab(1);
-        if (this.state.tab === 'shape' || this.state.tab === 'surface')
+        if (this.state.tab === 'form' || this.state.tab === 'paint')
           this._applyAndLog();
       }
       this._tabBtn = xPressed;
@@ -1210,7 +1223,7 @@ class XRSculptDock {
        *  NEVER stick-release / stick-click to lock
        *  NEVER apply preview HSV to the sculpt tool until lock
        */
-      var wheelEdit = this.state.tool === 'paint' && this.state.paintPicker === 'wheel' && this.state.tab === 'surface';
+      var wheelEdit = this.state.tool === 'paint' && this.state.paintPicker === 'wheel' && this.state.tab === 'paint';
       if (wheelEdit) {
         var leftTrig = !!(gp.buttons[0] && (gp.buttons[0].pressed || gp.buttons[0].value > 0.55));
         var mag = Math.sqrt(st.x * st.x + st.y * st.y);
@@ -1280,7 +1293,7 @@ class XRSculptDock {
         return;
       }
 
-      // shape / surface / opts: stick Y cycles selection (hold repeats)
+      // form / paint / opts: stick Y cycles selection (hold repeats)
       var nowStick = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       var sy = stickStepY(this._stickLatchedY, this._stickRepeatAt, st.y, nowStick);
       this._stickLatchedY = sy.latched;
@@ -1291,7 +1304,7 @@ class XRSculptDock {
           this._applyAndLog();
       }
 
-      // Stick X: paint color on Surface, or nudge focused paint opt on Opts
+      // Stick X: paint color on Paint tab, or nudge focused paint opt on Opts
       var sx = stickStepX(this._stickLatchedX, this._stickRepeatAtX, st.x, nowStick);
       this._stickLatchedX = sx.latched;
       this._stickRepeatAtX = sx.repeatAt;

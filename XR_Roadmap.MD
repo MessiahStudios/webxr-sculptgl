@@ -181,7 +181,7 @@ These solve different problems. Do not conflate them.
 | Scale sculpture to body / room | Scale object for topology/export |
 | Distance / recenter / turntable | Precision gizmo chrome |
 
-Workspace is not a sculpt tool and not “camera controls.” It is something you **adjust** — a hero tab beside BRUSH and SURF, never nested inside them. Mesh **Transform** is now in XR (gizmo + multi-select) for posing parts; Workspace remains room placement.
+Workspace is not a sculpt tool and not “camera controls.” It is something you **adjust** — a hero tab beside FORM and PAINT, never nested inside them. Mesh **Transform** is now in XR (gizmo + multi-select) for posing parts; Workspace remains room placement.
 
 ---
 
@@ -211,9 +211,9 @@ Organize access around how sculptors actually work:
 |---|---|
 | **Block-out** | Brush, Inflate, Move, Drag |
 | **Refinement** | Smooth, Flatten, Crease, Pinch |
-| **Surface** | Paint, Mask |
+| **Surface** | Paint, Mask (+ future Blend) |
 
-That maps naturally to **BRUSH / SURF** dock tabs and to “never break flow.”
+That maps to dock tabs by **intent**, not phase name alone: **FORM** holds geometry (block-out + refinement), **PAINT** holds surface tools — and to “never break flow.”
 
 ### Categories (not ranks)
 
@@ -249,8 +249,8 @@ Specialized today — not equal stick weight with Brush. Not permanently demoted
 
 Avoid a settings-heavy dock. A small future escape hatch fits the charter:
 
-- BRUSH tab shows a short cycle of slots  
-- Long-press a slot → replace with another BRUSH tool (e.g. Move → Crease)  
+- FORM tab shows a short cycle of slots  
+- Long-press a slot → replace with another FORM tool (e.g. Move → Crease)  
 
 No floating inspectors — just a few primary slots the artist can tailor. Until then: phase-oriented tabs + observed use, not premature hard hierarchy.
 
@@ -341,7 +341,7 @@ Other community approaches (for context, not dependencies):
 | Session + enter/exit | `src/xr/WebXRSession.js` | MR/VR start, frame loop, grip-exit, stage UI hooks |
 | Setup panel | `src/xr/XRSetup.js` | Mode + controller profile before enter |
 | Controllers | `src/xr/XRControllerModels.js` | Official WebXR input-profile GLBs; poses dock host; passes viewer pose for billboard |
-| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | BRUSH / SURF / OPTS / SPACE; paint; file/scene; Transform; **Local Snapshot / Record**; **head-facing float near left grip** |
+| Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | FORM / PAINT / OPTS / SPACE; paint; file/scene; Transform; **Local Snapshot / Record**; **head-facing float near left grip** |
 | Local capture | `src/xr/LocalRecord.js` + `Scene.captureLocalSnapshot` / `startLocalRecording` | Desktop live-canvas PNG/video; XR mono FBO virtual view |
 | Project continuity | `src/xr/XRProjectStore.js` + `Scene.saveXRProject` / `loadXRProject` / `exportXRMesh` | IndexedDB `.sgl`; OBJ/PLY/STL export download |
 | Mesh Transform | `src/editing/tools/Transform.js` + `editing/Gizmo.js` | XR gizmo + free-grab + L+R multi-select |
@@ -361,8 +361,8 @@ The dock **follows the left grip** and **always faces the headset** (independent
 
 | Tab label | Internal id | Job |
 |---|---|---|
-| **BRUSH** | `shape` | Form brushes + grab tools + **Transform** |
-| **SURF** | `surface` | Smooth, Flatten, Paint, Mask |
+| **FORM** | `form` | Geometry deform + grab tools + Smooth / Flatten + **Transform** |
+| **PAINT** | `paint` | Paint, Mask (room for future Blend); paint chrome still in OPTS when Paint tool active |
 | **OPTS** | `opts` | Files, scene, paint opts, clay/symmetry (negative = right grip) |
 | **SPACE** | `workspace` | Artist ↔ sculpture placement (never the mesh) |
 
@@ -390,13 +390,13 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | Index trigger | **Paint wheel lock**; **Transform multi-select** (hold + right trigger on meshes) |
 | Both grips ~2.5s | Exit XR when DOM overlay is missing in MR |
 
-### BRUSH tools
+### FORM tools
 
-`brush` · `inflate` · `pinch` · `crease` · `drag` · `move` · `twist` · `localscale` · **`transform`**
+`brush` · `inflate` · `pinch` · `crease` · `drag` · `move` · `twist` · `localscale` · `smooth` · `flatten` · **`transform`**
 
-### SURF tools
+### PAINT tools
 
-`smooth` · `flatten` · `paint` · `masking`
+`paint` · `masking` · **`soften`** (desktop: “Soften (blend colors)”; XR: “blend colors”)
 
 ### OPTS — files & scene
 
@@ -421,7 +421,7 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | Move a group | Build multi → drag **gizmo** |
 | Escape to one | Right trigger alone on a mesh (clears multi to that mesh) |
 
-### Paint (SURF)
+### Paint (PAINT tab)
 
 | Mechanic | Behavior |
 |---|---|
@@ -430,6 +430,8 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | Wheel lock | **Left trigger** commits; stick must recenter before re-aim |
 | Eyedropper / paint-all | Opts rows |
 | R/I | Always-visible meters; squeeze+stick |
+| Soften | 1-ring blend of color / rough / metal (+ maps); desktop Paint↔Blend dual button |
+| Clay-friendly PBR | Rough/metal default to clay ideals (~55% / ~4%); chrome-ish values auto-correct when selecting Paint until the artist edits (or eyedrops). Matcap/Flat show paint as **color**; PBR uses metal/rough — desktop hint + XR PAINT note |
 
 ### Continuity vs import (Quest reality)
 
@@ -449,18 +451,19 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ### Where we are (2026-07-30)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapshot / Record) and Materials through **Phase C** (live maps + paint-over) are landed.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapshot / Record) and Materials through **Phase C** (live maps + paint-over) are landed. Paint surface polish for the day: **Soften (blend colors)**, denser brush feel, and **clay-friendly metal/rough** with shader wording (Matcap/Flat = color; PBR = editable ideals).
 
 ```
 █████████████████████████  ~96% of first-class XR surface
 │                        │
-├─ Done: session · Workspace · BRUSH/SURF · Transform · paint · Save/Load
+├─ Done: session · Workspace · FORM/PAINT · Transform · paint · Soften · Save/Load
 │        · Import GLB (UVs + live maps + Draco) · Export GLB / OBJ / OBJ+MAPS / PLY / STL
-│        · Paint into maps · head-facing dock · Local Snapshot PNG + video
+│        · Paint into maps · brush feel · clay PBR defaults + shader hint
+│        · head-facing dock · Local Snapshot PNG + video
 ├─ Next: README↔tunnel · Import URL UX · optional Studio (UI) record
 ├─ Parallel: Materials Phase D — UV create/edit (when needed)
-├─ Collaboration: Spectator · Co-sculpt (later)
-└─ Stretch: dock slot swap · hands · remesh · other-HMD
+├─ Collaboration: Spectator (feasible — needs signaling; see below) · Co-sculpt (later)
+└─ Stretch: dock slot swap · hands · remesh · other-HMD · projection paint / layers / smudge
 ```
 
 #### Recent agreed list — what we said vs what advanced
@@ -476,7 +479,9 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapsho
 | **GLB import fidelity** | **Yes** | Phase A + live map slots (Phase C) |
 | **GLB export** | **Yes** | Phase B; prefers live maps when present |
 | **Paint into maps** | **Yes** | Phase C — overwrite imported texels; verts remain UV-less fallback |
-| **Spectator / Co-sculpt** | **No** | Unchanged — needs signaling |
+| **Paint brush feel + Soften** | **Yes** | Denser stamps, flow, XR trigger→intensity; Soften on PAINT (desktop dual button + “blend colors”) |
+| **Clay-friendly paint / shader hint** | **Yes** | Defaults ~R55 / M4; auto-correct chrome until user edits; Matcap/Flat vs PBR copy on desktop + XR |
+| **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
 
@@ -494,15 +499,17 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Workspace / SPACE** — fit, scale, distance, turntable, tilt, recenter, enter-size feedback  
 - [x] Stereo draw without one eye wiping the other  
 - [x] Official controller models (WebXR input profiles)  
-- [x] Left-hand **Sculpt Dock** — tabs **BRUSH / SURF / OPTS / SPACE** (labels; internals still `shape`/`surface`/…)  
+- [x] Left-hand **Sculpt Dock** — tabs **FORM / PAINT / OPTS / SPACE** (ids `form` / `paint` / …; legacy `shape`/`surface` migrate)  
 - [x] Dock **faces the headset** while tracking left-arm position (grip follow, world billboard — not wrist-locked)  
 - [x] Dock floats **above the button deck** so new users can still see left-controller controls  
 - [x] Right-trigger sculpt with ray picking  
-- [x] Brush, inflate, pinch, crease, smooth, flatten, paint, masking  
+- [x] Brush, inflate, pinch, crease, smooth, flatten, paint, masking, **soften**  
 - [x] Drag + Move (limited grab); Twist (wrist roll / stick); Local Scale (push-pull / stick)  
 - [x] **Transform** + desktop gizmo in XR (free-grab, axis handles, L+R multi-select)  
 - [x] Paint swatches + **color wheel** (stick = preview; **left trigger** = lock)  
 - [x] Paint **eyedropper** + **paint-all** from dock Opts  
+- [x] **Paint brush feel** (denser stamps, flow; XR analog trigger → intensity) + **Soften** on PAINT  
+- [x] **Clay-friendly paint defaults** + Matcap/Flat vs PBR wording (auto ideals until user edits rough/metal)  
 - [x] Symmetry-aware XR paths for grab tools  
 - [x] Undo / Redo in XR (Right B / stick click / Opts)  
 - [x] Intensity/radius always visible + squeeze+stick adjust (toast / haptic)  
@@ -530,6 +537,8 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 5. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
 6. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
 7. [ ] Optional **Studio record** (desktop UI in frame) for speed-sculpt / tutorial exports — default stays sculpt-view-only  
+8. [x] **Paint brush feel** + **Blend (Soften)** on PAINT tab  
+9. [x] **Clay-friendly PBR paint params** + shader acceptance hint (desktop + XR)  
 
 ### Collaboration & capture (naming — keep distinct)
 
@@ -538,13 +547,57 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 | **Local Snapshot** | Image or short video of the *virtual* sculpt view — review or share later | **Done** — desktop + XR; clean presets; XR includes dock/controllers; not Cast/passthrough |
 | **Studio record** | Same encode path but includes **desktop yagui** (tools, saves, panels) for speed sculpts | **Agreed design** — not built; OS window capture works today |
 | **XR presentation capture** | Richer demo composite (aim rays, MR plate, framing) | **Mostly landed** (dock + controllers); polish remains stretch |
-| **Spectator** | Friend opens *this app*, invite code, watches **live virtual** world (view-only; no MR) | Planned — signaling + WebRTC |
+| **Spectator** | Friend joins by invite code and **sees your live clay/scene** (view-only). Target: **headset-to-headset** — each person in their own room/passthrough; shared virtual sculptures, not a copy of your camera feed. Desktop viewer is an allowed thinner first step. Precursor to **Co-sculpt**. | **Feasible, not built** — needs signaling + sync (see below) |
+| **Desktop mirror** | Same machine / same origin shows live virtual view while XR is active | Easier adjacent step — **not** Spectator |
 | **Cast / Stream** | Twitch / YouTube / Quest Cast / OS share | Outside our app |
-| **Co-sculpt** | Friend edits the same clay | Later — after Spectator |
+| **Co-sculpt** | Friend **edits** the same clay (Spectator + write authority) | Later — after Spectator |
 
-Do **not** call local mirror/debug “Spectator.” Do **not** promise passthrough or OS Cast inside WebXR.
+Do **not** call Local Snapshot, Local Record, or desktop mirror “Spectator.”  
+Do **not** promise OS Cast or that WebXR can share your passthrough camera feed to a friend.
+
+**Local Snapshot ≠ Spectator:** Snapshot/Record is *you* capturing a file for later. Spectator is a *live second person* watching the session.
 
 **Why XR video isn’t Quest Cast:** WebXR cannot read the OS compositor. We redraw a flat mono presentation. Headset playback of a WebM does **not** apply VR lens correction.
+
+### Spectator feasibility (refined)
+
+**Verdict: yes — and your headset-friend vision is the right north star.**
+
+What you described:
+
+```
+You (Quest, sculpting) ──sync clay/scene──► Friend (Quest, view-only)
+         own passthrough / room                    own passthrough / room
+```
+
+- Friend sees **your sculptures** (and scene) update live.  
+- Friend keeps **their** environment (MR passthrough or VR).  
+- If you’re in the **same physical room**, they may also see *you* through passthrough — that’s the headset’s camera, not something we stream.  
+- If you’re **remote**, they see the shared clay in *their* room, not your walls — still meaningful for “watch me sculpt.”  
+- View-only now → later flip a flag to **Co-sculpt**.
+
+| Approach | What friend sees | Fit |
+|---|---|---|
+| **A. Shared scene sync** (mesh / deltas over datachannel) | Clay in *their* XR space at true scale | **Target Spectator** — precursor to co-sculpt |
+| **B. Video of your virtual view** (WebRTC media) | Your camera framing as a flat screen | Easier desktop/teaching step; weaker on headset |
+| **C. Local Snapshot / Record** | A file later — not live | **Not** Spectator |
+
+| Piece | Possible? | Notes |
+|---|---|---|
+| Invite code + match peers | **Yes, needs signaling** | WebSocket / LiveKit / etc. — not free forever on static hosting alone |
+| Shared mesh sync (A) | **Yes** | Harder than video; same foundation Co-sculpt needs |
+| Video fallback (B) | **Yes** | Reuses Local Record–style encode; fine for desktop guest |
+| Friend headset + own passthrough | **Yes** | Each runs their own WebXR session; we only sync *virtual* content |
+| Stream your passthrough to them | **No / out of scope** | OS / privacy / WebXR limits — they use *their* camera |
+| Zero-server cross-device | **No** | Signaling (+ often TURN) required |
+
+**Phased path:**
+1. Design spike — signaling choice; prefer **scene sync (A)** as the real product; video (B) optional for desktop guest  
+2. Desktop viewer v1 — join by code, view-only (sync or video)  
+3. **Headset guest v1** — friend in Quest, view-only clay in their space  
+4. Co-sculpt — grant edit authority on the same sync path  
+
+**Desktop mirror** (same laptop while *you* wear Quest) still isn’t Spectator — useful for teaching yourself, no invite.
 
 ### GLB status (honest)
 
@@ -570,12 +623,15 @@ Do **not** call local mirror/debug “Spectator.” Do **not** promise passthrou
 ### Later (stretch)
 
 - [ ] Lightweight dock slot replace (long-press primary → swap tool; no settings panel)  
-- [ ] Optional **blend / smudge** surface tool (parked — earn its place later)  
+- [x] **Paint brush feel** (flow / denser stamp spacing; XR trigger→Tablet intensity)  
+- [x] **Blend (Soften)** under **PAINT** tab — 1-ring mix of color/rough/metal (+ maps); write channels / mask; desktop “blend colors” dual button  
+- [x] **Clay-friendly rough/metal defaults** + auto-correct chrome until edited; Matcap/Flat vs PBR copy  
+- [ ] Smudge / projection paint / layers — park until Soften earns more surface tools  
 - [ ] Freeform **group** free-grab while multi-selected (gizmo group move works today; optional restore)  
 - [ ] Hand tracking sculpt (optional path beside controllers)  
 - [ ] Multi-resolution / remesh flows that feel safe at Quest framerate  
 - [ ] Cloud / Sketchfab-style share from XR (optional; local continuity comes first)  
-- [ ] **Spectator** — invite-code live virtual watch (view-only; signaling + WebRTC; Desktop viewer v1)  
+- [ ] **Spectator** — invite-code live virtual watch (feasible — signaling + WebRTC; Desktop viewer v1)  
 - [ ] **XR presentation capture polish** — aim rays, MR plate options, framing tweaks  
 - [ ] **Studio record** — optional desktop UI compositing / guided OS capture for speed sculpts  
 - [ ] **Co-sculpt** — shared editing (after Spectator)  
@@ -604,7 +660,7 @@ Import asset (keep what GLB/OBJ offers)
 |---|---|
 | UV buffers + OBJ/SGL UV round-trip | Yes (`MeshData` tex coords / UV faces) |
 | UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
-| Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock |
+| Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock; clay-friendly defaults + Soften blend |
 | Brush **alpha** stamps (PNG/JPG falloff) | Yes — desktop sculpt UI; thin in XR |
 | GLB/glTF import | Yes — **UVs + welded topo + live maps + vertex fallback + Draco** |
 | GLB/glTF export | Yes — live maps when present; else bake from verts / COLOR_0 |
@@ -663,10 +719,12 @@ Necessary follow-through after geometry-first GLB.
 - [x] **Paint into textures** when UVs + map slots exist (albedo / rough / metal)  
 - [x] Keep / sample **live maps** on GLB import (`ShaderPBR`)  
 - [x] Improved UV bake padding (wider weighted dilation + second pass)  
+- [x] **Clay-friendly metal/rough** defaults + auto ideals when selecting Paint (editable; eyedropper / slider edits stick)  
+- [x] Shader wording: Matcap/Flat accept paint as color; PBR uses metal/rough  
 - [ ] Layers or mask-aware map workflows if they earn their place (charter)  
 - [x] Keep vertex paint as the always-available path (no UV required)  
 
-*Outcome:* paint serves both clay look *and* engine/DCC-ready maps.
+*Outcome:* paint serves both clay look *and* engine/DCC-ready maps — without accidental chrome under PBR.
 
 ### Phase D — UV creation & editing
 

@@ -106,6 +106,7 @@ var TR = {
   sculptMove: '3D Перемещать',
   sculptLocalScale: '3D масштабирование',
   sculptPaint: '2D Кисть',
+  sculptSoften: 'Смягчение',
   sculptMasking: '2D Маска (-Ctrl)',
   sculptTransform: 'Трансформация',
 

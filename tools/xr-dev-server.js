@@ -181,7 +181,7 @@ var server = http.createServer(function (req, res) {
           appendLog({
             t: e.t || new Date().toISOString(),
             level: e.level || 'info',
-            source: e.source || 'quest',
+            source: e.source || 'client',
             msg: typeof e.msg === 'string' ? e.msg : JSON.stringify(e.msg)
           });
         }

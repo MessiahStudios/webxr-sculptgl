@@ -104,6 +104,7 @@ var TR = {
   sculptCrease: 'Vecka',
   sculptDrag: 'Dra',
   sculptPaint: 'Måla',
+  sculptSoften: 'Mjuka upp',
   sculptMasking: 'Maskera (-Ctrl)',
   sculptMove: 'Flytta',
   sculptLocalScale: 'Skala lokalt',

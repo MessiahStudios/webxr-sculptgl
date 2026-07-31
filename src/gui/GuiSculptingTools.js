@@ -4,6 +4,7 @@ import TR from 'gui/GuiTR';
 import Picking from 'math3d/Picking';
 import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
+import XRRemoteLog from 'xr/XRRemoteLog';
 
 var GuiSculptingTools = {};
 GuiSculptingTools.tools = [];
@@ -81,6 +82,52 @@ var addCtrlAlpha = function (ctrls, fold, tool, ui) {
   ctrls.push(fold.addButton(TR('sculptImportAlpha'), importAlpha));
 };
 
+function switchSculptTool(main, toolIndex) {
+  var gui = main.getGui && main.getGui();
+  var sculptGui = gui && gui._ctrlSculpting;
+  if (sculptGui && sculptGui._ctrlSculpt)
+    sculptGui._ctrlSculpt.setValue(toolIndex);
+  else
+    main.getSculptManager().setToolIndex(toolIndex);
+}
+
+/** Desktop Paint ↔ Soften row — same grouping idea as XR PAINT tab. */
+function addPaintSurfaceModeRow(ctrls, fold, main, activeIsSoften) {
+  ctrls.push(fold.addTitle(TR('sculptPaintModeTitle')));
+  var switcher = {
+    goPaint: function () { switchSculptTool(main, Enums.Tools.PAINT); },
+    goSoften: function () { switchSculptTool(main, Enums.Tools.SOFTEN); }
+  };
+  var dual = fold.addDualButton(
+    TR('sculptPaintModePaint'),
+    TR('sculptPaintModeSoften'),
+    switcher,
+    switcher,
+    'goPaint',
+    'goSoften'
+  );
+  if (dual && dual[0] && dual[1] && dual[0].domButton && dual[1].domButton) {
+    dual[activeIsSoften ? 1 : 0].domButton.style.fontWeight = 'bold';
+    dual[activeIsSoften ? 0 : 1].domButton.style.opacity = '0.75';
+  }
+  ctrls.push(dual[0], dual[1]);
+}
+
+/** Sync sliders after Paint.applyClayIdealsIfNeeded (desktop panel). */
+GuiSculptingTools.onPaintToolSelected = function (main) {
+  var tool = main.getSculptManager().getTool(Enums.Tools.PAINT);
+  if (!tool || !tool.applyClayIdealsIfNeeded || !tool.applyClayIdealsIfNeeded()) return;
+  var materials = GuiTools[Enums.Tools.PAINT] && GuiTools[Enums.Tools.PAINT]._paintMaterials;
+  if (materials && materials[1] && materials[2]) {
+    materials[1].setValue(Math.round(tool._material[0] * 100), true);
+    materials[2].setValue(Math.round(tool._material[1] * 100), true);
+  }
+  XRRemoteLog.see('DESKTOP', TR('sculptPaintIdealsApplied'), {
+    roughness: Math.round(tool._material[0] * 100),
+    metallic: Math.round(tool._material[1] * 100)
+  });
+};
+
 GuiTools[Enums.Tools.BRUSH] = {
   _ctrls: [],
   init: function (tool, fold, main) {
@@ -139,8 +186,13 @@ GuiTools[Enums.Tools.PAINT] = {
   _ctrls: [],
   onMaterialChanged: function (main, tool, materials) {
     vec3.copy(tool._color, materials[0].getValue());
-    tool._material[0] = materials[1].getValue() / 100;
-    tool._material[1] = materials[2].getValue() / 100;
+    var newR = materials[1].getValue() / 100;
+    var newM = materials[2].getValue() / 100;
+    if (Math.abs(newR - tool._material[0]) > 1e-4 || Math.abs(newM - tool._material[1]) > 1e-4) {
+      if (tool.markPaintUserTweaked) tool.markPaintUserTweaked();
+    }
+    tool._material[0] = newR;
+    tool._material[1] = newM;
 
     var mesh = main.getMesh();
     if (!mesh) return;
@@ -170,6 +222,7 @@ GuiTools[Enums.Tools.PAINT] = {
     vec3.copy(tool._color, color);
     tool._material[0] = roughness;
     tool._material[1] = metallic;
+    if (tool.markPaintUserTweaked) tool.markPaintUserTweaked();
   },
   onColorPick: function (tool, main, val) {
     tool._pickColor = val;
@@ -178,12 +231,15 @@ GuiTools[Enums.Tools.PAINT] = {
     main.renderSelectOverRtt();
   },
   init: function (tool, fold, main) {
+    addPaintSurfaceModeRow(this._ctrls, fold, main, false);
+
     this._ctrls.push(addCtrlRadius(tool, fold, this, main));
     this._ctrls.push(addCtrlIntensity(tool, fold, this));
     this._ctrls.push(addCtrlHardness(tool, fold, this));
     this._ctrls.push(addCtrlCulling(tool, fold));
 
     this._ctrls.push(fold.addTitle(TR('sculptPBRTitle')));
+    this._ctrls.push(fold.addTitle(TR('sculptPaintShaderHint')));
     this._ctrls.push(fold.addButton(TR('sculptPaintAll'), tool, 'paintAll'));
     this._ctrlPicker = fold.addCheckbox(TR('sculptPickColor'), tool._pickColor, this.onColorPick.bind(this, tool, main));
     this._ctrls.push(this._ctrlPicker);
@@ -194,6 +250,7 @@ GuiTools[Enums.Tools.PAINT] = {
     var ctrlRoughness = fold.addSlider(TR('sculptRoughness'), tool._material[0] * 100, cbMatChanged, 0, 100, 1);
     var ctrlMetallic = fold.addSlider(TR('sculptMetallic'), tool._material[1] * 100, cbMatChanged, 0, 100, 1);
     materials.push(ctrlColor, ctrlRoughness, ctrlMetallic);
+    this._paintMaterials = materials;
     this._ctrls.push(ctrlColor, ctrlRoughness, ctrlMetallic);
     tool.setPickCallback(this.onPickedMaterial.bind(this, materials, tool, main));
 
@@ -278,6 +335,23 @@ GuiTools[Enums.Tools.MASKING] = {
     this._ctrls.push(fold.addTitle(TR('sculptExtractTitle')));
     this._ctrls.push(fold.addSlider(TR('sculptExtractThickness'), tool, '_thickness', -5, 5, 0.001));
     this._ctrls.push(fold.addButton(TR('sculptExtractAction'), tool, 'extract'));
+    addCtrlAlpha(this._ctrls, fold, tool, this);
+  }
+};
+
+GuiTools[Enums.Tools.SOFTEN] = {
+  _ctrls: [],
+  init: function (tool, fold, main) {
+    addPaintSurfaceModeRow(this._ctrls, fold, main, true);
+
+    this._ctrls.push(addCtrlRadius(tool, fold, this, main));
+    this._ctrls.push(addCtrlIntensity(tool, fold, this));
+    this._ctrls.push(addCtrlHardness(tool, fold, this));
+    this._ctrls.push(addCtrlCulling(tool, fold));
+    this._ctrls.push(fold.addTitle('Write channel'));
+    this._ctrls.push(fold.addCheckbox(TR('sculptColor'), tool, '_writeAlbedo'));
+    this._ctrls.push(fold.addCheckbox(TR('sculptRoughness'), tool, '_writeRoughness'));
+    this._ctrls.push(fold.addCheckbox(TR('sculptMetallic'), tool, '_writeMetalness'));
     addCtrlAlpha(this._ctrls, fold, tool, this);
   }
 };

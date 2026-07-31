@@ -2,10 +2,13 @@ import { vec3 } from 'gl-matrix';
 import Tablet from 'misc/Tablet';
 import SculptBase from 'editing/tools/SculptBase';
 import MeshPbrMaps from 'mesh/MeshPbrMaps';
-import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
+import XRRemoteLog from 'xr/XRRemoteLog';
 
 class Paint extends SculptBase {
+
+  static get IDEAL_ROUGHNESS() { return 0.55; }
+  static get IDEAL_METALLIC() { return 0.04; }
 
   constructor(main) {
     super(main);
@@ -13,9 +16,13 @@ class Paint extends SculptBase {
     this._radius = 50;
     this._hardness = 0.75;
     this._intensity = 0.75;
+    this._flow = 1.0; // scales effective intensity (desktop/XR shared)
+    this._stampSpacingFactor = 0.11; // denser stamps than form brushes
     this._culling = false;
     this._color = vec3.fromValues(1.0, 0.766, 0.336); // albedo
-    this._material = vec3.fromValues(0.3, 0.95, 0.0); // roughness/metallic/masking
+    // Clay-friendly defaults (old 0.3 / 0.95 looked like chrome under PBR).
+    this._material = vec3.fromValues(0.55, 0.04, 0.0); // roughness/metallic/masking
+    this._paintUserTweaked = false;
     this._pickColor = false; // color picking
     this._pickCallback = null; // callback function after picking a color
     this._idAlpha = 0;
@@ -24,6 +31,24 @@ class Paint extends SculptBase {
     this._writeAlbedo = true;
     this._writeRoughness = true;
     this._writeMetalness = true;
+  }
+
+  /** Mark that the artist edited metal/rough (or eyedropper) — skip auto clay ideals. */
+  markPaintUserTweaked() {
+    this._paintUserTweaked = true;
+  }
+
+  /**
+   * Matcap/Flat ignore metal/rough; PBR does not. Old chrome defaults looked wrong —
+   * nudge to clay-friendly values until the user edits them.
+   * @returns {boolean} true if values were changed
+   */
+  applyClayIdealsIfNeeded() {
+    if (this._paintUserTweaked || !this._material) return false;
+    if (this._material[1] <= 0.45 && this._material[0] >= 0.25) return false;
+    this._material[0] = Paint.IDEAL_ROUGHNESS;
+    this._material[1] = Paint.IDEAL_METALLIC;
+    return true;
   }
 
   end() {
@@ -65,10 +90,16 @@ class Paint extends SculptBase {
     if (this._pickColor)
       return this.pickColor(this._main.getPicking());
     var mesh = this.getMesh();
-    // UV mesh without maps yet: create editable slots so paint overwrites texture detail.
+    // UV clay without maps yet: create slots for honest export / optional PBR view.
+    // Do NOT force PBR — Matcap is the familiar clay look; artist switches shader in Rendering.
     if (mesh && mesh.hasUV() && !(mesh.hasPbrMaps && mesh.hasPbrMaps())) {
       MeshPbrMaps.ensureOnMesh(mesh, MeshPbrMaps.DEFAULT_SIZE);
-      mesh.setShaderType(Enums.Shader.PBR);
+      if (!(this._main.isXRSessionActive && this._main.isXRSessionActive())) {
+        XRRemoteLog.see('DESKTOP', 'Paint created live PBR map slots (shader unchanged)', {
+          shader: mesh.getShaderType && mesh.getShaderType(),
+          hasPbrMaps: true
+        });
+      }
     }
     super.startSculpt();
   }
@@ -173,7 +204,8 @@ class Paint extends SculptBase {
 
   stroke(picking) {
     var iVertsInRadius = picking.getPickedVertices();
-    var intensity = this._intensity * Tablet.getPressureIntensity();
+    var flow = this._flow === undefined ? 1.0 : this._flow;
+    var intensity = this._intensity * flow * Tablet.getPressureIntensity();
 
     // undo-redo
     this._main.getStateManager().pushVertices(iVertsInRadius);
@@ -277,9 +309,19 @@ class Paint extends SculptBase {
     if (iVerts.length === 0)
       return;
 
+    if (!(this._main.isXRSessionActive && this._main.isXRSessionActive())) {
+      XRRemoteLog.see('DESKTOP', 'Paint All', {
+        verts: iVerts.length,
+        hasPbrMaps: !!(mesh.hasPbrMaps && mesh.hasPbrMaps()),
+        writeAlbedo: !!this._writeAlbedo,
+        writeRoughness: !!this._writeRoughness,
+        writeMetalness: !!this._writeMetalness
+      });
+    }
+
     if (mesh.hasUV() && !(mesh.hasPbrMaps && mesh.hasPbrMaps())) {
       MeshPbrMaps.ensureOnMesh(mesh, MeshPbrMaps.DEFAULT_SIZE);
-      mesh.setShaderType(Enums.Shader.PBR);
+      // Keep current shader (do not force PBR).
     }
 
     this.pushState(true);

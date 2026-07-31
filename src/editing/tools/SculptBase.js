@@ -154,6 +154,22 @@ class SculptBase {
     main.setCanvasCursor('default');
   }
 
+  /**
+   * Stamp spacing factor relative to brush radius (desktop screen px / XR world).
+   * Paint/Soften use a denser default via `_stampSpacingFactor`.
+   */
+  getStampSpacingFactor() {
+    if (this._stampSpacingFactor !== undefined && this._stampSpacingFactor > 0)
+      return this._stampSpacingFactor;
+    return 0.15;
+  }
+
+  getXRStampSpacingFactor() {
+    if (this._stampSpacingFactor !== undefined && this._stampSpacingFactor > 0)
+      return this._stampSpacingFactor * (0.22 / 0.15);
+    return 0.22;
+  }
+
   sculptStroke() {
     var main = this._main;
     var picking = main.getPicking();
@@ -162,7 +178,7 @@ class SculptBase {
     var dx = main._mouseX - this._lastMouseX;
     var dy = main._mouseY - this._lastMouseY;
     var dist = Math.sqrt(dx * dx + dy * dy);
-    var minSpacing = 0.15 * this._radius * main.getPixelRatio();
+    var minSpacing = this.getStampSpacingFactor() * this._radius * main.getPixelRatio();
 
     if (dist <= minSpacing)
       return;
@@ -235,7 +251,7 @@ class SculptBase {
     vec3.transformMat4(hitWorld, hitLocal, mesh.getMatrix());
 
     if (this._xrLastHit) {
-      var minSpacing = Math.sqrt(picking.getWorldRadius2()) * 0.22;
+      var minSpacing = Math.sqrt(picking.getWorldRadius2()) * this.getXRStampSpacingFactor();
       var moved = vec3.dist(this._xrLastHit, hitWorld);
       // Desktop continuous: brush keeps deforming while held still. XR: allow a stroke ~30Hz when parked.
       if (moved < minSpacing) {

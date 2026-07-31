@@ -3,6 +3,7 @@ import Enums from 'misc/Enums';
 import Tools from 'editing/tools/Tools';
 import getOptionsURL from 'misc/getOptionsURL';
 import GuiSculptingTools from 'gui/GuiSculptingTools';
+import XRRemoteLog from 'xr/XRRemoteLog';
 
 var GuiTools = GuiSculptingTools.tools;
 
@@ -107,6 +108,14 @@ class GuiSculpting {
     this._ctrlTitleCommon.setVisibility(showContinuous || showSym);
 
     this._main.getPicking().updateLocalAndWorldRadius2();
+
+    if (newValue === Enums.Tools.PAINT)
+      GuiSculptingTools.onPaintToolSelected(this._main);
+
+    if (!(this._main.isXRSessionActive && this._main.isXRSessionActive())) {
+      var ui = (Tools[newValue] && Tools[newValue].uiName) || String(newValue);
+      XRRemoteLog.see('DESKTOP', 'Tool → ' + ui, { toolIndex: newValue });
+    }
   }
 
   loadAlpha(event) {

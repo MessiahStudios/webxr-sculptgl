@@ -24,6 +24,7 @@ import XRRemoteLog from 'xr/XRRemoteLog';
 import Export from 'files/Export';
 import XRProjectStore from 'xr/XRProjectStore';
 import LocalRecord from 'xr/LocalRecord';
+import Tablet from 'misc/Tablet';
 import { saveAs } from 'file-saver';
 
 class Scene {
@@ -1186,6 +1187,7 @@ class Scene {
 
     if (!chosen) {
       this._xrTriggerLatched = false;
+      Tablet.clearXRAnalog();
       this._applyXRSmoothHold(false);
       if (this._xrSculpting) {
         this._xrSculpting = false;
@@ -1194,6 +1196,14 @@ class Scene {
       this.getPicking()._mesh = null;
       this.getPickingSymmetry()._mesh = null;
       return;
+    }
+
+    // Analog trigger → paint/soften intensity via Tablet (keeps latch; half-pull does not end stroke).
+    if (triggerPressed) {
+      Tablet.xrAnalog = true;
+      Tablet.pressure = Math.max(0, Math.min(1, triggerValue));
+    } else {
+      Tablet.clearXRAnalog();
     }
 
     var pose = frame.getPose(chosen.targetRaySpace, refSpace);
@@ -1308,6 +1318,7 @@ class Scene {
     }
 
     if (!triggerPressed) {
+      Tablet.clearXRAnalog();
       if (this._xrSculpting) {
         this._xrSculpting = false;
         this.getSculptManager().end();
@@ -2082,6 +2093,7 @@ class Scene {
     this._xrSculpting = false;
     this._xrSculptLogged = false;
     this._xrTriggerLatched = false;
+    Tablet.clearXRAnalog();
     this._xrRayNear = null;
     this._xrRayFar = null;
     this._xrRayUp = null;

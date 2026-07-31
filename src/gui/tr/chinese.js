@@ -104,6 +104,7 @@ var TR = {
   sculptCrease: '皺褶',
   sculptDrag: '拖拉',
   sculptPaint: '塗繪',
+  sculptSoften: '柔化',
   sculptMasking: '遮罩 (-Ctrl)',
   sculptMove: '移動',
   sculptLocalScale: '局部縮放',

@@ -4,32 +4,46 @@
  */
 import Enums from 'misc/Enums';
 
-/** shape / surface = sculpt tools; opts = flags + scene; workspace = artist↔sculpture placement */
-export var XR_TABS = ['shape', 'surface', 'opts', 'workspace'];
+/** Persist that the artist edited rough/metal in XR (stops clay auto-set). */
+function markPaintMaterialTweaked(state) {
+  if (state) state.paintParamsUserTweaked = true;
+}
+
+/** form / paint = sculpt tools; opts = flags + scene; workspace = artist↔sculpture placement */
+export var XR_TABS = ['form', 'paint', 'opts', 'workspace'];
 
 /**
  * Dock chrome labels — keep short.
- * "SHAPE" was confusing next to Opts “add shape” (primitives ≠ brush tools).
+ * FORM = geometry; PAINT = surface (paint / mask / future blend).
+ * Tab id `paint` is distinct from tool key `paint` (same string by design).
  */
 export var XR_TAB_LABELS = {
-  shape: 'BRUSH',
-  surface: 'SURF',
+  form: 'FORM',
+  paint: 'PAINT',
   opts: 'OPTS',
   workspace: 'SPACE'
 };
 
 /**
- * Layout mirrors desktop sculpting groups:
- *   shape (BRUSH)  — form brushes (+ drag/move via controller tip delta)
- *   surface (SURF) — refine / paint / mask
+ * Layout by intent:
+ *   form  — geometry deform + Transform (+ smooth / flatten)
+ *   paint — surface tools (paint, mask; room for blend)
  *   workspace — spatial relationship (never the mesh itself)
  */
 export var XR_TAB_TOOLS = {
-  shape: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'transform'],
-  surface: ['smooth', 'flatten', 'paint', 'masking'],
+  form: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'smooth', 'flatten', 'transform'],
+  paint: ['paint', 'masking', 'soften'],
   opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
   workspace: []
 };
+
+/** Legacy dock tab ids (pre Form/Paint rename) → current. */
+export function normalizeTabId(tab) {
+  if (tab === 'shape') return 'form';
+  if (tab === 'surface') return 'paint';
+  if (tab === 'view') return 'workspace';
+  return tab;
+}
 
 /** Always-visible file continuity rows (before paint opts / brush flags). */
 export var XR_FILE_OPTS = ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality'];
@@ -48,6 +62,11 @@ export var XR_ADD_SHAPES = ['sphere', 'cube', 'cylinder', 'torus'];
 export var XR_PAINT_OPTS = [
   'eyedropper', 'paintAll', 'picker', 'color', 'hardness', 'roughness', 'metallic',
   'writeAlbedo', 'writeRoughness', 'writeMetalness'
+];
+
+/** Soften: channel write + hardness only (no color / eyedropper). */
+export var XR_SOFTEN_OPTS = [
+  'hardness', 'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
 
 export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'glb', 'ply', 'stl'];
@@ -115,7 +134,8 @@ export var TOOL_KEY_TO_ENUM = {
   masking: Enums.Tools.MASKING,
   twist: Enums.Tools.TWIST,
   localscale: Enums.Tools.LOCALSCALE,
-  transform: Enums.Tools.TRANSFORM
+  transform: Enums.Tools.TRANSFORM,
+  soften: Enums.Tools.SOFTEN
 };
 
 var ENUM_TO_TOOL_KEY = {};
@@ -132,9 +152,9 @@ export function toolKeyFromEnum(idx) {
 }
 
 export function inferTabForToolKey(toolKey) {
-  if (XR_TAB_TOOLS.surface.indexOf(toolKey) >= 0) return 'surface';
-  if (TOOL_KEY_TO_ENUM[toolKey] !== undefined) return 'shape';
-  return 'shape';
+  if (XR_TAB_TOOLS.paint.indexOf(toolKey) >= 0) return 'paint';
+  if (TOOL_KEY_TO_ENUM[toolKey] !== undefined) return 'form';
+  return 'form';
 }
 
 export function isXRReadyTool(toolKey) {
@@ -147,6 +167,8 @@ export function getOptsList(state) {
   var headLen = XR_FILE_OPTS.length + XR_SCENE_OPTS.length;
   if (state.tool === 'paint')
     return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_PAINT_OPTS).concat(core.slice(headLen));
+  if (state.tool === 'soften')
+    return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_SOFTEN_OPTS).concat(core.slice(headLen));
   return core;
 }
 
@@ -172,7 +194,7 @@ export function createXRSculptDockState() {
 
   var state = {
     mode: 'sculpt',
-    tab: 'shape',
+    tab: 'form',
     tool: 'brush',
     optFocus: 'save',
     radius: 50,
@@ -198,8 +220,8 @@ export function createXRSculptDockState() {
     paintSat: 0.66,
     paintVal: 1.0,
     hardness: 75,
-    roughness: 30,
-    metallic: 95,
+    roughness: 55,
+    metallic: 5,
     writeAlbedo: true,
     writeRoughness: true,
     writeMetalness: true,
@@ -218,12 +240,15 @@ export function createXRSculptDockState() {
         if (Object.prototype.hasOwnProperty.call(patch, key))
           state[key] = patch[key];
       }
+      if (patch && Object.prototype.hasOwnProperty.call(patch, 'tab'))
+        state.tab = normalizeTabId(state.tab);
       var i;
       for (i = 0; i < listeners.length; ++i)
         listeners[i](state);
     },
 
     cycleTab: function (delta) {
+      state.tab = normalizeTabId(state.tab);
       var idx = XR_TABS.indexOf(state.tab);
       if (idx < 0) idx = 0;
       idx = (idx + delta + XR_TABS.length) % XR_TABS.length;
@@ -373,9 +398,11 @@ export function createXRSculptDockState() {
       } else if (focus === 'roughness') {
         var r = state.roughness + 5;
         state.set({ roughness: r > 100 ? 0 : r });
+        markPaintMaterialTweaked(state);
       } else if (focus === 'metallic') {
         var m = state.metallic + 5;
         state.set({ metallic: m > 100 ? 0 : m });
+        markPaintMaterialTweaked(state);
       }
       return null;
     },
@@ -433,10 +460,13 @@ export function createXRSculptDockState() {
       }
       if (focus === 'hardness')
         state.set({ hardness: Math.max(0, Math.min(100, state.hardness + step)) });
-      else if (focus === 'roughness')
+      else if (focus === 'roughness') {
         state.set({ roughness: Math.max(0, Math.min(100, state.roughness + step)) });
-      else if (focus === 'metallic')
+        markPaintMaterialTweaked(state);
+      } else if (focus === 'metallic') {
         state.set({ metallic: Math.max(0, Math.min(100, state.metallic + step)) });
+        markPaintMaterialTweaked(state);
+      }
     }
   };
 
@@ -458,10 +488,11 @@ export function syncStateFromSculptManager(state, sculptManager) {
     sculptManager.setToolIndex(TOOL_KEY_TO_ENUM.brush);
     tool = sculptManager.getCurrentTool();
   }
+  var curTab = normalizeTabId(state.tab);
   var patch = {
     tool: tKey,
-    tab: (state.tab === 'opts' || state.tab === 'workspace' || state.tab === 'view')
-      ? (state.tab === 'view' ? 'workspace' : state.tab)
+    tab: (curTab === 'opts' || curTab === 'workspace')
+      ? curTab
       : inferTabForToolKey(tKey),
     radius: tool._radius !== undefined ? Math.round(tool._radius) : state.radius,
     intensity: tool._intensity !== undefined ? Math.round(tool._intensity * 100) : state.intensity,
@@ -535,6 +566,13 @@ export function applyStateToSculptManager(state, scene) {
   if (t._material) {
     t._material[0] = Math.max(0, Math.min(1, state.roughness / 100));
     t._material[1] = Math.max(0, Math.min(1, state.metallic / 100));
+  }
+  if (state.paintParamsUserTweaked && t.markPaintUserTweaked)
+    t.markPaintUserTweaked();
+  // Chrome-ish dock/tool values → clay ideals until the artist edits R/M.
+  if (state.tool === 'paint' && t.applyClayIdealsIfNeeded && t.applyClayIdealsIfNeeded()) {
+    state.roughness = Math.round(t._material[0] * 100);
+    state.metallic = Math.round(t._material[1] * 100);
   }
   if (Object.prototype.hasOwnProperty.call(t, '_writeAlbedo')) {
     t._writeAlbedo = !!state.writeAlbedo;

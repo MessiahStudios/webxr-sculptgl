@@ -104,6 +104,7 @@ var TR = {
   sculptCrease: 'Piega',
   sculptDrag: 'Trascina',
   sculptPaint: 'Dipingi',
+  sculptSoften: 'Ammorbidisci (Blend)',
   sculptMasking: 'Maschera (-Ctrl)',
   sculptMove: 'Muovi',
   sculptLocalScale: 'Scala Locale',
