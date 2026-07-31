@@ -120,7 +120,7 @@ body {
 }
 
 .gui-sidebar > ul[opened=true] {
-  max-height: 700px;
+  max-height: 1400px;
 }
 
 .gui-sidebar > ul[opened=false] {
@@ -131,6 +131,14 @@ body {
 .gui-sidebar > ul > li {
   height: 22px;
   margin: 4px 5px 4px 5px;
+}
+
+/* Alpha stamp gallery — must grow past the default 22px row height */
+.gui-sidebar > ul > li.sculptgl-alpha-gallery {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin: 6px 5px 10px 5px !important;
 }
 
 .gui-glowOnHover:hover {

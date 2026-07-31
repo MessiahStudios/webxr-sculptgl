@@ -3,6 +3,7 @@ import Geometry from 'math3d/Geometry';
 import Tablet from 'misc/Tablet';
 import Utils from 'misc/Utils';
 import TR from 'gui/GuiTR';
+import AlphaLibrary from 'misc/AlphaLibrary';
 
 var _TMP_NEAR = [0.0, 0.0, 0.0];
 var _TMP_NEAR_1 = [0.0, 0.0, 0.0];
@@ -51,18 +52,36 @@ class Picking {
     this._alphaSide = 0.0;
     this._alphaLookAt = mat4.create();
     this._alpha = null;
+    this._alphaLastDir = [0.0, 1.0, 0.0]; // stable tangent for updateAlpha
+    this._alphaHasDir = false;
+    this._alphaAngleRad = 0.0; // stamp twist around surface normal
   }
 
-  setIdAlpha(id) {
-    this._alpha = Picking.ALPHAS[id];
+  setIdAlpha(id, angleDeg) {
+    if (id === undefined || id === null || id === 0 || id === '0') {
+      this._alpha = null;
+    } else {
+      this._alpha = Picking.ALPHAS[id] || null;
+    }
+    if (angleDeg !== undefined)
+      this._alphaAngleRad = (angleDeg || 0) * Math.PI / 180.0;
   }
 
+  setAlphaAngleDegrees(deg) {
+    this._alphaAngleRad = (deg || 0) * Math.PI / 180.0;
+  }
+
+  /**
+   * Sample brush alpha at a mesh-local point (bilinear + mild contrast).
+   * Outside the stamp quad → 0; no alpha selected → 1.
+   */
   getAlpha(x, y, z) {
     var alpha = this._alpha;
     if (!alpha || !alpha._texture) return 1.0;
 
     var m = this._alphaLookAt;
     var rs = this._alphaSide;
+    if (rs < 1e-8) return 0.0;
 
     var xn = alpha._ratioY * (m[0] * x + m[4] * y + m[8] * z + m[12]) / (this._xSym ? -rs : rs);
     if (Math.abs(xn) > 1.0) return 0.0;
@@ -71,25 +90,101 @@ class Picking {
     if (Math.abs(yn) > 1.0) return 0.0;
 
     var aw = alpha._width;
-    xn = (0.5 - xn * 0.5) * aw;
-    yn = (0.5 - yn * 0.5) * alpha._height;
-    return alpha._texture[(xn | 0) + aw * (yn | 0)] / 255.0;
+    var ah = alpha._height;
+    var u = (0.5 - xn * 0.5) * aw - 0.5;
+    var v = (0.5 - yn * 0.5) * ah - 0.5;
+
+    var x0 = Math.floor(u);
+    var y0 = Math.floor(v);
+    var tx = u - x0;
+    var ty = v - y0;
+    var x1 = x0 + 1;
+    var y1 = y0 + 1;
+
+    if (x0 < 0) x0 = 0;
+    else if (x0 >= aw) x0 = aw - 1;
+    if (x1 < 0) x1 = 0;
+    else if (x1 >= aw) x1 = aw - 1;
+    if (y0 < 0) y0 = 0;
+    else if (y0 >= ah) y0 = ah - 1;
+    if (y1 < 0) y1 = 0;
+    else if (y1 >= ah) y1 = ah - 1;
+
+    var tex = alpha._texture;
+    var s00 = tex[x0 + aw * y0] / 255.0;
+    var s10 = tex[x1 + aw * y0] / 255.0;
+    var s01 = tex[x0 + aw * y1] / 255.0;
+    var s11 = tex[x1 + aw * y1] / 255.0;
+    var a = (s00 * (1.0 - tx) + s10 * tx) * (1.0 - ty) + (s01 * (1.0 - tx) + s11 * tx) * ty;
+
+    // Smoothstep contrast — stamps read closer to gallery preview
+    a = a * a * (3.0 - 2.0 * a);
+    return a;
   }
 
-  updateAlpha(keepOrigin) {
+  /**
+   * Rebuild the alpha projection plane.
+   * @param {boolean} keepOrigin - Lock position: keep stamp origin fixed
+   * @param {boolean} [forceReset] - Stroke start: reset tangent history
+   */
+  updateAlpha(keepOrigin, forceReset) {
     var dir = _TMP_V1;
     var nor = _TMP_V2;
 
     var radius = Math.sqrt(this._rLocal2);
     this._alphaSide = radius * Math.SQRT1_2;
 
-    vec3.sub(dir, this._interPoint, this._alphaOrigin);
-    if (vec3.len(dir) === 0) return;
-    vec3.normalize(dir, dir);
-
     var normal = this._pickedNormal;
-    vec3.scaleAndAdd(dir, dir, normal, -vec3.dot(dir, normal));
-    vec3.normalize(dir, dir);
+    var moved = vec3.dist(this._interPoint, this._alphaOrigin);
+
+    if (forceReset || !this._alphaHasDir) {
+      // Seed a stable up from world Y projected onto the tangent plane
+      vec3.set(dir, 0.0, 1.0, 0.0);
+      vec3.scaleAndAdd(dir, dir, normal, -vec3.dot(dir, normal));
+      if (vec3.sqrLen(dir) < 1e-8)
+        vec3.set(dir, 1.0, 0.0, 0.0);
+      vec3.normalize(dir, dir);
+      this._alphaHasDir = true;
+    } else {
+      vec3.sub(dir, this._interPoint, this._alphaOrigin);
+      var len = vec3.len(dir);
+      // Tiny moves: keep previous tangent (stops spin/swim while parked)
+      if (len < radius * 0.02 || (keepOrigin && moved < radius * 0.01)) {
+        vec3.copy(dir, this._alphaLastDir);
+      } else {
+        vec3.scale(dir, dir, 1.0 / len);
+        vec3.scaleAndAdd(dir, dir, normal, -vec3.dot(dir, normal));
+        if (vec3.sqrLen(dir) < 1e-8)
+          vec3.copy(dir, this._alphaLastDir);
+        else
+          vec3.normalize(dir, dir);
+      }
+    }
+
+    vec3.copy(this._alphaLastDir, dir);
+
+    // Artist stamp twist (degrees on the tool → radians here)
+    if (this._alphaAngleRad) {
+      var ang = this._alphaAngleRad;
+      var c = Math.cos(ang);
+      var s = Math.sin(ang);
+      var ax = normal[0];
+      var ay = normal[1];
+      var az = normal[2];
+      var dx = dir[0];
+      var dy = dir[1];
+      var dz = dir[2];
+      // axis × dir
+      var cx = ay * dz - az * dy;
+      var cy = az * dx - ax * dz;
+      var cz = ax * dy - ay * dx;
+      var dot = ax * dx + ay * dy + az * dz;
+      var oneC = 1.0 - c;
+      dir[0] = dx * c + cx * s + ax * dot * oneC;
+      dir[1] = dy * c + cy * s + ay * dot * oneC;
+      dir[2] = dz * c + cz * s + az * dot * oneC;
+      vec3.normalize(dir, dir);
+    }
 
     if (!keepOrigin)
       vec3.copy(this._alphaOrigin, this._interPoint);
@@ -100,7 +195,9 @@ class Picking {
 
   initAlpha() {
     this.computePickedNormal();
-    this.updateAlpha();
+    this._alphaHasDir = false;
+    vec3.copy(this._alphaOrigin, this._interPoint);
+    this.updateAlpha(false, true);
   }
 
   getMesh() {
@@ -508,12 +605,12 @@ class Picking {
   }
 }
 
-// TODO update i18n strings in a dynamic way
-Picking.INIT_ALPHAS_NAMES = [TR('alphaSquare'), TR('alphaSkin')];
-Picking.INIT_ALPHAS_PATHS = ['square.jpg', 'skin.jpg'];
+// Built-in gallery (shared Desktop + XR). Custom imports append via addAlpha.
+Picking.INIT_ALPHAS_NAMES = AlphaLibrary.getInitAlphaNames();
+Picking.INIT_ALPHAS_PATHS = AlphaLibrary.getInitAlphaPaths();
 
 var readAlphas = function () {
-  // check nodejs
+  // check nodejs / Electron: pick up extra files dropped in resources/alpha
   if (!window.module || !window.module.exports) return;
   var fs = eval('require')('fs');
   var path = eval('require')('path');
@@ -521,9 +618,14 @@ var readAlphas = function () {
   var directoryPath = path.join(window.__filename, '../resources/alpha');
   fs.readdir(directoryPath, function (err, files) {
     if (err) return;
-    for (var i = 0; i < files.length; ++i) {
+    var known = {};
+    var i;
+    for (i = 0; i < Picking.INIT_ALPHAS_PATHS.length; ++i)
+      known[Picking.INIT_ALPHAS_PATHS[i]] = true;
+    for (i = 0; i < files.length; ++i) {
       var fname = files[i];
-      if (fname == 'square.jpg' || fname == 'skin.jpg') continue;
+      if (!/\.(jpe?g|png|webp)$/i.test(fname)) continue;
+      if (known[fname]) continue;
       Picking.INIT_ALPHAS_NAMES.push(fname);
       Picking.INIT_ALPHAS_PATHS.push(fname);
     }

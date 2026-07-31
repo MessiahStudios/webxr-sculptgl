@@ -109,16 +109,17 @@ ShaderBase.getOrCreate = function (gl) {
   gl.shaderSource(vShader, processShader(this.vertex + vname));
   gl.compileShader(vShader);
 
-  // All our fragment shaders are GLSL ES 1.00 (#version 100). dFdx/dFdy are NOT core there,
-  // even on a WebGL2 context — enabling SCULPTGL_USE_DERIVATIVES without the extension line
-  // breaks Matcap/PBR/etc. (dfdx/dfdy undefined). Only use derivatives when the extension exists.
+  // Fragment shaders stay GLSL ES 1.00 (#version 100).
+  // Original SculptGL = WebGL1: OES_standard_derivatives + #extension → dFdx/dFdy.
+  // This fork prefers WebGL2 (XR). On WebGL2 that extension is usually unavailable —
+  // do NOT force SCULPTGL_USE_DERIVATIVES (dFdx fails to compile → invisible mesh).
+  // Fallback shading in getNormal / computeCurvature still draws correctly.
   var stdDerivExt = null;
   try {
     stdDerivExt = gl.getExtension('OES_standard_derivatives');
   } catch (e) { /* ignore */ }
-  var hasDerivatives = !!stdDerivExt;
   var fragPreamble = '';
-  if (hasDerivatives) {
+  if (stdDerivExt) {
     fragPreamble = '#extension GL_OES_standard_derivatives : enable\n#define SCULPTGL_USE_DERIVATIVES 1\n';
   }
 

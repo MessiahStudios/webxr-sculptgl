@@ -86,7 +86,7 @@ class Drag extends SculptBase {
     iVertsInRadius = this.dynamicTopology(picking);
 
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     this.drag(iVertsInRadius, picking.getIntersectionPoint(), picking.getLocalRadius2(), sym, picking);
 
     var mesh = this.getMesh();

@@ -5,12 +5,14 @@ import Picking from 'math3d/Picking';
 import Enums from 'misc/Enums';
 import Utils from 'misc/Utils';
 import XRRemoteLog from 'xr/XRRemoteLog';
+import AlphaLibrary from 'misc/AlphaLibrary';
 
 var GuiSculptingTools = {};
 GuiSculptingTools.tools = [];
 var GuiTools = GuiSculptingTools.tools;
 
 GuiSculptingTools.initGuiTools = function (sculpt, menu, main) {
+  _sharedAlpha = null;
   // init each tools ui
   for (var i = 0, nbTools = Tools.length; i < nbTools; ++i) {
     if (!Tools[i]) continue;
@@ -25,6 +27,9 @@ GuiSculptingTools.initGuiTools = function (sculpt, menu, main) {
     uTool.init(sculpt.getTool(i), menu, main);
     GuiSculptingTools.hide(i);
   }
+  // Single gallery after all per-tool rows (sits above Common / Symmetry).
+  ensureSharedAlphaGallery(menu);
+  if (_sharedAlpha) _sharedAlpha.galleryWidget.setVisibility(false);
 };
 
 GuiSculptingTools.hide = function (toolIndex) {
@@ -35,6 +40,7 @@ GuiSculptingTools.hide = function (toolIndex) {
 GuiSculptingTools.show = function (toolIndex) {
   for (var i = 0, ctrls = GuiTools[toolIndex]._ctrls, nbCtrl = ctrls.length; i < nbCtrl; ++i)
     ctrls[i].setVisibility(true);
+  syncSharedAlphaVisibility(toolIndex);
 };
 
 var setOnChange = function (key, factor, val) {
@@ -73,14 +79,218 @@ var addCtrlNegative = function (tool, fold, widget, name) {
 var importAlpha = function () {
   document.getElementById('alphaopen').click();
 };
+
+/** One gallery for all sculpt tools (not one copy per tool). */
+var _sharedAlpha = null; // { fold, titleWidgets, galleryWidget, root, activeUi }
+
+function setDomVisible(el, visible) {
+  if (!el) return;
+  el.hidden = !visible;
+  el.style.display = visible ? '' : 'none';
+}
+
+function paintSharedAlphaGallery() {
+  var shared = _sharedAlpha;
+  if (!shared || !shared.root) return;
+  var ui = shared.activeUi;
+  var root = shared.root;
+  root.innerHTML = '';
+  root.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 4px;width:100%;box-sizing:border-box;';
+
+  var noneLabel = AlphaLibrary.getNoneLabel();
+  var entries = [{ id: noneLabel, thumb: null, label: noneLabel }];
+  var i;
+  for (i = 0; i < AlphaLibrary.BUILTIN_ALPHAS.length; ++i) {
+    var b = AlphaLibrary.BUILTIN_ALPHAS[i];
+    entries.push({ id: b.id, thumb: AlphaLibrary.alphaThumbUrl(b.file), label: b.id });
+  }
+  var names = Object.keys(Picking.ALPHAS_NAMES || {});
+  for (i = 0; i < names.length; ++i) {
+    var n = names[i];
+    if (n === noneLabel) continue;
+    var known = false;
+    var j;
+    for (j = 0; j < entries.length; ++j) {
+      if (entries[j].id === n) { known = true; break; }
+    }
+    if (!known) entries.push({ id: n, thumb: null, label: n });
+  }
+
+  var cur = ui && ui._toolRef ? ui._toolRef._idAlpha : 0;
+  cur = AlphaLibrary.normalizeAlphaId(cur);
+  if (cur === AlphaLibrary.ALPHA_NONE_ID) cur = noneLabel;
+
+  for (i = 0; i < entries.length; ++i) {
+    (function (entry) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.title = entry.label;
+      var selected = entry.id === cur;
+      btn.style.cssText = 'width:36px;height:36px;padding:2px;border-radius:5px;cursor:pointer;flex:0 0 auto;border:2px solid ' +
+        (selected ? '#6af' : '#445') + ';background:#1a1e28;overflow:hidden;box-sizing:border-box;';
+      if (entry.thumb) {
+        var img = document.createElement('img');
+        img.src = entry.thumb;
+        img.alt = entry.label;
+        img.draggable = false;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;';
+        btn.appendChild(img);
+      } else {
+        btn.textContent = entry.id === noneLabel ? '∅' : entry.label.charAt(0);
+        btn.style.color = '#c8d0e8';
+        btn.style.fontSize = '11px';
+      }
+      btn.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var val = entry.id === noneLabel ? noneLabel : entry.id;
+        var active = _sharedAlpha && _sharedAlpha.activeUi;
+        applyAlphaSelection(active && active._toolRef, val, active);
+        GuiSculptingTools.refreshAlphaGalleries();
+      });
+      root.appendChild(btn);
+    })(entries[i]);
+  }
+}
+
+/** Select stamp + default Lock on for non-None (classic stamp behavior). */
+function applyAlphaSelection(tool, alphaVal, ui) {
+  if (!tool) return;
+  var noneLabel = AlphaLibrary.getNoneLabel();
+  var isNone = !alphaVal || alphaVal === 0 || alphaVal === '0' ||
+    alphaVal === noneLabel ||
+    AlphaLibrary.normalizeAlphaId(alphaVal) === AlphaLibrary.ALPHA_NONE_ID;
+  tool._idAlpha = isNone ? 0 : alphaVal;
+  if (tool._lockPosition === undefined)
+    tool._lockPosition = false;
+  tool._lockPosition = !isNone;
+  if (ui && ui._ctrlAlpha)
+    ui._ctrlAlpha.setValue(isNone ? noneLabel : alphaVal);
+  if (ui && ui._ctrlLockAlpha)
+    ui._ctrlLockAlpha.setValue(!isNone);
+}
+
+function ensureSharedAlphaGallery(fold) {
+  if (_sharedAlpha) return _sharedAlpha;
+
+  var titleAlpha = fold.addTitle(TR('sculptAlphaTitle'));
+  var titleHint = fold.addTitle(TR('sculptAlphaGalleryHint'));
+  // yagui Title often has no domContainer — track nodes so we can show/hide with the gallery.
+  var titleNodes = [];
+  if (titleAlpha && titleAlpha.domText) titleNodes.push(titleAlpha.domText);
+  if (titleHint && titleHint.domText) titleNodes.push(titleHint.domText);
+
+  var galleryWidget = {
+    setVisibility: function (visible) {
+      setDomVisible(this.domContainer, visible);
+      for (var i = 0; i < titleNodes.length; ++i)
+        setDomVisible(titleNodes[i], visible);
+    },
+    domContainer: null
+  };
+
+  var domLine = fold._addLine ? fold._addLine('') : document.createElement('li');
+  if (!fold._addLine && fold.domUl) fold.domUl.appendChild(domLine);
+  domLine.className = (domLine.className ? domLine.className + ' ' : '') + 'sculptgl-alpha-gallery';
+  domLine.style.height = 'auto';
+  domLine.style.minHeight = '22px';
+  domLine.style.overflow = 'visible';
+  domLine.style.margin = '6px 5px 10px 5px';
+  domLine.style.padding = '0';
+  domLine.style.position = 'relative';
+  domLine.innerHTML = '';
+
+  var root = document.createElement('div');
+  domLine.appendChild(root);
+  galleryWidget.domContainer = domLine;
+
+  _sharedAlpha = {
+    fold: fold,
+    titleNodes: titleNodes,
+    galleryWidget: galleryWidget,
+    root: root,
+    activeUi: null
+  };
+  return _sharedAlpha;
+}
+
+function syncSharedAlphaVisibility(toolIndex) {
+  if (!_sharedAlpha) return;
+  var ui = GuiTools[toolIndex];
+  var supports = !!(ui && ui._ctrlAlpha);
+  _sharedAlpha.activeUi = supports ? ui : null;
+  _sharedAlpha.galleryWidget.setVisibility(supports);
+  if (supports) paintSharedAlphaGallery();
+}
+
+GuiSculptingTools.refreshAlphaGalleries = function () {
+  paintSharedAlphaGallery();
+};
+
 var addCtrlAlpha = function (ctrls, fold, tool, ui) {
-  ctrls.push(fold.addTitle(TR('sculptAlphaTitle')));
-  if (tool._lockPosition !== undefined)
-    ctrls.push(fold.addCheckbox(TR('sculptLockPositon'), tool, '_lockPosition'));
-  ui._ctrlAlpha = fold.addCombobox(TR('sculptAlphaTex'), tool, '_idAlpha', Picking.ALPHAS_NAMES);
+  // All alpha-capable tools get Lock — gallery defaults it on when a stamp is picked.
+  if (tool._lockPosition === undefined)
+    tool._lockPosition = false;
+  if (tool._alphaAngle === undefined)
+    tool._alphaAngle = 0;
+  ui._ctrlLockAlpha = fold.addCheckbox(TR('sculptLockPositon'), tool, '_lockPosition');
+  ctrls.push(ui._ctrlLockAlpha);
+
+  ctrls.push(fold.addTitle(TR('sculptAlphaAngleHint')));
+  ui._ctrlAlphaAngle = fold.addSlider(TR('sculptAlphaAngle'), tool._alphaAngle, function (val) {
+    tool._alphaAngle = clampAlphaAngle(val);
+    if (ui._ctrlAlphaAngle) ui._ctrlAlphaAngle.setValue(tool._alphaAngle, true);
+  }, -360, 360, 1);
+  ctrls.push(ui._ctrlAlphaAngle);
+
+  var nudge = {
+    ccw: function () { setToolAlphaAngle(tool, ui, (tool._alphaAngle || 0) - 15); },
+    cw: function () { setToolAlphaAngle(tool, ui, (tool._alphaAngle || 0) + 15); },
+    reset: function () { setToolAlphaAngle(tool, ui, 0); },
+    quarter: function () { setToolAlphaAngle(tool, ui, 90); }
+  };
+  var dualNudge = fold.addDualButton(
+    TR('sculptAlphaAngleCCW'),
+    TR('sculptAlphaAngleCW'),
+    nudge,
+    nudge,
+    'ccw',
+    'cw'
+  );
+  ctrls.push(dualNudge[0], dualNudge[1]);
+  var dualPreset = fold.addDualButton(
+    TR('sculptAlphaAngleReset'),
+    TR('sculptAlphaAngleQuarter'),
+    nudge,
+    nudge,
+    'reset',
+    'quarter'
+  );
+  ctrls.push(dualPreset[0], dualPreset[1]);
+
+  ui._toolRef = tool;
+  ui._ctrlAlpha = fold.addCombobox(TR('sculptAlphaTex'), tool._idAlpha || AlphaLibrary.getNoneLabel(), function (val) {
+    applyAlphaSelection(tool, val, ui);
+  }, Picking.ALPHAS_NAMES);
+  if (ui._ctrlAlpha && ui._ctrlAlpha.domContainer)
+    ui._ctrlAlpha.domContainer.style.opacity = '0.85';
   ctrls.push(ui._ctrlAlpha);
   ctrls.push(fold.addButton(TR('sculptImportAlpha'), importAlpha));
 };
+
+function clampAlphaAngle(deg) {
+  deg = deg === undefined || deg === null || isNaN(deg) ? 0 : deg;
+  if (deg > 360) deg = 360;
+  if (deg < -360) deg = -360;
+  return deg;
+}
+
+function setToolAlphaAngle(tool, ui, deg) {
+  if (!tool) return;
+  tool._alphaAngle = clampAlphaAngle(deg);
+  if (ui && ui._ctrlAlphaAngle)
+    ui._ctrlAlphaAngle.setValue(tool._alphaAngle, true);
+}
 
 function switchSculptTool(main, toolIndex) {
   var gui = main.getGui && main.getGui();

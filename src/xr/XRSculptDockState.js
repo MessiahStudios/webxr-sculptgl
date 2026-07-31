@@ -3,10 +3,39 @@
  * Tools listed here must have an XR stroke/update path (ray or controller-delta).
  */
 import Enums from 'misc/Enums';
+import AlphaLibrary from 'misc/AlphaLibrary';
+import Picking from 'math3d/Picking';
 
 /** Persist that the artist edited rough/metal in XR (stops clay auto-set). */
 function markPaintMaterialTweaked(state) {
   if (state) state.paintParamsUserTweaked = true;
+}
+
+function toolSupportsAlpha(toolKey) {
+  return toolKey !== 'transform';
+}
+
+function customAlphaNames() {
+  var out = [];
+  var names = Object.keys(Picking.ALPHAS || {});
+  var none = AlphaLibrary.getNoneLabel();
+  var i;
+  for (i = 0; i < names.length; ++i) {
+    var n = names[i];
+    if (n === none) continue;
+    if (AlphaLibrary.findBuiltinById(n)) continue;
+    out.push(n);
+  }
+  return out;
+}
+
+function cycleAlphaId(cur, delta) {
+  var ids = AlphaLibrary.getGalleryCycleIds(customAlphaNames());
+  var curN = AlphaLibrary.normalizeAlphaId(cur);
+  var idx = ids.indexOf(curN);
+  if (idx < 0) idx = 0;
+  var n = ids.length;
+  return ids[(idx + (delta > 0 ? 1 : -1) + n * 8) % n];
 }
 
 /** form / paint = sculpt tools; opts = flags + scene; workspace = artist↔sculpture placement */
@@ -60,14 +89,17 @@ export var XR_ADD_SHAPES = ['sphere', 'cube', 'cylinder', 'torus'];
 
 /** Extra Opts rows when Paint is the active tool (desktop Paint panel parity). */
 export var XR_PAINT_OPTS = [
-  'eyedropper', 'paintAll', 'picker', 'color', 'hardness', 'roughness', 'metallic',
+  'alpha', 'alphaLock', 'alphaAngle', 'eyedropper', 'paintAll', 'picker', 'color', 'hardness', 'roughness', 'metallic',
   'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
 
-/** Soften: channel write + hardness only (no color / eyedropper). */
+/** Soften: channel write + hardness + alpha. */
 export var XR_SOFTEN_OPTS = [
-  'hardness', 'writeAlbedo', 'writeRoughness', 'writeMetalness'
+  'alpha', 'alphaLock', 'alphaAngle', 'hardness', 'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
+
+/** Form tools that stamp with alphas — shared gallery row in OPTS. */
+export var XR_FORM_ALPHA_OPTS = ['alpha', 'alphaLock', 'alphaAngle'];
 
 export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'glb', 'ply', 'stl'];
 
@@ -169,6 +201,8 @@ export function getOptsList(state) {
     return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_PAINT_OPTS).concat(core.slice(headLen));
   if (state.tool === 'soften')
     return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_SOFTEN_OPTS).concat(core.slice(headLen));
+  if (toolSupportsAlpha(state.tool))
+    return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_FORM_ALPHA_OPTS).concat(core.slice(headLen));
   return core;
 }
 
@@ -222,6 +256,9 @@ export function createXRSculptDockState() {
     hardness: 75,
     roughness: 55,
     metallic: 5,
+    alphaId: AlphaLibrary.ALPHA_NONE_ID,
+    alphaLock: false,
+    alphaAngle: 0,
     writeAlbedo: true,
     writeRoughness: true,
     writeMetalness: true,
@@ -403,6 +440,16 @@ export function createXRSculptDockState() {
         var m = state.metallic + 5;
         state.set({ metallic: m > 100 ? 0 : m });
         markPaintMaterialTweaked(state);
+      } else if (focus === 'alpha') {
+        var nextA = cycleAlphaId(state.alphaId, 1);
+        var lockOn = AlphaLibrary.normalizeAlphaId(nextA) !== AlphaLibrary.ALPHA_NONE_ID;
+        state.set({ alphaId: nextA, alphaLock: lockOn });
+      } else if (focus === 'alphaLock') {
+        state.set({ alphaLock: !state.alphaLock });
+      } else if (focus === 'alphaAngle') {
+        var aa = (state.alphaAngle || 0) + 15;
+        if (aa > 360) aa = -360;
+        state.set({ alphaAngle: aa });
       }
       return null;
     },
@@ -466,6 +513,18 @@ export function createXRSculptDockState() {
       } else if (focus === 'metallic') {
         state.set({ metallic: Math.max(0, Math.min(100, state.metallic + step)) });
         markPaintMaterialTweaked(state);
+      } else if (focus === 'alpha') {
+        var nextN = cycleAlphaId(state.alphaId, delta);
+        var lockN = AlphaLibrary.normalizeAlphaId(nextN) !== AlphaLibrary.ALPHA_NONE_ID;
+        state.set({ alphaId: nextN, alphaLock: lockN });
+      } else if (focus === 'alphaLock') {
+        state.set({ alphaLock: !state.alphaLock });
+      } else if (focus === 'alphaAngle') {
+        var stepA = delta > 0 ? 15 : -15;
+        var ang = (state.alphaAngle || 0) + stepA;
+        if (ang > 360) ang = -360;
+        if (ang < -360) ang = 360;
+        state.set({ alphaAngle: ang });
       }
     }
   };
@@ -503,6 +562,12 @@ export function syncStateFromSculptManager(state, sculptManager) {
   };
   if (tool._hardness !== undefined)
     patch.hardness = Math.round(tool._hardness * 100);
+  if (Object.prototype.hasOwnProperty.call(tool, '_idAlpha'))
+    patch.alphaId = AlphaLibrary.normalizeAlphaId(tool._idAlpha);
+  if (Object.prototype.hasOwnProperty.call(tool, '_lockPosition'))
+    patch.alphaLock = !!tool._lockPosition;
+  if (tool._alphaAngle !== undefined)
+    patch.alphaAngle = Math.max(-360, Math.min(360, Math.round(tool._alphaAngle)));
   if (tool._color) {
     patch.paintColor = [tool._color[0], tool._color[1], tool._color[2]];
     patch.paintColorIdx = nearestPaintPreset(patch.paintColor);
@@ -578,6 +643,20 @@ export function applyStateToSculptManager(state, scene) {
     t._writeAlbedo = !!state.writeAlbedo;
     t._writeRoughness = !!state.writeRoughness;
     t._writeMetalness = !!state.writeMetalness;
+  }
+  if (Object.prototype.hasOwnProperty.call(t, '_idAlpha')) {
+    var aid = AlphaLibrary.normalizeAlphaId(state.alphaId);
+    t._idAlpha = aid === AlphaLibrary.ALPHA_NONE_ID ? 0 : aid;
+    if (t._lockPosition === undefined)
+      t._lockPosition = false;
+    // Prefer explicit dock flag; non-None defaults lock on when flag unset.
+    if (state.alphaLock !== undefined)
+      t._lockPosition = !!state.alphaLock;
+    else
+      t._lockPosition = aid !== AlphaLibrary.ALPHA_NONE_ID;
+    if (t._alphaAngle === undefined)
+      t._alphaAngle = 0;
+    t._alphaAngle = Math.max(-360, Math.min(360, state.alphaAngle || 0));
   }
   if (Object.prototype.hasOwnProperty.call(t, '_pickColor'))
     t._pickColor = !!state.paintEyedropper && state.tool === 'paint';

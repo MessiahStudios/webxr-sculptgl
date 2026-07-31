@@ -145,6 +145,8 @@ class GuiSculpting {
       var gTool = GuiTools[i];
       if (gTool && gTool._ctrlAlpha) gTool._ctrlAlpha.addOptions(opts);
     }
+    if (GuiSculptingTools.refreshAlphaGalleries)
+      GuiSculptingTools.refreshAlphaGalleries();
   }
 
   updateMesh() {

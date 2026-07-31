@@ -31,7 +31,7 @@ class Flatten extends SculptBase {
       return;
     var aCenter = this.areaCenter(iVertsFront);
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     this.flatten(iVertsInRadius, aNormal, aCenter, picking.getIntersectionPoint(), picking.getLocalRadius2(), intensity, picking);
 
     var mesh = this.getMesh();

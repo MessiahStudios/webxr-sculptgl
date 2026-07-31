@@ -85,7 +85,7 @@ class Twist extends SculptBase {
       iVertsInRadius = this.getFrontVertices(iVertsInRadius, picking.getEyeDirection());
 
     picking.updateAlpha(false);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     this.twist(iVertsInRadius, picking.getIntersectionPoint(), picking.getLocalRadius2(), mx, my, lx, ly, twistData, picking);
 
     var mesh = this.getMesh();
@@ -251,7 +251,7 @@ class Twist extends SculptBase {
     picking.setLocalRadius2(this._xrTwistRadius2);
     picking.pickVerticesInSphere(this._xrTwistRadius2);
     picking.updateAlpha(false);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
 
     var iVerts = picking.getPickedVertices();
     this._main.getStateManager().pushVertices(iVerts);

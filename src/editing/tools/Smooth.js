@@ -26,7 +26,7 @@ class Smooth extends SculptBase {
       iVertsInRadius = this.getFrontVertices(iVertsInRadius, picking.getEyeDirection());
 
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     if (this._tangent) this.smoothTangent(iVertsInRadius, intensity, picking);
     else this.smooth(iVertsInRadius, intensity, picking);
 

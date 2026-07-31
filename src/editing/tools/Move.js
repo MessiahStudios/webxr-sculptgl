@@ -108,10 +108,10 @@ class Move extends SculptBase {
     var useSym = main.getSculptManager().getSymmetry() && pickingSym.getMesh();
 
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     if (useSym) {
       pickingSym.updateAlpha(false);
-      pickingSym.setIdAlpha(this._idAlpha);
+      pickingSym.setIdAlpha(this._idAlpha, this._alphaAngle);
     }
 
     this.copyVerticesProxy(picking, this._moveData);
@@ -283,7 +283,7 @@ class Move extends SculptBase {
 
     picking._mesh = mesh;
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
 
     this._copyProxyIndices(this._xrMoveIVerts, this._moveData);
 
@@ -312,7 +312,7 @@ class Move extends SculptBase {
 
       pickingSym._mesh = mesh;
       pickingSym.updateAlpha(false);
-      pickingSym.setIdAlpha(this._idAlpha);
+      pickingSym.setIdAlpha(this._idAlpha, this._alphaAngle);
       this._copyProxyIndices(this._xrMoveIVertsSym, this._moveDataSym);
       vec3.scale(this._moveDataSym.dir, this._xrMoveAccumSym, this._intensity);
       this.move(this._xrMoveIVertsSym, this._moveDataSym.center, this._xrMoveRadius2, this._moveDataSym, pickingSym);

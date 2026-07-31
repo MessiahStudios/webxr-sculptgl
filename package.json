@@ -36,6 +36,7 @@
     "server": "node tools/xr-dev-server.js",
     "serve:tunnel": "set XR_DEV_PORT=5173&& node tools/xr-dev-server.js",
     "boot:test": "npm run release && npm run server",
+    "generate-alphas": "node tools/generate-alpha-pack.js",
     "xr-dev": "npm run release && npm run serve:tunnel",
     "release": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env release",
     "webad": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env webad",

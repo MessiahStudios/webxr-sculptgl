@@ -21,6 +21,7 @@
  */
 import * as THREE from 'three';
 import XRRemoteLog from 'xr/XRRemoteLog';
+import AlphaLibrary from 'misc/AlphaLibrary';
 import {
   XR_TABS,
   XR_TAB_LABELS,
@@ -148,6 +149,13 @@ function optLabel(ok, s) {
   if (ok === 'hardness') return 'hardness: ' + s.hardness + '%';
   if (ok === 'roughness') return 'roughness: ' + s.roughness + '%';
   if (ok === 'metallic') return 'metallic: ' + s.metallic + '%';
+  if (ok === 'alpha') {
+    var aid = AlphaLibrary.normalizeAlphaId(s.alphaId);
+    if (aid === AlphaLibrary.ALPHA_NONE_ID) return 'alpha: None  (stick ↔ gallery)';
+    return 'alpha: ' + aid + '  (stick ↔ gallery)';
+  }
+  if (ok === 'alphaLock') return 'lock stamp: ' + (s.alphaLock ? 'ON' : 'OFF');
+  if (ok === 'alphaAngle') return 'stamp angle: ' + (s.alphaAngle || 0) + '° (−360…360, stick ↔ ±15)';
   if (ok === 'writeAlbedo') return 'write color: ' + (s.writeAlbedo ? 'ON' : 'OFF');
   if (ok === 'writeRoughness') return 'write rough: ' + (s.writeRoughness ? 'ON' : 'OFF');
   if (ok === 'writeMetalness') return 'write metal: ' + (s.writeMetalness ? 'ON' : 'OFF');
@@ -642,7 +650,9 @@ class XRSculptDock {
       ctx.fillStyle = '#aab8e8';
       ctx.font = '13px system-ui,Segoe UI,sans-serif';
       var cName = (PAINT_COLOR_PRESETS[s.paintColorIdx] && PAINT_COLOR_PRESETS[s.paintColorIdx].name) || 'color';
-      ctx.fillText(cName + '  H' + s.hardness + '  R' + s.roughness + '  M' + s.metallic, 58, 96);
+      var aPaint = AlphaLibrary.normalizeAlphaId(s.alphaId);
+      var aPaintLab = aPaint === AlphaLibrary.ALPHA_NONE_ID ? 'α∅' : 'α ' + aPaint;
+      ctx.fillText(cName + '  H' + s.hardness + '  R' + s.roughness + '  M' + s.metallic + '  ' + aPaintLab, 58, 96);
     } else {
       ctx.fillStyle = '#aab8e8';
       ctx.font = '13px system-ui,Segoe UI,sans-serif';
@@ -650,7 +660,12 @@ class XRSculptDock {
       var flags = '';
       if (supportsNeg)
         flags += this._effectiveNegative() ? 'NEG·ON  ' : 'grip=NEG  ';
-      flags += (s.clay ? 'CLAY ' : '') + (s.symmetry ? 'SYM ' : '') + (s.culling ? 'CULL' : '');
+      flags += (s.clay ? 'CLAY ' : '') + (s.symmetry ? 'SYM ' : '') + (s.culling ? 'CULL ' : '');
+      var aForm = AlphaLibrary.normalizeAlphaId(s.alphaId);
+      if (aForm !== AlphaLibrary.ALPHA_NONE_ID)
+        flags += 'α ' + aForm;
+      else
+        flags += 'α∅';
       ctx.fillText(flags.trim() || 'left squeeze+stick = size / strength', 22, 96);
     }
 

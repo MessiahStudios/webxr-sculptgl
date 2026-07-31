@@ -449,19 +449,20 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ## Roadmap status
 
-### Where we are (2026-07-30)
+### Where we are (2026-07-31)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapshot / Record) and Materials through **Phase C** (live maps + paint-over) are landed. Paint surface polish for the day: **Soften (blend colors)**, denser brush feel, and **clay-friendly metal/rough** with shader wording (Matcap/Flat = color; PBR = editable ideals).
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. Latest: **shared alpha gallery** (built-in free stamps + import), stronger stamp feel (bilinear / contrast / lock), and **stamp angle ±360°** with nudge presets — Desktop + XR.
 
 ```
-█████████████████████████  ~96% of first-class XR surface
+█████████████████████████  ~97% of first-class XR surface
 │                        │
 ├─ Done: session · Workspace · FORM/PAINT · Transform · paint · Soften · Save/Load
 │        · Import GLB (UVs + live maps + Draco) · Export GLB / OBJ / OBJ+MAPS / PLY / STL
 │        · Paint into maps · brush feel · clay PBR defaults + shader hint
-│        · head-facing dock · Local Snapshot PNG + video
+│        · Shared alpha gallery + stamp lock/angle · head-facing dock
+│        · Local Snapshot PNG + video
 ├─ Next: README↔tunnel · Import URL UX · optional Studio (UI) record
-├─ Parallel: Materials Phase D — UV create/edit (when needed)
+├─ Parallel: Materials Phase D — UV create/edit (when needed); Phase E polish (projection)
 ├─ Collaboration: Spectator (feasible — needs signaling; see below) · Co-sculpt (later)
 └─ Stretch: dock slot swap · hands · remesh · other-HMD · projection paint / layers / smudge
 ```
@@ -481,6 +482,8 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapsho
 | **Paint into maps** | **Yes** | Phase C — overwrite imported texels; verts remain UV-less fallback |
 | **Paint brush feel + Soften** | **Yes** | Denser stamps, flow, XR trigger→intensity; Soften on PAINT (desktop dual button + “blend colors”) |
 | **Clay-friendly paint / shader hint** | **Yes** | Defaults ~R55 / M4; auto-correct chrome until user edits; Matcap/Flat vs PBR copy on desktop + XR |
+| **Shared alpha gallery** | **Yes** | Built-in free stamps (`AlphaLibrary` + generate script); Desktop thumbs; XR OPTS cycle; custom import |
+| **Alpha stamp feel + angle** | **Yes** | Bilinear + contrast; lock stamp; angle −360…360 with ±15° / 0° / 90° presets (Desktop) and stick nudge (XR) |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -539,6 +542,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 7. [ ] Optional **Studio record** (desktop UI in frame) for speed-sculpt / tutorial exports — default stays sculpt-view-only  
 8. [x] **Paint brush feel** + **Blend (Soften)** on PAINT tab  
 9. [x] **Clay-friendly PBR paint params** + shader acceptance hint (desktop + XR)  
+10. [x] **Shared alpha gallery** + stamp feel (lock / angle ±360°) — Desktop + XR  
 
 ### Collaboration & capture (naming — keep distinct)
 
@@ -626,6 +630,9 @@ You (Quest, sculpting) ──sync clay/scene──► Friend (Quest, view-only)
 - [x] **Paint brush feel** (flow / denser stamp spacing; XR trigger→Tablet intensity)  
 - [x] **Blend (Soften)** under **PAINT** tab — 1-ring mix of color/rough/metal (+ maps); write channels / mask; desktop “blend colors” dual button  
 - [x] **Clay-friendly rough/metal defaults** + auto-correct chrome until edited; Matcap/Flat vs PBR copy  
+- [x] **Shared alpha gallery** — built-in free stamps + custom import; Desktop thumbs; XR OPTS cycle  
+- [x] **Alpha stamp feel** — bilinear + contrast; stable orientation; lock stamp default when alpha selected  
+- [x] **Stamp angle** −360…360 with friendly nudges/presets (Desktop + XR)  
 - [ ] Smudge / projection paint / layers — park until Soften earns more surface tools  
 - [ ] Freeform **group** free-grab while multi-selected (gizmo group move works today; optional restore)  
 - [ ] Hand tracking sculpt (optional path beside controllers)  
@@ -661,7 +668,7 @@ Import asset (keep what GLB/OBJ offers)
 | UV buffers + OBJ/SGL UV round-trip | Yes (`MeshData` tex coords / UV faces) |
 | UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
 | Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock; clay-friendly defaults + Soften blend |
-| Brush **alpha** stamps (PNG/JPG falloff) | Yes — desktop sculpt UI; thin in XR |
+| Brush **alpha** stamps (PNG/JPG falloff) | Yes — shared gallery (Desktop thumbs + XR OPTS); lock + angle ±360°; bilinear/contrast sampling |
 | GLB/glTF import | Yes — **UVs + welded topo + live maps + vertex fallback + Draco** |
 | GLB/glTF export | Yes — live maps when present; else bake from verts / COLOR_0 |
 | UV seam / unwrap editor | **No** (Phase D) |
@@ -684,8 +691,8 @@ Never advertise a format for data it cannot hold.
 | Layer | Desktop | XR |
 |---|---|---|
 | Shared core | Preserve UVs/maps on import; weld topology; paint buffers; export writers | Same mesh / same buffers |
-| Dense creation | Seam editor, unwrap, texture slots, alpha library | — |
-| In-headset | — | Import/export continuity, paint, alpha pick/preview, map preview — not a full Blender UV suite in MR |
+| Dense creation | Seam editor, unwrap, texture slots, alpha library browser | — |
+| In-headset | — | Import/export continuity, paint, alpha cycle + lock/angle, map preview — not a full Blender UV suite in MR |
 
 Charter still applies: **Desktop invents density; XR gets the actions that keep sculpting flowing.**
 
@@ -739,13 +746,17 @@ Necessary follow-through after geometry-first GLB.
 
 Build on existing brush alpha stamps — don’t invent a second system.
 
-- [ ] First-class **alpha library** (load, preview, assign) on Desktop  
-- [ ] XR dock: pick / preview alpha without breaking sculpt flow  
-- [ ] Stronger **height / displacement** from greyscale stamps  
+- [x] **Shared built-in alpha gallery** (Desktop + XR) — curated free stamps + custom import  
+- [x] Desktop thumbnail gallery (primary) + combobox / import  
+- [x] XR OPTS: cycle alpha stamps (stick ↔) for form + paint tools  
+- [x] **Stronger stamp application** — bilinear sample, contrast curve, stable tangent, lock-on when stamp selected  
+- [x] **Stamp angle** −360…360 — Desktop slider + −15°/+15° / 0°/90° presets; XR stick nudge + lock toggle  
 - [ ] Optional stencil / projection workflows if they earn spatial presence  
 - [ ] Alphas that also inform paint intensity where it helps  
 
 *Outcome:* form-making uses images the way sculptors already expect (Nomad/ZBrush muscle memory), on open web + Quest.
+
+**Pack note:** regenerate built-in PNGs with `npm run generate-alphas` (`tools/generate-alpha-pack.js` → `app/resources/alpha/`).
 
 ### Ordering reminder
 

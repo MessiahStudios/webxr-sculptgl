@@ -27,7 +27,7 @@ class Inflate extends SculptBase {
       iVertsInRadius = this.getFrontVertices(iVertsInRadius, picking.getEyeDirection());
 
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
     this.inflate(iVertsInRadius, picking.getIntersectionPoint(), picking.getLocalRadius2(), intensity, picking);
 
     var mesh = this.getMesh();

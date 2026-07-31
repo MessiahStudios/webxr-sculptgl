@@ -35,7 +35,7 @@ class Brush extends SculptBase {
 
     var r2 = picking.getLocalRadius2();
     picking.updateAlpha(this._lockPosition);
-    picking.setIdAlpha(this._idAlpha);
+    picking.setIdAlpha(this._idAlpha, this._alphaAngle);
 
     if (!this._clay) {
       this.brush(iVertsInRadius, picking.getPickedNormal(), picking.getIntersectionPoint(), r2, intensity, picking);

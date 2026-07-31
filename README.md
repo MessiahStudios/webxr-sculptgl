@@ -15,6 +15,7 @@ Quest-first WebXR sculpting — digital clay at human scale in Meta Quest MR/VR 
 - XR Sculpt Dock (FORM / PAINT / OPTS / SPACE)
 - Workspace placement at room scale (separate from mesh Transform)
 - Paint surface tools (including Soften / blend colors) with clay-friendly PBR defaults
+- Shared alpha stamp gallery (built-in free stamps + custom import) on Desktop and XR
 - Save / Load (`.sgl` → IndexedDB), Export, Import (including glTF/GLB + HTTPS URL)
 - Local continuity first — no Sketchfab-centric share flow in the UI
 
