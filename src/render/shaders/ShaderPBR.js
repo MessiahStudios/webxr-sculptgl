@@ -1,6 +1,7 @@
 import { mat3 } from 'gl-matrix';
 import getOptionsURL from 'misc/getOptionsURL';
 import ShaderBase from 'render/shaders/ShaderBase';
+import Attribute from 'render/Attribute';
 import pbrGLSL from 'render/shaders/glsl/pbr.glsl';
 
 var ShaderPBR = ShaderBase.getCopy();
@@ -48,7 +49,10 @@ ShaderPBR.exposure = opts.exposure === undefined ? ShaderPBR.environments[Shader
 ShaderPBR.uniforms = {};
 ShaderPBR.attributes = {};
 
-ShaderPBR.uniformNames = ['uIblTransform', 'uTexture0', 'uAlbedo', 'uRoughness', 'uMetallic', 'uExposure', 'uSPH', 'uEnvSize'];
+ShaderPBR.uniformNames = [
+  'uIblTransform', 'uTexture0', 'uAlbedo', 'uRoughness', 'uMetallic', 'uExposure', 'uSPH', 'uEnvSize',
+  'uAlbedoMap', 'uMetalRoughMap', 'uUseAlbedoMap', 'uUseMetalRoughMap', 'uMapRoughness', 'uMapMetallic'
+];
 Array.prototype.push.apply(ShaderPBR.uniformNames, ShaderBase.uniformNames.commonUniforms);
 
 ShaderPBR.vertex = [
@@ -56,6 +60,7 @@ ShaderPBR.vertex = [
   'attribute vec3 aNormal;',
   'attribute vec3 aColor;',
   'attribute vec3 aMaterial;',
+  'attribute vec2 aTexCoord;',
   ShaderBase.strings.vertUniforms,
   'uniform float uRoughness;',
   'uniform float uMetallic;',
@@ -66,11 +71,13 @@ ShaderPBR.vertex = [
   'varying float vRoughness;',
   'varying float vMetallic;',
   'varying float vMasking;',
+  'varying vec2 vTexCoord;',
   'void main() {',
   '  vAlbedo = uAlbedo.x >= 0.0 ? uAlbedo : aColor;',
   '  vRoughness = uRoughness >= 0.0 ? uRoughness : aMaterial.x;',
   '  vMetallic = uMetallic >= 0.0 ? uMetallic : aMaterial.y;',
   '  vMasking = aMaterial.z;',
+  '  vTexCoord = aTexCoord;',
   '  vNormal = mix(aNormal, uEN * aNormal, vMasking);',
   '  vNormal = normalize(uN * vNormal);',
   '  vec4 vertex4 = vec4(aVertex, 1.0);',
@@ -86,17 +93,34 @@ ShaderPBR.fragment = [
   'varying vec3 vAlbedo;',
   'varying float vRoughness;',
   'varying float vMetallic;',
+  'varying vec2 vTexCoord;',
   'uniform float uAlpha;',
+  'uniform sampler2D uAlbedoMap;',
+  'uniform sampler2D uMetalRoughMap;',
+  'uniform float uUseAlbedoMap;',
+  'uniform float uUseMetalRoughMap;',
+  'uniform float uMapRoughness;',
+  'uniform float uMapMetallic;',
   ShaderBase.strings.fragColorUniforms,
   ShaderBase.strings.fragColorFunction,
   pbrGLSL,
   '',
   'void main(void) {',
   '  vec3 normal = getNormal();',
+  '  vec3 albedoSRGB = vAlbedo;',
+  '  if (uUseAlbedoMap > 0.5) {',
+  '    albedoSRGB = texture2D(uAlbedoMap, vTexCoord).rgb;',
+  '  }',
   '  float roughness = max( 0.0001, vRoughness );',
-  '  vec3 linColor = sRGBToLinear(vAlbedo);',
-  '  vec3 albedo = linColor * (1.0 - vMetallic);',
-  '  vec3 specular = mix( vec3(0.04), linColor, vMetallic);',
+  '  float metallic = vMetallic;',
+  '  if (uUseMetalRoughMap > 0.5) {',
+  '    vec4 mr = texture2D(uMetalRoughMap, vTexCoord);',
+  '    roughness = max( 0.0001, mr.g * uMapRoughness );',
+  '    metallic = mr.b * uMapMetallic;',
+  '  }',
+  '  vec3 linColor = sRGBToLinear(albedoSRGB);',
+  '  vec3 albedo = linColor * (1.0 - metallic);',
+  '  vec3 specular = mix( vec3(0.04), linColor, metallic);',
   '',
   '  vec3 color = uExposure * computeIBL_UE4( normal, -normalize(vVertex), albedo, roughness, specular );',
   '  gl_FragColor = encodeFragColor(color, uAlpha);',
@@ -150,6 +174,23 @@ ShaderPBR.getOrCreateEnvironment = function (gl, main, env) {
   return null;
 };
 
+ShaderPBR.initAttributes = function (gl) {
+  ShaderBase.initAttributes.call(this, gl);
+  ShaderPBR.attributes.aTexCoord = new Attribute(gl, ShaderPBR.program, 'aTexCoord', 2, gl.FLOAT);
+};
+
+ShaderPBR.bindAttributes = function (mesh) {
+  ShaderBase.bindAttributes.call(this, mesh);
+  if (mesh.hasPbrMaps && mesh.hasPbrMaps())
+    ShaderPBR.attributes.aTexCoord.bindToBuffer(mesh.getTexCoordBuffer());
+};
+
+ShaderPBR.unbindAttributes = function () {
+  ShaderBase.unbindAttributes.call(this);
+  if (ShaderPBR.attributes.aTexCoord)
+    ShaderPBR.attributes.aTexCoord.unbind();
+};
+
 var uIBLTmp = mat3.create();
 ShaderPBR.updateUniforms = function (mesh, main) {
   var gl = mesh.getGL();
@@ -178,6 +219,23 @@ ShaderPBR.updateUniforms = function (mesh, main) {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, ShaderPBR.getOrCreateEnvironment(gl, main, env) || this.getDummyTexture(gl));
   gl.uniform1i(uniforms.uTexture0, 0);
+
+  var useMaps = !!(mesh.hasPbrMaps && mesh.hasPbrMaps());
+  var albedoSlot = useMaps ? mesh.getAlbedoMapSlot() : null;
+  var mrSlot = useMaps ? mesh.getMetalRoughMapSlot() : null;
+  var factors = useMaps && mesh.getPbrMapFactors ? mesh.getPbrMapFactors() : null;
+
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, (albedoSlot && albedoSlot.texture) || this.getDummyTexture(gl));
+  gl.uniform1i(uniforms.uAlbedoMap, 1);
+  gl.uniform1f(uniforms.uUseAlbedoMap, (albedoSlot && albedoSlot.texture) ? 1.0 : 0.0);
+
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, (mrSlot && mrSlot.texture) || this.getDummyTexture(gl));
+  gl.uniform1i(uniforms.uMetalRoughMap, 2);
+  gl.uniform1f(uniforms.uUseMetalRoughMap, (mrSlot && mrSlot.texture) ? 1.0 : 0.0);
+  gl.uniform1f(uniforms.uMapRoughness, factors ? factors.roughness : 1.0);
+  gl.uniform1f(uniforms.uMapMetallic, factors ? factors.metalness : 1.0);
 
   ShaderBase.updateUniforms.call(this, mesh, main);
 };

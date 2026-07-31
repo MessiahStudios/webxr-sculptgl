@@ -56,15 +56,17 @@ class Scene {
     this._xrRayRight = null;
     this._xrRightStickX = 0;
     this._xrRightStickY = 0;
-    // Local Snapshot: last headset eye used for PNG capture of the virtual view.
-    this._xrSnapView = mat4.create();
+    // Local Snapshot: last headset pose used for PNG/video of the virtual view.
+    this._xrSnapView = mat4.create(); // clay: inv(viewer) * stage
+    this._xrSnapViewHud = mat4.create(); // controllers/dock: inv(viewer) only
     this._xrSnapProj = mat4.create();
+    this._xrSnapTmp = mat4.create();
     this._xrSnapReady = false;
     this._xrSnapIsMR = false;
     this._localSnapshotTarget = null; // { fb, tex, depth, w, h, canvas2d, ctx }
     this._localSnapshotPass = false; // shaders: direct sRGB out (skip RGBM RTT encode)
     this._localSnapshotBusy = false; // block concurrent desktop applyRender during FBO capture
-    this._localRecFps = 12;
+    this._localRecFps = 24;
     this._localRecQuality = 'balanced';
     this._localRec = null; // active recording session
     this._localRecDesktopRaf = 0;
@@ -975,7 +977,7 @@ class Scene {
   /**
    * Export meshes for other apps via browser download → Quest Files when allowed.
    * Formats only carry what they permit — see Export.formatInfo.
-   * @param {'obj'|'obj-maps'|'ply'|'stl'} fmt
+   * @param {'obj'|'obj-maps'|'glb'|'ply'|'stl'} fmt
    * @returns {{ name: string, fmt: string, bytes: number }|Promise<{name:string,fmt:string,bytes:number}>}
    */
   exportXRMesh(fmt) {
@@ -984,9 +986,9 @@ class Scene {
     if (!meshes || !meshes.length)
       throw new Error('No meshes to export');
     var f = (fmt || 'obj').toLowerCase();
+    var self = this;
 
     if (f === 'obj-maps' || f === 'objmaps' || f === 'obj+maps') {
-      var self = this;
       var base = XRProjectStore.stampName('obj').replace(/\.obj$/i, '');
       return Export.exportOBJMapsZip(this, meshes, {
         baseName: base,
@@ -1004,6 +1006,31 @@ class Scene {
         return { name: out.name, fmt: 'obj-maps', bytes: out.bytes };
       }).catch(function (err) {
         XRRemoteLog.see('MR', 'OBJ+maps export failed', {
+          error: (err && err.message) || String(err)
+        });
+        throw err;
+      });
+    }
+
+    if (f === 'glb' || f === 'gltf') {
+      var glbBase = XRProjectStore.stampName('glb').replace(/\.glb$/i, '');
+      return Export.exportGLB(this, meshes, {
+        baseName: glbBase,
+        texSize: 1024,
+        binary: true,
+        save: true
+      }).then(function (out) {
+        XRRemoteLog.see('MR', 'Exported .glb (browser download)', {
+          name: out.name,
+          bytes: out.bytes,
+          baked: out.baked,
+          skipped: out.skipped,
+          payload: Export.formatInfo.detail('glb')
+        });
+        return { name: out.name, fmt: 'glb', bytes: out.bytes };
+      }).catch(function (err) {
+        if (self.onCanvasResize) self.onCanvasResize();
+        XRRemoteLog.see('MR', 'GLB export failed', {
           error: (err && err.message) || String(err)
         });
         throw err;
@@ -1356,6 +1383,22 @@ class Scene {
 
     var cam = this._camera;
     var views = pose.views;
+
+    // Local Snapshot / Record: Cast-like mono = viewer (head) pose, not left-eye IPD offset.
+    // Flat WebM is not stereo VR video — headset playback will not "undistort" it.
+    if (pose && pose.transform && pose.transform.matrix) {
+      mat4.invert(this._xrSnapViewHud, pose.transform.matrix);
+      mat4.copy(this._xrSnapView, this._xrSnapViewHud);
+      if (this._xrStageMatrix) {
+        mat4.mul(this._xrSnapTmp, this._xrSnapView, this._xrStageMatrix);
+        mat4.copy(this._xrSnapView, this._xrSnapTmp);
+      }
+      if (views && views[0] && views[0].projectionMatrix)
+        mat4.copy(this._xrSnapProj, views[0].projectionMatrix);
+      this._xrSnapReady = true;
+      this._xrSnapIsMR = xrIsMR;
+    }
+
     var v;
     for (v = 0; v < views.length; ++v) {
       var view = views[v];
@@ -1403,14 +1446,6 @@ class Scene {
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LEQUAL);
       gl.disable(gl.CULL_FACE);
-
-      // Keep left-eye (or first) matrices for Local Snapshot.
-      if (v === 0) {
-        mat4.copy(this._xrSnapView, cam._view);
-        mat4.copy(this._xrSnapProj, cam._proj);
-        this._xrSnapReady = true;
-        this._xrSnapIsMR = xrIsMR;
-      }
     }
 
     gl.disable(gl.SCISSOR_TEST);
@@ -1456,6 +1491,9 @@ class Scene {
       } catch (err) {
         reject(err);
       }
+    }).finally(function () {
+      // Free GPU / canvas scratch whether save succeeded or failed.
+      self._disposeLocalCaptureCaches();
     });
   }
 
@@ -1498,12 +1536,12 @@ class Scene {
   }
 
   getLocalRecordFps() {
-    return this._localRecFps || 12;
+    return this._localRecFps || 24;
   }
 
   setLocalRecordFps(fps) {
     var n = fps | 0;
-    if (LocalRecord.FPS_OPTIONS.indexOf(n) < 0) n = 12;
+    if (LocalRecord.FPS_OPTIONS.indexOf(n) < 0) n = 24;
     this._localRecFps = n;
     if (this._localRec) this._localRec.fps = n;
   }
@@ -1519,8 +1557,7 @@ class Scene {
 
   /**
    * Start recording virtual sculpt view to WebM/MP4.
-   * Desktop: capture the live WebGL canvas (same pixels the camera shows).
-   * XR: mono FBO path (headset framebuffer is not a recordable canvas).
+   * Desktop + XR: encode via a preset-sized offscreen canvas (clean bitrate, efficient res).
    * @param {{fps?:number, quality?:string}|null} [opts]
    * @returns {{fps:number, quality:string, mime:string, width:number, height:number}}
    */
@@ -1549,45 +1586,44 @@ class Scene {
     var useDisplay = !this._xrSessionActive;
     var w;
     var h;
-    var canvas = null;
-    var ctx = null;
-    var stream;
-    var track;
     var mode;
 
     if (useDisplay) {
-      // Record exactly what the desktop camera presents — no offscreen re-draw.
+      // Live desktop view → scale into preset encode canvas (efficient + clean).
       mode = 'display';
-      w = this._canvasWidth | 0;
-      h = this._canvasHeight | 0;
-      if (w < 2 || h < 2) {
-        w = this._canvas.clientWidth | 0;
-        h = this._canvas.clientHeight | 0;
+      var srcW = this._canvasWidth | 0;
+      var srcH = this._canvasHeight | 0;
+      if (srcW < 2 || srcH < 2) {
+        srcW = this._canvas.clientWidth | 0;
+        srcH = this._canvas.clientHeight | 0;
       }
-      if (w & 1) w -= 1;
-      if (h & 1) h -= 1;
-      if (w < 2) w = 640;
-      if (h < 2) h = 360;
-      stream = this._canvas.captureStream(0);
-      track = stream.getVideoTracks()[0];
+      var fit = LocalRecord.sizeForPreset(srcW, srcH, q);
+      w = fit.w;
+      h = fit.h;
     } else {
-      // XR: encode a mono virtual view via FBO (same path as Local Snapshot PNG).
+      // XR: fixed 16:9 presentation size per preset (Cast-like framing).
       mode = 'fbo';
-      var cssW = this._canvas.clientWidth || this._canvasWidth || 1280;
-      var cssH = this._canvas.clientHeight || this._canvasHeight || 720;
-      var aspect = (cssW > 0 && cssH > 0) ? (cssW / cssH) : (16 / 9);
-      w = Math.min(q.maxWidth, Math.max(320, cssW | 0));
-      h = Math.max(180, Math.round(w / aspect));
-      if (w & 1) w -= 1;
-      if (h & 1) h -= 1;
-
-      canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      ctx = canvas.getContext('2d');
-      stream = canvas.captureStream(0);
-      track = stream.getVideoTracks()[0];
+      w = q.maxWidth | 0;
+      h = q.height | 0;
+      if (w < 64 || h < 64) {
+        w = 1280;
+        h = 720;
+      }
+      var evenX = LocalRecord.evenSize(w, h);
+      w = evenX.w;
+      h = evenX.h;
     }
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d', { alpha: false });
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
+    }
+    var stream = canvas.captureStream(0);
+    var track = stream.getVideoTracks()[0];
 
     var chunks = [];
     var rec;
@@ -1703,17 +1739,23 @@ class Scene {
     this._localRec = null;
     if (!r) return;
     try {
-      // Don't stop tracks from the live WebGL canvas stream — only stop the recorder.
-      // Stopping canvas capture tracks can leave some browsers in a bad present state.
-      if (r.mode !== 'display') {
-        if (r.track) r.track.stop();
-        if (r.stream) {
-          var tracks = r.stream.getTracks();
-          var i;
-          for (i = 0; i < tracks.length; ++i) tracks[i].stop();
-        }
+      // Encode canvas stream only (never the live WebGL canvas track).
+      if (r.track) r.track.stop();
+      if (r.stream) {
+        var tracks = r.stream.getTracks();
+        var i;
+        for (i = 0; i < tracks.length; ++i) tracks[i].stop();
       }
+      if (r.chunks) r.chunks.length = 0;
+      r.canvas = null;
+      r.ctx = null;
+      r.stream = null;
+      r.track = null;
+      r.recorder = null;
     } catch (e) { /* ignore */ }
+
+    // Drop encode scratch buffers — not needed until the next capture.
+    this._disposeLocalCaptureCaches();
 
     // Heal viewport if an older FBO record path left it shrunk.
     if (!this._xrSessionActive && this._gl) {
@@ -1722,6 +1764,24 @@ class Scene {
       if (vw > 0 && vh > 0) this._gl.viewport(0, 0, vw, vh);
       if (this.render) this.render();
     }
+  }
+
+  /** Free Local Snapshot / Record GPU + canvas scratch when idle. */
+  _disposeLocalCaptureCaches() {
+    var gl = this._gl;
+    var t = this._localSnapshotTarget;
+    this._localSnapshotTarget = null;
+    if (t && gl) {
+      try {
+        if (t.fb) gl.deleteFramebuffer(t.fb);
+        if (t.tex) gl.deleteTexture(t.tex);
+        if (t.depth) gl.deleteRenderbuffer(t.depth);
+      } catch (e) { /* ignore */ }
+      t.canvas2d = null;
+      t.ctx = null;
+    }
+    if (this._xrControllerModels && this._xrControllerModels.disposeCaptureTarget)
+      this._xrControllerModels.disposeCaptureTarget();
   }
 
   _startLocalRecordDesktopLoop() {
@@ -1745,17 +1805,24 @@ class Scene {
   }
 
   /**
-   * After a desktop present: request a MediaRecorder frame (display-capture mode).
+   * After a desktop present: scale live canvas into the encode canvas + request a frame.
    */
   _notifyLocalRecordDisplayFrame() {
     var rec = this._localRec;
     if (!rec || !rec.recording || rec.mode !== 'display') return;
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    var minDt = 1000 / Math.max(1, rec.fps || 12);
+    var minDt = 1000 / Math.max(1, rec.fps || 24);
     if (rec.lastFrameAt && (now - rec.lastFrameAt) < minDt)
       return;
     rec.lastFrameAt = now;
     try {
+      if (rec.ctx && this._canvas) {
+        if (rec.ctx.imageSmoothingEnabled !== true) {
+          rec.ctx.imageSmoothingEnabled = true;
+          if (rec.ctx.imageSmoothingQuality) rec.ctx.imageSmoothingQuality = 'high';
+        }
+        rec.ctx.drawImage(this._canvas, 0, 0, rec.w, rec.h);
+      }
       if (rec.track && typeof rec.track.requestFrame === 'function')
         rec.track.requestFrame();
     } catch (e) { /* ignore */ }
@@ -1763,8 +1830,8 @@ class Scene {
 
   /**
    * Keep frames flowing while recording.
-   * Desktop display mode: request normal presents (no FBO).
-   * XR / FBO mode: redraw mono view into the encode canvas.
+   * Desktop: present + blit to encode canvas at preset size.
+   * XR: mono presentation capture into encode canvas.
    * @param {boolean} [force]
    */
   _tickLocalRecording(force) {
@@ -1772,9 +1839,15 @@ class Scene {
     if (!rec || !rec.recording) return;
 
     if (rec.mode === 'display') {
-      // Keep the live canvas animating so captureStream has frames even when idle.
-      if (!this._xrSessionActive && this.render)
-        this.render();
+      if (this._xrSessionActive) return;
+      var nowD = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      var minDtD = 1000 / Math.max(1, rec.fps || 24);
+      if (!force && rec.lastFrameAt && (nowD - rec.lastFrameAt) < minDtD)
+        return;
+      // Sync present then blit (avoids capturing a stale backbuffer).
+      this._drawFullScene = true;
+      this._preventRender = false;
+      this.applyRender();
       return;
     }
 
@@ -1782,7 +1855,7 @@ class Scene {
     if (this._xrSessionActive && !this._xrSnapReady && !force) return;
 
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    var minDt = 1000 / Math.max(1, rec.fps || 12);
+    var minDt = 1000 / Math.max(1, rec.fps || 24);
     if (!force && rec.lastFrameAt && (now - rec.lastFrameAt) < minDt)
       return;
     rec.lastFrameAt = now;
@@ -1877,20 +1950,30 @@ class Scene {
     var prevVp = gl.getParameter(gl.VIEWPORT);
     this._localSnapshotBusy = true;
     this._localSnapshotPass = true;
+    var cm = this._xrSessionActive ? this._xrControllerModels : null;
+    var usedThreeCapture = false;
 
     try {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
-      gl.viewport(0, 0, w, h);
-      gl.disable(gl.SCISSOR_TEST);
-
-      if (this._xrSessionActive && this._xrSnapReady) {
-        cam.applyXRSnapshotMatrices(this._xrSnapView, this._xrSnapProj);
-        var fovY = 1.2;
-        if (Math.abs(this._xrSnapProj[5]) > 1e-6)
-          fovY = 2.0 * Math.atan(1.0 / this._xrSnapProj[5]);
-        mat4.perspective(cam._proj, fovY, w / h, cam._near || 0.05, cam._far || 5000.0);
+      if (this._xrSessionActive && this._xrSnapReady && cm && cm.beginCapture) {
+        // Offscreen Three RT — never write capture into the live XR stereo layer
+        // (bindFramebuffer(null) during a session IS the headset FB → black / stuck UI).
+        usedThreeCapture = !!cm.beginCapture(w, h, 0.18, 0.19, 0.22);
+        cam.applyXRSnapshotMatrices(this._xrSnapView, null);
+        var fovY = (70 * Math.PI) / 180;
+        mat4.perspective(cam._proj, fovY, w / Math.max(1, h), cam._near || 0.05, cam._far || 5000.0);
+      } else if (this._xrSessionActive && this._xrSnapReady) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+        gl.viewport(0, 0, w, h);
+        gl.disable(gl.SCISSOR_TEST);
+        cam.applyXRSnapshotMatrices(this._xrSnapView, null);
+        var fovY2 = (70 * Math.PI) / 180;
+        mat4.perspective(cam._proj, fovY2, w / Math.max(1, h), cam._near || 0.05, cam._far || 5000.0);
         gl.clearColor(0.18, 0.19, 0.22, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
       } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+        gl.viewport(0, 0, w, h);
+        gl.disable(gl.SCISSOR_TEST);
         var prevW = cam._width;
         var prevH = cam._height;
         cam._width = w;
@@ -1899,9 +1982,9 @@ class Scene {
         if (cam.updateView) cam.updateView();
         gl.clearColor(0.18, 0.19, 0.22, 1.0);
         this._localSnapshotRestoreCam = { w: prevW, h: prevH };
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
       }
 
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
       this.updateMeshesXR();
       gl.colorMask(true, true, true, true);
       gl.depthMask(true);
@@ -1917,11 +2000,21 @@ class Scene {
       if (sm.getToolIndex() === Enums.Tools.TRANSFORM) {
         var xf = sm.getCurrentTool();
         if (xf && xf.postRender) xf.postRender();
+      } else if (this._xrSessionActive) {
+        sm.getSelection().renderXR(this, !this._xrSculpting);
+      }
+
+      if (usedThreeCapture && cm.renderCaptureControllers) {
+        cm.renderCaptureControllers(this._xrSnapViewHud, cam.getProjection());
       }
 
       var pixels = new Uint8Array(w * h * 4);
-      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (usedThreeCapture && cm.readCapturePixels) {
+        cm.readCapturePixels(pixels);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      }
 
       var ctx = target.ctx;
       var img = ctx.createImageData(w, h);
@@ -1935,6 +2028,8 @@ class Scene {
     } finally {
       this._localSnapshotPass = false;
       this._localSnapshotBusy = false;
+      if (usedThreeCapture && cm && cm.endCapture)
+        cm.endCapture();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       // Recording used a smaller viewport — restore full canvas or prior region.
       var vpW = this._canvasWidth || (prevVp && prevVp[2]) || w;
@@ -1996,6 +2091,7 @@ class Scene {
     this.getPicking()._mesh = null;
     this.getPickingSymmetry()._mesh = null;
     this.healXRBrushSettings(false);
+    this._disposeLocalCaptureCaches();
   }
 
   /**
@@ -2365,6 +2461,8 @@ class Scene {
 
       mesh.init();
       mesh.initRender();
+      if (mesh.hasPbrMaps && mesh.hasPbrMaps())
+        mesh.setShaderType(Enums.Shader.PBR);
       meshes.push(mesh);
     }
 

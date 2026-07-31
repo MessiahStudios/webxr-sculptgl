@@ -13,7 +13,7 @@ var ExportFormatInfo = {
   },
   'obj-maps': {
     short: '.obj + maps',
-    detail: 'OBJ + MTL + baked diffuse/roughness/metalness PNGs (needs UVs). Best textured hand-off until GLB export.'
+    detail: 'OBJ + MTL + baked diffuse/roughness/metalness PNGs (needs UVs). Alternate textured hand-off beside GLB.'
   },
   ply: {
     short: '.ply — geo ± color',
@@ -24,8 +24,8 @@ var ExportFormatInfo = {
     detail: 'Triangle geometry only. No color, UVs, or materials.'
   },
   glb: {
-    short: '.glb — not yet',
-    detail: 'GLB export lands when we can write UVs + PBR honestly (Materials track Phase B).'
+    short: '.glb — geo + PBR',
+    detail: 'Binary glTF: live albedo/metalRough maps when imported or painted; else baked from vertex paint. UV-less → vertex color + factors.'
   },
 
   label(fmt) {

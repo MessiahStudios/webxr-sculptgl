@@ -6,11 +6,24 @@ import { zip } from 'zip';
 import ExportOBJ from 'files/ExportOBJ';
 import ExportMTL from 'files/ExportMTL';
 import BakeVertexMaps from 'files/BakeVertexMaps';
+import MeshPbrMaps from 'mesh/MeshPbrMaps';
 
 var ExportPack = {};
 
 function meshHasUV(mesh) {
   return !!(mesh && mesh.hasUV && mesh.hasUV());
+}
+
+function mapsForMesh(main, mesh, texSize) {
+  if (mesh.hasPbrMaps && mesh.hasPbrMaps()) {
+    MeshPbrMaps.flush(mesh);
+    return MeshPbrMaps.toBlob(mesh.getAlbedoMapSlot()).then(function (diffuse) {
+      return MeshPbrMaps.splitMetalRoughBlobs(mesh.getMetalRoughMapSlot()).then(function (split) {
+        return { diffuse: diffuse, roughness: split.roughness, metalness: split.metalness };
+      });
+    });
+  }
+  return BakeVertexMaps.bakeAll(main, mesh, texSize);
 }
 
 /**
@@ -49,13 +62,13 @@ ExportPack.exportOBJMapsZip = function (main, meshes, opts) {
   });
   var mtlBlob = ExportMTL.exportMTL(baseName, materials);
 
-  // Bake maps sequentially for UV meshes only.
+  // Prefer live PBR slots; else bake vertex paint to UV PNGs.
   var bakeJobs = [];
   for (i = 0; i < meshes.length; ++i) {
     if (!materials[i].hasMaps) continue;
     (function (idx) {
       bakeJobs.push(
-        BakeVertexMaps.bakeAll(main, meshes[idx], texSize).then(function (maps) {
+        mapsForMesh(main, meshes[idx], texSize).then(function (maps) {
           return { idx: idx, maps: maps };
         })
       );

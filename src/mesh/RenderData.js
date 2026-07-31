@@ -15,6 +15,11 @@ var RenderData = function (gl) {
     _curvature: Math.min(opts.curvature, 5.0),
     _texture0: null,
 
+    // Live PBR maps (CPU canvas + WebGL texture). See mesh/MeshPbrMaps.js
+    _albedoMapSlot: null,
+    _metalRoughMapSlot: null,
+    _pbrMapFactors: { roughness: 1.0, metalness: 1.0 },
+
     _useDrawArrays: false,
     _vertexBuffer: new Buffer(gl, gl.ARRAY_BUFFER, gl.DYNAMIC_DRAW),
     _normalBuffer: new Buffer(gl, gl.ARRAY_BUFFER, gl.DYNAMIC_DRAW),

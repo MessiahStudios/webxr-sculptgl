@@ -405,9 +405,9 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 | **SAVE project (.sgl)** | IndexedDB on the Quest origin |
 | **LOAD last (.sgl)** | **Replaces** scene, re-fits Workspace |
 | **IMPORT file** | Adds OBJ/PLY/STL/SGL/**GLB** — picker **may fail in XR**; prefer before enter / after exit |
-| **EXPORT** + format | OBJ / PLY / STL / OBJ+MAPS → browser download / Files |
+| **EXPORT** + format | OBJ / OBJ+MAPS / **GLB** / PLY / STL → browser download / Files |
 | **LOCAL SNAPSHOT** | PNG of the virtual sculpt view (no passthrough) |
-| **START / STOP RECORD** | WebM video of the virtual view (+ FPS / size rows) |
+| **START / STOP RECORD** | WebM video (+ FPS 15/24/30 · Small/Balanced/High clean presets) |
 | **CLEAR scene** | Empty clay |
 | **ADD …** | Stick ↔ cycles sphere/cube/cylinder/torus; Y places (**adds**, stacks at origin until Transform) |
 
@@ -441,27 +441,50 @@ Optional:  HTTPS URL fetch (addModelURL) when CORS allows
 
 File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR.
 
-**Honest import note:** GLB/glTF import now keeps **indexed topology**, **UVs**, and bakes **baseColor** (+ map sample) plus **metal/rough factors** into vertex paint. Draco-compressed assets decode via `./draco/`. Full PBR map rendering and GLB export are still ahead — see **Materials / GLB / Paint track**.
+**Honest import note:** GLB/glTF import keeps **indexed topology**, **UVs**, **live albedo/metalRough textures** (ShaderPBR samples them), and still fills vertex paint as fallback. Draco via `./draco/`. Export prefers live maps when present.
 
 ---
 
 ## Roadmap status
 
-### Where we are (2026-07)
+### Where we are (2026-07-30)
 
-Quest MR/VR sculpting is a **real continuous loop**: session, Workspace, dock (BRUSH/SURF/OPTS/SPACE), form + paint, Transform, Save/Load/Export/Import GLB, Clear/Add, and **Local Snapshot** (PNG + Start/Stop video) on desktop and in XR. The left dock **billboards toward the headset** and sits **clear of the controller face**. Opening **GLB import** also commits us to the **Materials / GLB / Paint** track. **Spectator** (invite-code watch) and **Co-sculpt** remain separate collaboration features.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture (Local Snapshot / Record) and Materials through **Phase C** (live maps + paint-over) are landed.
 
 ```
-████████████████████████░  ~92% of first-class XR surface
+█████████████████████████  ~96% of first-class XR surface
 │                        │
-├─ Done: session · Workspace · BRUSH/SURF tools · Transform · paint wheel
-│        · R/I · recovery · Save/Load/Export · Import GLB (UVs + bake + Draco)
-│        · head-facing dock · Local Snapshot PNG + video (virtual view)
-├─ Next: README↔tunnel link · Import URL UX · XR presentation capture (stretch)
-├─ Parallel: Materials / GLB / Paint / UV
-├─ Collaboration (planned): Spectator (invite code) · Co-sculpt (later)
+├─ Done: session · Workspace · BRUSH/SURF · Transform · paint · Save/Load
+│        · Import GLB (UVs + live maps + Draco) · Export GLB / OBJ / OBJ+MAPS / PLY / STL
+│        · Paint into maps · head-facing dock · Local Snapshot PNG + video
+├─ Next: README↔tunnel · Import URL UX · optional Studio (UI) record
+├─ Parallel: Materials Phase D — UV create/edit (when needed)
+├─ Collaboration: Spectator · Co-sculpt (later)
 └─ Stretch: dock slot swap · hands · remesh · other-HMD
 ```
+
+#### Recent agreed list — what we said vs what advanced
+
+| Agreed item | Advanced? | Notes |
+|---|---|---|
+| **Local Snapshot PNG** | **Yes** | Desktop Camera + XR OPTS; virtual view only |
+| **Start/Stop video record** | **Yes** | Desktop + XR; FPS 15/24/30; Small/Balanced/High (clean bitrates). For post (DaVinci etc.), not OS Cast |
+| **XR capture ≈ Cast-like** | **Partial → Yes (app-side)** | Head pose + ~70° FOV; dock + controllers in frame. Still **not** OS Cast / passthrough |
+| **Desktop encode efficient** | **Yes** | Scales live view into preset sizes (not raw retina) |
+| **Cache freed when idle** | **Yes** | Scratch FBO/RT/encode canvas disposed after PNG, Stop, XR exit |
+| **Studio / UI-in-frame record** | **Design only** | Optional later; speed-sculpt post already covered by Local Record → Resolve |
+| **GLB import fidelity** | **Yes** | Phase A + live map slots (Phase C) |
+| **GLB export** | **Yes** | Phase B; prefers live maps when present |
+| **Paint into maps** | **Yes** | Phase C — overwrite imported texels; verts remain UV-less fallback |
+| **Spectator / Co-sculpt** | **No** | Unchanged — needs signaling |
+
+#### Gaps that still need attention
+
+1. **Bake / paint polish** — seam padding improved; further UV tools are Phase D.  
+2. **README ↔ tunnel** — `tools/xr-tunnel.txt` exists; README link still unchecked.  
+3. **Import URL UX** — `addModelURL` exists; CORS / dock affordance still thin.  
+4. **Optional Studio record** — desktop UI in frame; not built (Local Record + OS capture cover most needs).  
+5. **XR capture polish** — aim ray visibility, MR plate, framing tweaks remain stretch.
 
 Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) → wheel lock / multi-select → tools**. Right: sculpt / Transform / **grip = negative** / undo / redo. **Both grips = Smooth hold** (desktop Shift).
 
@@ -483,44 +506,64 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] Symmetry-aware XR paths for grab tools  
 - [x] Undo / Redo in XR (Right B / stick click / Opts)  
 - [x] Intensity/radius always visible + squeeze+stick adjust (toast / haptic)  
-- [x] **Save / Load** `.sgl` (IndexedDB) + **Export** OBJ/PLY/STL from Opts  
-- [x] **Import** OBJ/PLY/STL/SGL/**GLB·glTF** (desktop Files + XR OPTS Import; UVs + color/metal-rough bake + Draco)  
+- [x] **Save / Load** `.sgl` (IndexedDB) + **Export** OBJ/PLY/STL + **OBJ+MAPS** zip + **GLB** from Files/OPTS  
+- [x] **Import** OBJ/PLY/STL/SGL/**GLB·glTF** (UVs + live PBR maps + vertex fallback + Draco)  
+- [x] **Paint into maps** when UVs + map slots exist (Phase C); verts for UV-less clay  
 - [x] **Clear scene** + **Add** sphere/cube/cylinder/torus from Opts  
 - [x] Remote log relay for Quest debugging  
 - [x] Dual-grip hold to exit when DOM overlay is missing in MR  
 - [x] DIY HTTPS tunnel notes (`tools/xr-tunnel.txt`) for Quest testing  
 - [x] **Right grip = temporary negative/invert** on tools that support it (removed from OPTS sticky toggle)  
-- [x] **Local Snapshot** — desktop + XR OPTS: PNG still + **Start/Stop record** (WebM; 12/15/24 fps; Small/Balanced/High). Desktop copies the live canvas; XR encodes a mono virtual view (clay + env/grid + gizmo).  
+- [x] **Local Snapshot / Record** (desktop Camera + XR OPTS)  
+  - PNG still + Start/Stop WebM (VP9 when available)  
+  - FPS **15 / 24 / 30** (default 24); quality **Small 720p / Balanced 900p / High 1080p** with clean bitrates  
+  - Desktop: live sculpt view scaled into encode canvas  
+  - XR: Cast-like mono (head pose + ~70° FOV) with **clay + brush/gizmo + controllers + dock**  
+  - Scratch buffers disposed when idle  
 
 ### Next (near-term)
 
-1. [x] **glTF / GLB import** (shared core — desktop Files + XR OPTS Import; UVs, welded topo, baseColor/metal-rough bake, Draco)  
-2. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
-3. [x] **Local Snapshot** — PNG + Start/Stop record (see Done + Collaboration & capture)  
-4. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
-5. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
+1. [x] **glTF / GLB import** (Phase A — see Materials track)  
+2. [x] **GLB export** + **paint-into-maps** (Phase B / C)  
+3. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
+4. [x] **Local Snapshot / Record** (see Done + Collaboration & capture)  
+5. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
+6. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
+7. [ ] Optional **Studio record** (desktop UI in frame) for speed-sculpt / tutorial exports — default stays sculpt-view-only  
 
 ### Collaboration & capture (naming — keep distinct)
 
 | Feature | Meaning | Status |
 |---|---|---|
-| **Local Snapshot** | Image or short video of the *virtual* sculpt view on this device — review or send later | **Done** — PNG + Start/Stop record (desktop Camera menu · XR OPTS). Desktop = live canvas; XR = mono FBO (world + clay + gizmo; **not** dock UI / controller GLBs / passthrough) |
-| **XR presentation capture** | Composite dock + controller models (+ aim) into the same still/video for demos | Planned stretch — still *virtual*; still not Quest Cast |
-| **Spectator** | Friend opens *this app*, enters your invite code, watches your **live virtual** world (view-only; no MR for privacy) | Planned — needs signaling + WebRTC (or equivalent) |
-| **Cast / Stream** | Twitch, YouTube, Quest Cast, OS screen share — true “what I see in the headset” including system compositor | Outside our app — use for full WebXR showcase today |
-| **Co-sculpt** | Friend edits the same clay with you | Later — separate from Spectator |
+| **Local Snapshot** | Image or short video of the *virtual* sculpt view — review or share later | **Done** — desktop + XR; clean presets; XR includes dock/controllers; not Cast/passthrough |
+| **Studio record** | Same encode path but includes **desktop yagui** (tools, saves, panels) for speed sculpts | **Agreed design** — not built; OS window capture works today |
+| **XR presentation capture** | Richer demo composite (aim rays, MR plate, framing) | **Mostly landed** (dock + controllers); polish remains stretch |
+| **Spectator** | Friend opens *this app*, invite code, watches **live virtual** world (view-only; no MR) | Planned — signaling + WebRTC |
+| **Cast / Stream** | Twitch / YouTube / Quest Cast / OS share | Outside our app |
+| **Co-sculpt** | Friend edits the same clay | Later — after Spectator |
 
 Do **not** call local mirror/debug “Spectator.” Do **not** promise passthrough or OS Cast inside WebXR.
 
-**Why XR video isn’t “what the headset sees”:** WebXR cannot read the OS compositor (passthrough, system UI, or Quest Cast). Our encode path redraws the sculpt scene only. Dock and controller models live on separate Three.js / canvas paths and are not in that FBO yet — that is **XR presentation capture**, not Local Snapshot.
+**Why XR video isn’t Quest Cast:** WebXR cannot read the OS compositor. We redraw a flat mono presentation. Headset playback of a WebM does **not** apply VR lens correction.
+
+### GLB status (honest)
+
+| Direction | Status | What you get |
+|---|---|---|
+| **Import `.glb` / `.gltf`** | **Operational** (A + C) | Indexed topology, UVs, **live albedo/metalRough textures** (ShaderPBR), vertex paint fallback, Draco, multi-material → separate meshes |
+| **Export `.glb` / `.gltf`** | **Operational** (B + C) | Binary `.glb`: prefers **live maps**; else bake from verts; UV-less → vertex color + factors |
+| **Alternate textured export** | **OBJ+MAPS** zip | Live maps when present; else baked diffuse/rough/metal PNGs (needs UVs) |
+| **Full project re-open** | **`.sgl`** | Geo + UVs + vertex paint continuity (map slots not yet in `.sgl`) |
+
+**Verdict:** GLB **round-trip + live maps** — import keeps textures, PBR samples them, paint can overwrite map texels, export prefers live maps. Prefer `.sgl` for re-open here.
+
 **Files language (keep clean):**
 
 | Action | Format | Purpose |
 |---|---|---|
 | **Save / Load** | `.sgl` | Native project continuity — IndexedDB in XR (geo + UV + vertex paint when present) |
-| **Export** | `.obj` / `.ply` / `.stl` | Hand off — only what each format honestly carries (see Materials track) |
-| **Export (textured)** | `.obj` + `.mtl` + PNG maps (zip) | Vertex paint baked to UV maps — best hand-off until GLB-out |
-| **Export (planned)** | **`.glb` / `.gltf`** | Hand off with UVs + PBR when we can write them — not before |
+| **Export** | `.obj` / `.ply` / `.stl` / **`.glb`** | Hand off — only what each format honestly carries (see Materials track) |
+| **Export (textured zip)** | `.obj` + `.mtl` + PNG maps | Same bake as GLB maps, looser DCC pack |
 | **Import** | `.obj` / `.ply` / `.stl` / `.sgl` / **`.glb` / `.gltf`** | Adds to scene (desktop Files / 2D picker / XR OPTS Import) |
 | **Import URL** | HTTPS + CORS | Hosted CC0 / personal static hosts (`addModelURL`) |
 
@@ -533,7 +576,8 @@ Do **not** call local mirror/debug “Spectator.” Do **not** promise passthrou
 - [ ] Multi-resolution / remesh flows that feel safe at Quest framerate  
 - [ ] Cloud / Sketchfab-style share from XR (optional; local continuity comes first)  
 - [ ] **Spectator** — invite-code live virtual watch (view-only; signaling + WebRTC; Desktop viewer v1)  
-- [ ] **XR presentation capture** — include dock + controller models in Local Snapshot/Record for demos (still virtual; Cast remains OS-level)  
+- [ ] **XR presentation capture polish** — aim rays, MR plate options, framing tweaks  
+- [ ] **Studio record** — optional desktop UI compositing / guided OS capture for speed sculpts  
 - [ ] **Co-sculpt** — shared editing (after Spectator)  
 - [ ] **Other-headset validation** (Pico / PC VR / etc.) — opportunistic  
 - [ ] Evaluate Nomad-era UX lessons without abandoning the open SculptGL core  
@@ -562,10 +606,10 @@ Import asset (keep what GLB/OBJ offers)
 | UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
 | Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock |
 | Brush **alpha** stamps (PNG/JPG falloff) | Yes — desktop sculpt UI; thin in XR |
-| GLB/glTF import | Yes — **UVs + welded topo + baseColor/metal-rough bake + Draco** (maps not as live samplers yet) |
-| GLB/glTF export | **No** |
-| UV seam / unwrap editor | **No** |
-| Texture-map paint (albedo maps on disk) | **No** — paint is per-vertex |
+| GLB/glTF import | Yes — **UVs + welded topo + live maps + vertex fallback + Draco** |
+| GLB/glTF export | Yes — live maps when present; else bake from verts / COLOR_0 |
+| UV seam / unwrap editor | **No** (Phase D) |
+| Texture-map paint | **Yes (Phase C)** — paint into live map slots when UVs+maps; verts remain fallback |
 
 ### Honest export payload (permitted info only)
 
@@ -575,7 +619,7 @@ Import asset (keep what GLB/OBJ offers)
 | **`.obj`** | Geo + UVs (+ limited material channels when we have them) |
 | **`.ply`** | Geo (± vertex color); no real UV/PBR maps |
 | **`.stl`** | Geo only |
-| **`.glb` / `.gltf`** | Geo + UVs + PBR factors/textures **only after** we can write them honestly |
+| **`.glb` / `.gltf`** | Geo + UVs + live or baked PBR maps (UV meshes) or vertex color + rough/metal factors |
 
 Never advertise a format for data it cannot hold.
 
@@ -606,19 +650,21 @@ Necessary follow-through after geometry-first GLB.
 ### Phase B — Export what the next app expects
 
 - [x] Document per-format honesty in UI (OPTS / Files) — what travels, what doesn’t  
-- [x] Strengthen **OBJ** (+ UV bake PNGs) as the textured hand-off until GLB-out lands (`Save .obj + maps` zip / XR `OBJ+MAPS`)  
-- [ ] **GLB/glTF export** when we have UVs and either vertex-bake-to-texture or real map paint  
-- [x] XR OPTS: honest format cycle (`OBJ` / `OBJ+MAPS` / `PLY` / `STL`) — GLB only when writer exists  
-- [ ] Round-trip test: Blender → GLB in → sculpt/paint → GLB/OBJ out → Blender/viewer  
+- [x] Strengthen **OBJ** (+ UV bake PNGs) as a textured hand-off (`Save .obj + maps` zip / XR `OBJ+MAPS`)  
+- [x] **GLB/glTF export** — vertex paint baked to maps when UVs exist; else COLOR_0 + factors (`Save .glb` / XR `GLB`)  
+- [x] XR OPTS: honest format cycle (`OBJ` / `OBJ+MAPS` / `GLB` / `PLY` / `STL`)  
+- [x] Round-trip test: Khronos Duck → app GLB out → Blender import/export → app again (`tools/glb-roundtrip/`)  
 
 *Outcome:* artists trust the Files language; no surprise empty materials.
 
 ### Phase C — Enhance painting
 
-- [ ] Richer **vertex** paint UX (channels, hardness, XR dock polish) — earn each control  
-- [ ] **Paint into textures** when UVs exist (albedo / rough / metal maps)  
-- [ ] Layers or mask-aware workflows if they earn their place (charter)  
-- [ ] Keep vertex paint as the always-available path (no UV required)  
+- [x] Richer **vertex** paint UX (channels, hardness, XR dock write flags) — baseline  
+- [x] **Paint into textures** when UVs + map slots exist (albedo / rough / metal)  
+- [x] Keep / sample **live maps** on GLB import (`ShaderPBR`)  
+- [x] Improved UV bake padding (wider weighted dilation + second pass)  
+- [ ] Layers or mask-aware map workflows if they earn their place (charter)  
+- [x] Keep vertex paint as the always-available path (no UV required)  
 
 *Outcome:* paint serves both clay look *and* engine/DCC-ready maps.
 
@@ -629,7 +675,7 @@ Necessary follow-through after geometry-first GLB.
 - [ ] **Seam mark → unwrap → pack** (Desktop-first; density belongs on monitor)  
 - [ ] XR: preview UVs / “has UVs?” status — not a full seam editor in MR on day one  
 
-*Outcome:* texture paint and honest GLB export unlock without requiring Blender for every asset.
+*Outcome:* artists can unwrap in-app when Blender isn’t in the loop; imported UVs stay first-class.
 
 ### Phase E — Texture-based sculpting (alphas & stamps)
 
@@ -651,14 +697,15 @@ A Preserve import  →  B Honest export  →  C Paint maps  →  D UV tools  →
          └──── can overlap with XR interaction polish ────┘
 ```
 
-Do **not** ship GLB export before Phase A/B can tell the truth. Do **not** block Workspace/dock/sculpt polish waiting on a full texturing suite.
+Do **not** block Workspace/dock/sculpt polish waiting on a full UV suite (Phase D).
 
 ### Engineering notes (this track)
 
 - Prefer **shared core** in `ImportGLTF`, mesh UV/paint buffers, and exporters — XR and Desktop both call the same path (`additive, not divergent`).  
-- `ShaderPBR` today is largely **vertex + IBL**; map samplers are a deliberate later step when texture paint exists.  
+- `ShaderPBR` samples **live albedo / metalRough** when map slots exist; otherwise vertex attrs + IBL.  
 - Controller GLBs already keep materials in Three — that path is **presentation**, not sculpt mesh data; don’t conflate the two.  
-- Compression loaders (Draco, etc.) stay lazy-chunked so cold start for non-GLB users stays light.
+- Compression loaders (Draco, etc.) and GLTFExporter stay lazy-chunked so cold start for non-GLB users stays light.  
+- Round-trip notes / Blender script: `tools/glb-roundtrip/`.
 
 ---
 

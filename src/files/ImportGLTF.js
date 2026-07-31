@@ -14,6 +14,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import Utils from 'misc/Utils';
 import MeshStatic from 'mesh/meshStatic/MeshStatic';
+import MeshPbrMaps from 'mesh/MeshPbrMaps';
 
 var Import = {};
 var _dracoLoader = null;
@@ -210,8 +211,20 @@ Import._meshFromThreeGeometry = function (geometry, matrixWorld, gl, material, g
   }
   if (cAr) mesh.setColors(cAr);
 
-  var mAr = Import._bakeVertexMaterials(material, nb);
+  var mAr = Import._bakeVertexMaterials(material, nb, uvAttr, pos.count, used);
   if (mAr) mesh.setMaterials(mAr);
+
+  // Keep live PBR maps when present (Phase C) — ShaderPBR samples them.
+  // Shader switch happens after Multimesh.init() in Scene._ingestImportedMeshes.
+  if (mesh.hasUV() && material) {
+    try {
+      var slots = MeshPbrMaps.fromThreeMaterial(gl, material, MeshPbrMaps.DEFAULT_SIZE);
+      if (slots)
+        mesh.setPbrMaps(slots.albedo, slots.metalRough, slots.factors);
+    } catch (err) {
+      console.warn('ImportGLTF: keep PBR maps failed', err);
+    }
+  }
 
   return mesh;
 };
@@ -266,26 +279,86 @@ Import._sRGBToLinear = function (c) {
 };
 
 /**
- * roughness / metalness / mask per vertex from MeshStandardMaterial factors.
+ * roughness / metalness / mask per vertex from MeshStandardMaterial factors
+ * and optional roughness/metalness maps (sampled when UVs exist).
  * @returns {Float32Array|null}
  */
-Import._bakeVertexMaterials = function (material, nb) {
+Import._bakeVertexMaterials = function (material, nb, uvAttr, posCount, used) {
   if (!material) return null;
   var rough = (typeof material.roughness === 'number') ? material.roughness : null;
   var metal = (typeof material.metalness === 'number') ? material.metalness : null;
-  if (rough == null && metal == null) return null;
+  if (rough == null && metal == null && !material.roughnessMap && !material.metalnessMap) return null;
   if (rough == null) rough = 0.18;
   if (metal == null) metal = 0.08;
 
+  // Combined MR map: G=rough, B=metal (glTF metallicRoughnessTexture).
+  var combined = (material.metalnessMap && material.roughnessMap && material.metalnessMap === material.roughnessMap)
+    ? material.metalnessMap
+    : (material.metalnessMap || material.roughnessMap || null);
+
+  var canSample = !!(combined && uvAttr && uvAttr.count === posCount);
   var mAr = new Float32Array(nb * 3);
   var i;
   for (i = 0; i < nb; ++i) {
     var j = i * 3;
-    mAr[j] = rough;
-    mAr[j + 1] = metal;
+    var r = rough;
+    var m = metal;
+    if (canSample) {
+      var uSrc = used ? used[i] : i;
+      var raw = Import._sampleTextureRaw(combined, uvAttr.getX(uSrc), uvAttr.getY(uSrc));
+      if (raw) {
+        r = rough * (raw[1] / 255);
+        m = metal * (raw[2] / 255);
+      }
+    }
+    mAr[j] = r;
+    mAr[j + 1] = m;
     mAr[j + 2] = 1.0;
   }
   return mAr;
+};
+
+/**
+ * Sample texture bytes without sRGB conversion (for data maps).
+ * @returns {[number,number,number]|null} 0–255
+ */
+Import._sampleTextureRaw = function (texture, u, v) {
+  try {
+    var img = texture && texture.image;
+    if (!img) return null;
+    var w = img.width || img.videoWidth || 0;
+    var h = img.height || img.videoHeight || 0;
+    if (!w || !h) return null;
+
+    var cache = texture.userData && texture.userData._sculptSample;
+    if (!cache) {
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, w, h);
+      cache = {
+        data: ctx.getImageData(0, 0, w, h).data,
+        w: w,
+        h: h
+      };
+      if (!texture.userData) texture.userData = {};
+      texture.userData._sculptSample = cache;
+    }
+
+    var uu = u - Math.floor(u);
+    var vv = v - Math.floor(v);
+    if (uu < 0) uu += 1;
+    if (vv < 0) vv += 1;
+    var yu = texture.flipY ? (1.0 - vv) : vv;
+    var x = Math.min(cache.w - 1, Math.max(0, (uu * cache.w) | 0));
+    var y = Math.min(cache.h - 1, Math.max(0, (yu * cache.h) | 0));
+    var o = (y * cache.w + x) * 4;
+    return [cache.data[o], cache.data[o + 1], cache.data[o + 2]];
+  } catch (err) {
+    return null;
+  }
 };
 
 /**

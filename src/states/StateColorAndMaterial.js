@@ -1,4 +1,5 @@
 import Utils from 'misc/Utils';
+import MeshPbrMaps from 'mesh/MeshPbrMaps';
 
 class StateColorAndMaterial {
 
@@ -8,15 +9,26 @@ class StateColorAndMaterial {
     this._idVertState = []; // ids of vertices
     this._cArState = []; // copies of color vertices
     this._mArState = []; // copies of material vertices
+    // Full-map snapshots when live PBR maps exist (v1 — simple, correct).
+    this._albedoMapState = null;
+    this._metalRoughMapState = null;
+    this._mapsSnapshotted = false;
   }
 
   isNoop() {
-    return this._idVertState.length === 0;
+    return this._idVertState.length === 0 && !this._mapsSnapshotted;
   }
 
   undo() {
     this.pullVertices();
     var mesh = this._mesh;
+    if (this._mapsSnapshotted && mesh.hasPbrMaps && mesh.hasPbrMaps()) {
+      var gl = mesh.getGL();
+      if (this._albedoMapState)
+        MeshPbrMaps.restorePixels(gl, mesh.getAlbedoMapSlot(), this._albedoMapState);
+      if (this._metalRoughMapState)
+        MeshPbrMaps.restorePixels(gl, mesh.getMetalRoughMapSlot(), this._metalRoughMapState);
+    }
     mesh.updateDuplicateColorsAndMaterials();
     mesh.updateDrawArrays();
     mesh.updateColorBuffer();
@@ -31,10 +43,26 @@ class StateColorAndMaterial {
   createRedo() {
     var redo = new StateColorAndMaterial(this._main, this._mesh);
     this.pushRedoVertices(redo);
+    if (this._mesh.hasPbrMaps && this._mesh.hasPbrMaps()) {
+      redo._albedoMapState = MeshPbrMaps.clonePixels(this._mesh.getAlbedoMapSlot());
+      redo._metalRoughMapState = MeshPbrMaps.clonePixels(this._mesh.getMetalRoughMapSlot());
+      redo._mapsSnapshotted = true;
+    }
     return redo;
   }
 
+  _snapshotMapsOnce() {
+    if (this._mapsSnapshotted) return;
+    var mesh = this._mesh;
+    if (!(mesh.hasPbrMaps && mesh.hasPbrMaps())) return;
+    this._albedoMapState = MeshPbrMaps.clonePixels(mesh.getAlbedoMapSlot());
+    this._metalRoughMapState = MeshPbrMaps.clonePixels(mesh.getMetalRoughMapSlot());
+    this._mapsSnapshotted = true;
+  }
+
   pushVertices(iVerts) {
+    this._snapshotMapsOnce();
+
     var idVertState = this._idVertState;
     var cArState = this._cArState;
     var mArState = this._mArState;

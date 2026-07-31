@@ -1,6 +1,7 @@
 /**
  * Bake vertex paint (color / roughness / metalness) into UV-space PNG blobs.
  * Shared by desktop Files UI and XR OBJ+maps export.
+ * Runs a second blur pass for better seam padding.
  */
 import Rtt from 'drawables/Rtt';
 import ShaderPaintUV from 'render/shaders/ShaderPaintUV';
@@ -87,6 +88,11 @@ BakeVertexMaps.bakeChannel = function (main, mesh, size, channel) {
       mesh.setShaderType(tmpShaderType);
 
       BakeVertexMaps._blur(gl, main, width, height);
+      // Second dilation pass: feed blur output back as paint input.
+      var rttBlur = BakeVertexMaps._getRttBlur(gl);
+      ShaderBlur.INPUT_TEXTURE = rttBlur;
+      BakeVertexMaps._blur(gl, main, width, height);
+      ShaderBlur.INPUT_TEXTURE = BakeVertexMaps._getRttPaint(gl);
       var canvas = BakeVertexMaps._extractCanvas(gl, width, height);
       if (main.onCanvasResize) main.onCanvasResize();
 

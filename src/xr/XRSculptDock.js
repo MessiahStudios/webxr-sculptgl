@@ -105,6 +105,7 @@ function rgbCss(rgb) {
 function exportFmtLabel(fmt) {
   var f = (fmt || 'obj').toLowerCase();
   if (f === 'obj-maps') return 'OBJ+MAPS';
+  if (f === 'glb' || f === 'gltf') return 'GLB';
   return f.toUpperCase();
 }
 
@@ -115,17 +116,18 @@ function optLabel(ok, s) {
   if (ok === 'export') return 'EXPORT ' + exportFmtLabel(s.exportFmt);
   if (ok === 'snapshot') return 'LOCAL SNAPSHOT — virtual view PNG (no room)';
   if (ok === 'record') return s.recording ? 'STOP RECORD — save video' : 'START RECORD — virtual view';
-  if (ok === 'recordFps') return 'record FPS: ' + (s.recordFps || 12);
+  if (ok === 'recordFps') return 'record FPS: ' + (s.recordFps || 24);
   if (ok === 'recordQuality') {
     var q = s.recordQuality || 'balanced';
-    if (q === 'small') return 'record size: SMALL (640p, more compression)';
-    if (q === 'high') return 'record size: HIGH (1920p)';
-    return 'record size: BALANCED (1280p)';
+    if (q === 'small') return 'record size: SMALL (720p, clean)';
+    if (q === 'high') return 'record size: HIGH (1080p, clean)';
+    return 'record size: BALANCED (900p, clean)';
   }
   if (ok === 'exportFmt') {
     var f = (s.exportFmt || 'obj').toLowerCase();
     if (f === 'obj') return 'format: OBJ — geo + UVs';
     if (f === 'obj-maps') return 'format: OBJ+MAPS — zip w/ MTL+PNGs (needs UVs)';
+    if (f === 'glb' || f === 'gltf') return 'format: GLB — geo + baked PBR maps (UVs) or vertex color';
     if (f === 'ply') return 'format: PLY — geo ± color (no UVs)';
     if (f === 'stl') return 'format: STL — geo only';
     return 'export format: ' + exportFmtLabel(f);
@@ -268,7 +270,7 @@ class XRSculptDock {
     var self = this;
     this.state.subscribe(function () {
       if (self._scene.setLocalRecordFps)
-        self._scene.setLocalRecordFps(self.state.recordFps || 12);
+        self._scene.setLocalRecordFps(self.state.recordFps || 24);
       if (self._scene.setLocalRecordQuality)
         self._scene.setLocalRecordQuality(self.state.recordQuality || 'balanced');
       self._paintCanvas();
@@ -996,7 +998,7 @@ class XRSculptDock {
       }
       try {
         var info = this._scene.startLocalRecording({
-          fps: this.state.recordFps || 12,
+          fps: this.state.recordFps || 24,
           quality: this.state.recordQuality || 'balanced'
         });
         self.state.set({ recording: true });

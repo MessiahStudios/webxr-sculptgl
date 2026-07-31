@@ -150,8 +150,9 @@ class Camera {
   }
 
   /**
-   * Build a mono perspective for Local Snapshot matching canvas aspect,
-   * keeping the XR view orientation (and approximate vertical FOV).
+   * Build a Cast-like mono view for Local Snapshot / Record:
+   * XR head orientation + symmetric perspective at the encode aspect.
+   * (Headset eye projections are asymmetric / very wide — wrong for flat video.)
    */
   applyXRSnapshotView(xrView, stageMat, canvasW, canvasH) {
     mat4.invert(this._view, xrView.transform.matrix);
@@ -159,14 +160,10 @@ class Camera {
       mat4.mul(_TMP_MAT, this._view, stageMat);
       mat4.copy(this._view, _TMP_MAT);
     }
-    var src = xrView.projectionMatrix;
-    var fovY = 1.2;
-    if (src && Math.abs(src[5]) > 1e-6)
-      fovY = 2.0 * Math.atan(1.0 / src[5]);
     var aspect = (canvasW > 0 && canvasH > 0) ? (canvasW / canvasH) : (16 / 9);
     var near = this._near || 0.05;
     var far = this._far || 5000.0;
-    mat4.perspective(this._proj, fovY, aspect, near, far);
+    mat4.perspective(this._proj, (70 * Math.PI) / 180, aspect, near, far);
   }
 
   getProjectionType() {

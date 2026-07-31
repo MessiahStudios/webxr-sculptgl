@@ -92,6 +92,7 @@ class XRControllerModels {
     this._sculptDockLoading = false;
     this._renderLogged = false;
     this._sessionGen = 0;
+    this._captureRT = null;
   }
 
   _ensureRenderer() {
@@ -181,6 +182,10 @@ class XRControllerModels {
         }
       });
     });
+    if (this._captureRT) {
+      this._captureRT.dispose();
+      this._captureRT = null;
+    }
   }
 
   _onInputSourcesChange(event) {
@@ -430,6 +435,112 @@ class XRControllerModels {
     this._renderer.setScissorTest(false);
     if (this._renderer.resetState)
       this._renderer.resetState();
+  }
+
+  /**
+   * Allocate / resize an offscreen Three render target for Local Snapshot / Record.
+   * Must be used so clay + dock share one buffer — never draw into the live XR layer.
+   */
+  ensureCaptureTarget(width, height) {
+    this._ensureRenderer();
+    if (this._captureRT && this._captureRT.width === width && this._captureRT.height === height)
+      return this._captureRT;
+    if (this._captureRT) {
+      this._captureRT.dispose();
+      this._captureRT = null;
+    }
+    this._captureRT = new THREE.WebGLRenderTarget(width, height, {
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+      depthBuffer: true,
+      stencilBuffer: false,
+      generateMipmaps: false
+    });
+    this._captureRT.texture.name = 'xr-local-capture';
+    return this._captureRT;
+  }
+
+  /**
+   * Bind capture RT and clear it. Returns true if GL is ready for SculptGL draws into that FB.
+   */
+  beginCapture(width, height, clearR, clearG, clearB) {
+    if (!width || !height) return false;
+    this._ensureRenderer();
+    var rt = this.ensureCaptureTarget(width, height);
+    // Critical: while WebXR is presenting, bindFramebuffer(null) is the stereo XR layer.
+    // Keep xr disabled and stay on our offscreen RT for the whole capture.
+    if (this._renderer.xr) this._renderer.xr.enabled = false;
+    this._renderer.setRenderTarget(rt);
+    this._renderer.setViewport(0, 0, width, height);
+    this._renderer.setScissor(0, 0, width, height);
+    this._renderer.setScissorTest(false);
+    this._renderer.autoClear = false;
+    this._renderer.setClearColor(
+      new THREE.Color(clearR == null ? 0.18 : clearR, clearG == null ? 0.19 : clearG, clearB == null ? 0.22 : clearB),
+      1
+    );
+    this._renderer.clear(true, true, true);
+    return true;
+  }
+
+  /**
+   * Draw controllers + dock into the current capture RT (call after clay, before read).
+   */
+  renderCaptureControllers(viewMat, projMat) {
+    if (!this._renderer || !this._captureRT || this._entries.size === 0) return;
+    if (!viewMat || !projMat) return;
+
+    this._threeScene.updateMatrixWorld(true);
+
+    var threeCam = new THREE.PerspectiveCamera();
+    threeCam.matrixAutoUpdate = false;
+    threeCam.projectionMatrix.fromArray(projMat);
+    threeCam.projectionMatrixInverse.copy(threeCam.projectionMatrix).invert();
+    threeCam.matrixWorldInverse.fromArray(viewMat);
+    threeCam.matrixWorld.copy(threeCam.matrixWorldInverse).invert();
+
+    if (this._renderer.xr) this._renderer.xr.enabled = false;
+    this._renderer.setRenderTarget(this._captureRT);
+    this._renderer.setViewport(0, 0, this._captureRT.width, this._captureRT.height);
+    this._renderer.autoClear = false;
+    this._renderer.clearDepth();
+    this._renderer.render(this._threeScene, threeCam);
+  }
+
+  /**
+   * Read capture RT into a Uint8Array (RGBA, bottom-up like gl.readPixels).
+   */
+  readCapturePixels(pixels) {
+    if (!this._renderer || !this._captureRT || !pixels) return false;
+    var w = this._captureRT.width;
+    var h = this._captureRT.height;
+    this._renderer.readRenderTargetPixels(this._captureRT, 0, 0, w, h, pixels);
+    return true;
+  }
+
+  /** Unbind capture RT and restore GL state for the next XR eye pass. */
+  endCapture() {
+    if (!this._renderer) return;
+    this._renderer.setRenderTarget(null);
+    this._renderer.setScissorTest(false);
+    if (this._renderer.xr) this._renderer.xr.enabled = false;
+    if (this._renderer.resetState)
+      this._renderer.resetState();
+  }
+
+  /** Free offscreen Local Snapshot / Record target (keeps live XR session intact). */
+  disposeCaptureTarget() {
+    if (this._captureRT) {
+      this._captureRT.dispose();
+      this._captureRT = null;
+    }
+  }
+
+  /**
+   * @deprecated use beginCapture / renderCaptureControllers / readCapturePixels / endCapture
+   */
+  renderCaptureMono(scene, width, height, viewMat, projMat) {
+    this.renderCaptureControllers(viewMat, projMat);
   }
 }
 

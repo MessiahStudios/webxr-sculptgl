@@ -4,6 +4,7 @@ import Utils from 'misc/Utils';
 import OctreeCell from 'math3d/OctreeCell';
 import Shader from 'render/ShaderLib';
 import RenderData from 'mesh/RenderData';
+import MeshPbrMaps from 'mesh/MeshPbrMaps';
 
 /*
 Basic usage:
@@ -1766,6 +1767,51 @@ class Mesh {
     this._renderData._texture0 = tex;
   }
 
+  setPbrMaps(albedoSlot, metalRoughSlot, factors) {
+    // Release previous slots without clearing the new refs mid-set.
+    var gl = this.getGL();
+    if (this._renderData._albedoMapSlot && this._renderData._albedoMapSlot !== albedoSlot)
+      MeshPbrMaps.releaseSlot(gl, this._renderData._albedoMapSlot);
+    if (this._renderData._metalRoughMapSlot && this._renderData._metalRoughMapSlot !== metalRoughSlot)
+      MeshPbrMaps.releaseSlot(gl, this._renderData._metalRoughMapSlot);
+    this._renderData._albedoMapSlot = albedoSlot || null;
+    this._renderData._metalRoughMapSlot = metalRoughSlot || null;
+    this._renderData._pbrMapFactors = {
+      roughness: factors && factors.roughness != null ? factors.roughness : 1.0,
+      metalness: factors && factors.metalness != null ? factors.metalness : 1.0
+    };
+  }
+
+  /** Call after mesh.init() so UV seam duplicates exist for PBR map sampling. */
+  enablePbrMapShader() {
+    if (!this.hasPbrMaps()) return;
+    this.setShaderType(Enums.Shader.PBR);
+  }
+
+  hasPbrMaps() {
+    return !!(this._renderData._albedoMapSlot && this._renderData._albedoMapSlot.texture);
+  }
+
+  getAlbedoMapSlot() {
+    return this._renderData._albedoMapSlot;
+  }
+
+  getMetalRoughMapSlot() {
+    return this._renderData._metalRoughMapSlot;
+  }
+
+  getPbrMapFactors() {
+    return this._renderData._pbrMapFactors;
+  }
+
+  releasePbrMaps() {
+    var gl = this.getGL();
+    MeshPbrMaps.releaseSlot(gl, this._renderData._albedoMapSlot);
+    MeshPbrMaps.releaseSlot(gl, this._renderData._metalRoughMapSlot);
+    this._renderData._albedoMapSlot = null;
+    this._renderData._metalRoughMapSlot = null;
+  }
+
   setMatcap(idMat) {
     this._renderData._matcap = idMat;
   }
@@ -1876,7 +1922,10 @@ class Mesh {
 
   isUsingTexCoords() {
     var shaderType = this._renderData._shaderType;
-    return shaderType === Enums.Shader.UV || shaderType === Enums.Shader.PAINTUV;
+    if (shaderType === Enums.Shader.UV || shaderType === Enums.Shader.PAINTUV)
+      return true;
+    // Live PBR maps need UV attribute / seam duplicates.
+    return shaderType === Enums.Shader.PBR && this.hasPbrMaps();
   }
 
   isTransparent() {
@@ -1990,6 +2039,7 @@ class Mesh {
   release() {
     if (this.getTexture0())
       this.getGL().deleteTexture(this.getTexture0());
+    this.releasePbrMaps();
     this.getVertexBuffer().release();
     this.getNormalBuffer().release();
     this.getColorBuffer().release();
@@ -2006,6 +2056,7 @@ class Mesh {
     this.setTexture0(mesh.getTexture0());
     this.setCurvature(mesh.getCurvature());
     this.setOpacity(mesh.getOpacity());
+    // PBR map slots are mesh-owned GPU resources — not shared across copies.
   }
 
   copyTransformData(mesh) {

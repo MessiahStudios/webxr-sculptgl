@@ -33,7 +33,7 @@ export var XR_TAB_TOOLS = {
 
 /** Always-visible file continuity rows (before paint opts / brush flags). */
 export var XR_FILE_OPTS = ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality'];
-export var XR_RECORD_FPS = [12, 15, 24];
+export var XR_RECORD_FPS = [15, 24, 30];
 export var XR_RECORD_QUALITY = ['small', 'balanced', 'high'];
 
 /**
@@ -50,7 +50,7 @@ export var XR_PAINT_OPTS = [
   'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
 
-export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'ply', 'stl'];
+export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'glb', 'ply', 'stl'];
 
 export var PAINT_COLOR_PRESETS = [
   { name: 'clay', rgb: [1.0, 0.766, 0.336] },
@@ -185,7 +185,7 @@ export function createXRSculptDockState() {
     matcap: 'default',
     exportFmt: 'obj',
     addShape: 'sphere',
-    recordFps: 12,
+    recordFps: 24,
     recordQuality: 'balanced',
     recording: false,
 
@@ -343,8 +343,8 @@ export function createXRSculptDockState() {
         return null;
       }
       if (focus === 'recordFps') {
-        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 12);
-        if (fpi < 0) fpi = 0;
+        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 24);
+        if (fpi < 0) fpi = 1;
         state.set({ recordFps: XR_RECORD_FPS[(fpi + 1) % XR_RECORD_FPS.length] });
         return null;
       }
@@ -394,8 +394,8 @@ export function createXRSculptDockState() {
         return;
       }
       if (focus === 'recordFps') {
-        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 12);
-        if (fpi < 0) fpi = 0;
+        var fpi = XR_RECORD_FPS.indexOf(state.recordFps || 24);
+        if (fpi < 0) fpi = 1;
         var fnext = delta > 0
           ? XR_RECORD_FPS[(fpi + 1) % XR_RECORD_FPS.length]
           : XR_RECORD_FPS[(fpi - 1 + XR_RECORD_FPS.length) % XR_RECORD_FPS.length];

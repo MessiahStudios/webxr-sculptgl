@@ -34,6 +34,7 @@ class GuiFiles {
     menu.addButton(TR('fileExportSGL'), this, 'saveFileAsSGL');
     menu.addButton(TR('fileExportOBJ'), this, 'saveFileAsOBJ' /*, 'CTRL+E'*/ );
     menu.addButton(TR('fileExportOBJMaps'), this, 'saveFileAsOBJMaps');
+    menu.addButton(TR('fileExportGLB'), this, 'saveFileAsGLB');
     menu.addButton(TR('fileExportPLY'), this, 'saveFileAsPLY');
     menu.addButton(TR('fileExportSTL'), this, 'saveFileAsSTL');
     menu.addCheckbox('OBJ color zbrush', this, '_objColorZbrush');
@@ -145,6 +146,22 @@ class GuiFiles {
       colorAppend: this._objColorAppended
     }).catch(function (err) {
       window.alert((err && err.message) || 'OBJ+maps export failed');
+      if (self._main.onCanvasResize) self._main.onCanvasResize();
+    });
+  }
+
+  /** Binary glTF — baked PBR maps when UVs exist; else vertex color + factors. */
+  saveFileAsGLB() {
+    var meshes = this._getExportMeshes();
+    if (!meshes) return;
+    var self = this;
+    Export.exportGLB(this._main, meshes, {
+      baseName: 'yourMesh',
+      texSize: this._texSize || 1024,
+      binary: true,
+      save: true
+    }).catch(function (err) {
+      window.alert((err && err.message) || 'GLB export failed');
       if (self._main.onCanvasResize) self._main.onCanvasResize();
     });
   }

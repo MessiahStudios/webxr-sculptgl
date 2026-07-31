@@ -1,0 +1,33 @@
+{
+  "imported_from": "c:\\Users\\messi\\OneDrive\\Desktop\\Dev Projects\\webxr-sculptgl\\webxr-sculptgl\\tools\\glb-roundtrip\\duck-from-app.glb",
+  "mesh_count": 1,
+  "meshes": [
+    {
+      "object": "mesh_0",
+      "verts": 2399,
+      "polys": 4212,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "Material_0"
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Material_0",
+      "nodes": true,
+      "base_color_tex": true,
+      "metal_rough_tex": false,
+      "base_color_image": "Image_1"
+    }
+  ],
+  "image_count": 2,
+  "images": [
+    "Image_0",
+    "Image_1"
+  ],
+  "exported_to": "c:\\Users\\messi\\OneDrive\\Desktop\\Dev Projects\\webxr-sculptgl\\webxr-sculptgl\\tools\\glb-roundtrip\\duck-from-blender.glb",
+  "exported_bytes": 271848
+}

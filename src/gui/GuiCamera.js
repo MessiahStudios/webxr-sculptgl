@@ -49,7 +49,7 @@ class GuiCamera {
     menu.addButton(TR('cameraLocalSnapshot'), this, 'saveLocalSnapshot');
     this._recFps = this._main.getLocalRecordFps ? this._main.getLocalRecordFps() : 12;
     this._recQuality = this._main.getLocalRecordQuality ? this._main.getLocalRecordQuality() : 'balanced';
-    var fpsOpts = { 12: '12 fps', 15: '15 fps', 24: '24 fps' };
+    var fpsOpts = { 15: '15 fps', 24: '24 fps', 30: '30 fps' };
     this._ctrlRecFps = menu.addCombobox(TR('cameraRecordFps'), this._recFps, this.onRecFpsChange.bind(this), fpsOpts);
     var qOpts = { small: TR('cameraRecordQualitySmall'), balanced: TR('cameraRecordQualityBalanced'), high: TR('cameraRecordQualityHigh') };
     this._ctrlRecQuality = menu.addCombobox(TR('cameraRecordQuality'), this._recQuality, this.onRecQualityChange.bind(this), qOpts);

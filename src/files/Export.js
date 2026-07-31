@@ -22,5 +22,11 @@ Export.exportBinarySTL = ExportSTL.exportBinarySTL;
 Export.exportSketchfab = ExportSketchfab.exportSketchfab;
 Export.exportSculpteo = ExportSculpteo.exportSculpteo;
 Export.exportMaterialise = ExportMaterialise.exportMaterialise;
+/** Lazy chunk — pulls Three/GLTFExporter only when exporting .glb. */
+Export.exportGLB = function (main, meshes, opts) {
+  return import(/* webpackChunkName: "export-gltf" */ 'files/ExportGLTF').then(function (mod) {
+    return mod.default.exportGLB(main, meshes, opts);
+  });
+};
 
 export default Export;
