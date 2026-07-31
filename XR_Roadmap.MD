@@ -461,7 +461,7 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Paint into maps · brush feel · clay PBR defaults + shader hint
 │        · Shared alpha gallery + stamp lock/angle · head-facing dock
 │        · Local Snapshot PNG + video
-├─ Next: README↔tunnel · Import URL UX · optional Studio (UI) record
+├─ Next: README media (hero GIF) · Import URL UX · optional Studio (UI) record
 ├─ Parallel: Materials Phase D — UV create/edit (when needed); Phase E polish (projection)
 ├─ Collaboration: Spectator (feasible — needs signaling; see below) · Co-sculpt (later)
 └─ Stretch: dock slot swap · hands · remesh · other-HMD · projection paint / layers / smudge
@@ -489,7 +489,7 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 #### Gaps that still need attention
 
 1. **Bake / paint polish** — seam padding improved; further UV tools are Phase D.  
-2. **README ↔ tunnel** — `tools/xr-tunnel.txt` exists; README link still unchecked.  
+2. **README media** — front-door README landed; add Quest MR / desktop hero GIF + stills under `docs/media/` when ready. Tunnel DIY linked from README (`tools/xr-tunnel.txt`).  
 3. **Import URL UX** — `addModelURL` exists; CORS / dock affordance still thin.  
 4. **Optional Studio record** — desktop UI in frame; not built (Local Record + OS capture cover most needs).  
 5. **XR capture polish** — aim ray visibility, MR plate, framing tweaks remain stretch.
@@ -535,7 +535,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 
 1. [x] **glTF / GLB import** (Phase A — see Materials track)  
 2. [x] **GLB export** + **paint-into-maps** (Phase B / C)  
-3. [ ] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`)  
+3. [x] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`) — add hero media when available  
 4. [x] **Local Snapshot / Record** (see Done + Collaboration & capture)  
 5. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
 6. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
@@ -543,6 +543,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 8. [x] **Paint brush feel** + **Blend (Soften)** on PAINT tab  
 9. [x] **Clay-friendly PBR paint params** + shader acceptance hint (desktop + XR)  
 10. [x] **Shared alpha gallery** + stamp feel (lock / angle ±360°) — Desktop + XR  
+11. [x] **README as front door** (pitch + quick start + philosophy); roadmap remains the manifesto  
 
 ### Collaboration & capture (naming — keep distinct)
 
