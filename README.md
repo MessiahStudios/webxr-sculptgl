@@ -53,17 +53,17 @@ Same icons on **desktop Form / Paint** and the **XR dock** (`app/resources/tool-
 
 ### Form
 
-| <img src="app/resources/tool-icons/brush.png" width="56" alt="Brush" /> | <img src="app/resources/tool-icons/inflate.png" width="56" alt="Inflate" /> | <img src="app/resources/tool-icons/pinch.png" width="56" alt="Pinch" /> | <img src="app/resources/tool-icons/crease.png" width="56" alt="Crease" /> | <img src="app/resources/tool-icons/drag.png" width="56" alt="Drag" /> |
+| <img src="app/resources/tool-icons/brush.png" width="56" height="56" alt="Brush" /> | <img src="app/resources/tool-icons/inflate.png" width="56" height="56" alt="Inflate" /> | <img src="app/resources/tool-icons/pinch.png" width="56" height="56" alt="Pinch" /> | <img src="app/resources/tool-icons/crease.png" width="56" height="56" alt="Crease" /> | <img src="app/resources/tool-icons/drag.png" width="56" height="56" alt="Drag" /> |
 |:---:|:---:|:---:|:---:|:---:|
 | Brush | Inflate | Pinch | Crease | Drag |
 
-| <img src="app/resources/tool-icons/move.png" width="56" alt="Move" /> | <img src="app/resources/tool-icons/twist.png" width="56" alt="Twist" /> | <img src="app/resources/tool-icons/localscale.png" width="56" alt="Local scale" /> | <img src="app/resources/tool-icons/smooth.png" width="56" alt="Smooth" /> | <img src="app/resources/tool-icons/flatten.png" width="56" alt="Flatten" /> | <img src="app/resources/tool-icons/transform.png" width="56" alt="Transform" /> |
+| <img src="app/resources/tool-icons/move.png" width="56" height="56" alt="Move" /> | <img src="app/resources/tool-icons/twist.png" width="56" height="56" alt="Twist" /> | <img src="app/resources/tool-icons/localscale.png" width="56" height="56" alt="Local scale" /> | <img src="app/resources/tool-icons/smooth.png" width="56" height="56" alt="Smooth" /> | <img src="app/resources/tool-icons/flatten.png" width="56" height="56" alt="Flatten" /> | <img src="app/resources/tool-icons/transform.png" width="56" height="56" alt="Transform" /> |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | Move | Twist | Local scale | Smooth | Flatten | Transform |
 
 ### Paint
 
-| <img src="app/resources/tool-icons/paint.png" width="56" alt="Paint" /> | <img src="app/resources/tool-icons/masking.png" width="56" alt="Mask" /> | <img src="app/resources/tool-icons/soften.png" width="56" alt="Soften" /> |
+| <img src="app/resources/tool-icons/paint.png" width="56" height="56" alt="Paint" /> | <img src="app/resources/tool-icons/masking.png" width="56" height="56" alt="Mask" /> | <img src="app/resources/tool-icons/soften.png" width="56" height="56" alt="Soften" /> |
 |:---:|:---:|:---:|
 | Paint | Mask | Soften |
 
