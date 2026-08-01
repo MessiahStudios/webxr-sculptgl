@@ -19,6 +19,17 @@ class SculptBase {
     this._cbContinuous = this.updateContinuous.bind(this); // callback continuous
     this._lastMouseX = 0.0;
     this._lastMouseY = 0.0;
+    // XR lock-stamp (desktop updateSculptLock equivalent)
+    this._xrLockLocal = null;
+    this._xrLockWorld = null;
+    this._xrLockFace = -1;
+    this._xrLockNormal = null;
+    this._xrLockLocalSym = null;
+    this._xrLockFaceSym = -1;
+    this._xrLockNormalSym = null;
+    this._xrLockStrokeStarted = false;
+    this._xrLockRadiusSmooth = 0;
+    this._xrLockLastStrokeR = -1;
   }
 
   setToolMesh(mesh) {
@@ -83,8 +94,12 @@ class SculptBase {
     this.pushState();
     this._xrLastHit = null;
     this._xrLastStrokeAt = 0;
-    if (this._lockPosition === true)
+    this._xrLockStrokeStarted = false;
+    if (this._lockPosition === true) {
+      this._captureXRLockStamp(picking, pickingSym);
       return true;
+    }
+    this._clearXRLockStamp();
     this.makeStrokeXR(picking, pickingSym);
     return true;
   }
@@ -92,8 +107,168 @@ class SculptBase {
   end() {
     this._xrLastHit = null;
     this._xrLastStrokeAt = 0;
+    this._clearXRLockStamp();
     if (this.getMesh())
       this.getMesh().balanceOctree();
+  }
+
+  _clearXRLockStamp() {
+    this._xrLockLocal = null;
+    this._xrLockWorld = null;
+    this._xrLockFace = -1;
+    this._xrLockNormal = null;
+    this._xrLockLocalSym = null;
+    this._xrLockFaceSym = -1;
+    this._xrLockNormalSym = null;
+    this._xrLockStrokeStarted = false;
+    this._xrLockRadiusSmooth = 0;
+    this._xrLockLastStrokeR = -1;
+  }
+
+  /** Freeze stamp center on trigger-down (desktop lock-position start). */
+  _captureXRLockStamp(picking, pickingSym) {
+    var mesh = this.getMesh();
+    var inter = picking.getIntersectionPoint();
+    this._xrLockLocal = [inter[0], inter[1], inter[2]];
+    this._xrLockFace = picking.getPickedFace();
+    var n = picking.getPickedNormal();
+    this._xrLockNormal = [n[0], n[1], n[2]];
+    this._xrLockWorld = [0.0, 0.0, 0.0];
+    vec3.transformMat4(this._xrLockWorld, this._xrLockLocal, mesh.getMatrix());
+    this._xrLockLocalSym = null;
+    this._xrLockFaceSym = -1;
+    this._xrLockNormalSym = null;
+    this._xrLockRadiusSmooth = 0;
+    this._xrLockLastStrokeR = -1;
+    // Seed with current brush world radius so the first frame isn't a pinprick.
+    var seed = Math.sqrt(picking.getWorldRadius2() || 0);
+    if (seed > 1e-4)
+      this._xrLockRadiusSmooth = seed;
+    if (pickingSym && pickingSym.getMesh()) {
+      var is = pickingSym.getIntersectionPoint();
+      this._xrLockLocalSym = [is[0], is[1], is[2]];
+      this._xrLockFaceSym = pickingSym.getPickedFace();
+      var ns = pickingSym.getPickedNormal();
+      this._xrLockNormalSym = [ns[0], ns[1], ns[2]];
+    }
+  }
+
+  _restoreXRLockPick(picking, local, face, normal) {
+    if (!local) return;
+    var mesh = this.getMesh();
+    picking._mesh = mesh;
+    picking._pickedFace = face;
+    vec3.copy(picking.getIntersectionPoint(), local);
+    if (normal)
+      vec3.copy(picking.getPickedNormal(), normal);
+    else
+      picking.computePickedNormal();
+  }
+
+  /**
+   * XR lock stamp: place on trigger-down, drag tip away to size (desktop updateSculptLock).
+   * Radius = lateral distance in the lock tangent plane (EMA-smoothed).
+   */
+  updateSculptLockXR() {
+    var main = this._main;
+    if (!this._xrLockLocal || !main._xrRayNear)
+      return;
+
+    var picking = main.getPicking();
+    var mesh = this.getMesh();
+    if (!mesh) return;
+    var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;
+
+    var tip = main._xrRayNear;
+    var nx = this._xrLockNormal ? this._xrLockNormal[0] : 0;
+    var ny = this._xrLockNormal ? this._xrLockNormal[1] : 1;
+    var nz = this._xrLockNormal ? this._xrLockNormal[2] : 0;
+    // Transform lock normal to world for tip projection.
+    var m = mesh.getMatrix();
+    var wnx = m[0] * nx + m[4] * ny + m[8] * nz;
+    var wny = m[1] * nx + m[5] * ny + m[9] * nz;
+    var wnz = m[2] * nx + m[6] * ny + m[10] * nz;
+    var nLen = Math.sqrt(wnx * wnx + wny * wny + wnz * wnz) || 1.0;
+    wnx /= nLen; wny /= nLen; wnz /= nLen;
+
+    var dx = tip[0] - this._xrLockWorld[0];
+    var dy = tip[1] - this._xrLockWorld[1];
+    var dz = tip[2] - this._xrLockWorld[2];
+    var along = dx * wnx + dy * wny + dz * wnz;
+    var lx = dx - wnx * along;
+    var ly = dy - wny * along;
+    var lz = dz - wnz * along;
+    var lateral = Math.sqrt(lx * lx + ly * ly + lz * lz);
+
+    var meshRadius = 20.0;
+    if (main.computeBoundingBoxMeshes && main.computeRadiusFromBoundingBox) {
+      var box = main.computeBoundingBoxMeshes([mesh]);
+      var r = main.computeRadiusFromBoundingBox(box);
+      if (isFinite(r) && r > 0.01) meshRadius = r;
+    }
+    var floorR = Math.max(meshRadius * 0.02, Math.sqrt(picking.getWorldRadius2() || 0) * 0.5);
+    if (!(floorR > 0)) floorR = meshRadius * 0.02;
+    var targetR = Math.max(floorR, Math.min(meshRadius * 0.45, lateral));
+
+    // EMA to kill tip depth / tracking flicker.
+    if (!this._xrLockRadiusSmooth || this._xrLockRadiusSmooth < 1e-6)
+      this._xrLockRadiusSmooth = targetR;
+    else
+      this._xrLockRadiusSmooth = this._xrLockRadiusSmooth * 0.75 + targetR * 0.25;
+
+    var worldR = this._xrLockRadiusSmooth;
+
+    // Skip restroke when radius barely changed (reduces undo-swim).
+    if (this._xrLockStrokeStarted && this._xrLockLastStrokeR >= 0 &&
+        Math.abs(worldR - this._xrLockLastStrokeR) < worldR * 0.015)
+      return;
+
+    if (this._xrLockStrokeStarted)
+      main.getStateManager().getCurrentState().undo();
+    this._xrLockStrokeStarted = true;
+    this._xrLockLastStrokeR = worldR;
+
+    picking._rWorld2 = worldR * worldR;
+    picking._rLocal2 = picking._rWorld2 / mesh.getScale2();
+
+    // Tiny offset for alpha tangent seed (direction only).
+    var tipLocal = [
+      this._xrLockLocal[0] + 1e-3,
+      this._xrLockLocal[1],
+      this._xrLockLocal[2]
+    ];
+
+    this._restoreXRLockPick(picking, tipLocal, this._xrLockFace, this._xrLockNormal);
+    vec3.copy(picking._alphaOrigin, this._xrLockLocal);
+
+    picking.pickVerticesInSphere(picking.getLocalRadius2());
+    if (this._xrLockNormal)
+      vec3.copy(picking.getPickedNormal(), this._xrLockNormal);
+    else
+      picking.computePickedNormal();
+    picking.updateAlpha(true);
+
+    this.stroke(picking, false);
+
+    if (pickingSym && this._xrLockLocalSym) {
+      pickingSym.setLocalRadius2(picking.getLocalRadius2());
+      var tipSym = [
+        this._xrLockLocalSym[0] + (tipLocal[0] - this._xrLockLocal[0]),
+        this._xrLockLocalSym[1] + (tipLocal[1] - this._xrLockLocal[1]),
+        this._xrLockLocalSym[2] + (tipLocal[2] - this._xrLockLocal[2])
+      ];
+      this._restoreXRLockPick(pickingSym, tipSym, this._xrLockFaceSym, this._xrLockNormalSym);
+      vec3.copy(pickingSym._alphaOrigin, this._xrLockLocalSym);
+      pickingSym.pickVerticesInSphere(pickingSym.getLocalRadius2());
+      if (this._xrLockNormalSym)
+        vec3.copy(pickingSym.getPickedNormal(), this._xrLockNormalSym);
+      else
+        pickingSym.computePickedNormal();
+      pickingSym.updateAlpha(true);
+      this.stroke(pickingSym, true);
+    }
+
+    this.updateMeshBuffers();
   }
 
   pushState() {
@@ -267,7 +442,7 @@ class SculptBase {
 
     picking.pickVerticesInSphere(picking.getLocalRadius2());
     picking.computePickedNormal();
-    picking.updateAlpha(false);
+    picking.updateAlpha(!!this._lockPosition);
 
     var dynTopo = mesh.isDynamic && !this._lockPosition;
     if (dynTopo)
@@ -281,7 +456,7 @@ class SculptBase {
         pickingSym.setLocalRadius2(picking.getLocalRadius2());
         pickingSym.pickVerticesInSphere(pickingSym.getLocalRadius2());
         pickingSym.computePickedNormal();
-        pickingSym.updateAlpha(false);
+        pickingSym.updateAlpha(!!this._lockPosition);
       }
     }
 
@@ -296,7 +471,7 @@ class SculptBase {
 
   updateXR() {
     if (this._lockPosition === true)
-      return;
+      return this.updateSculptLockXR();
     var main = this._main;
     var picking = main.getPicking();
     var pickingSym = main.getSculptManager().getSymmetry() ? main.getPickingSymmetry() : null;

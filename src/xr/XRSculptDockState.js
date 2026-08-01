@@ -11,8 +11,14 @@ function markPaintMaterialTweaked(state) {
   if (state) state.paintParamsUserTweaked = true;
 }
 
-function toolSupportsAlpha(toolKey) {
-  return toolKey !== 'transform';
+/** Explicit tools that can stamp with alpha maps (Transform cannot). */
+export var XR_ALPHA_TOOLS = [
+  'brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'smooth', 'flatten',
+  'paint', 'masking', 'soften'
+];
+
+export function toolSupportsAlpha(toolKey) {
+  return XR_ALPHA_TOOLS.indexOf(toolKey) >= 0;
 }
 
 function customAlphaNames() {
@@ -29,8 +35,13 @@ function customAlphaNames() {
   return out;
 }
 
+/** Ordered gallery ids: None + builtins + customs (same order as desktop). */
+export function getAlphaGalleryIds() {
+  return AlphaLibrary.getGalleryCycleIds(customAlphaNames());
+}
+
 function cycleAlphaId(cur, delta) {
-  var ids = AlphaLibrary.getGalleryCycleIds(customAlphaNames());
+  var ids = getAlphaGalleryIds();
   var curN = AlphaLibrary.normalizeAlphaId(cur);
   var idx = ids.indexOf(curN);
   if (idx < 0) idx = 0;
@@ -38,17 +49,21 @@ function cycleAlphaId(cur, delta) {
   return ids[(idx + (delta > 0 ? 1 : -1) + n * 8) % n];
 }
 
-/** form / paint = sculpt tools; opts = flags + scene; workspace = artist↔sculpture placement */
-export var XR_TABS = ['form', 'paint', 'opts', 'workspace'];
+/** Stick ↕ focus rows on the ALPHA tab. */
+export var XR_ALPHA_FOCUS = ['gallery', 'lock', 'angle'];
+
+/** Visible tabs when α maps enabled include alpha; otherwise skip it in cycle. */
+export var XR_TABS = ['form', 'paint', 'alpha', 'opts', 'workspace'];
+export var XR_TABS_NO_ALPHA = ['form', 'paint', 'opts', 'workspace'];
 
 /**
  * Dock chrome labels — keep short.
- * FORM = geometry; PAINT = surface (paint / mask / future blend).
- * Tab id `paint` is distinct from tool key `paint` (same string by design).
+ * FORM = geometry; PAINT = surface; α = stamp gallery (only when α maps ON).
  */
 export var XR_TAB_LABELS = {
   form: 'FORM',
   paint: 'PAINT',
+  alpha: 'α',
   opts: 'OPTS',
   workspace: 'SPACE'
 };
@@ -57,14 +72,26 @@ export var XR_TAB_LABELS = {
  * Layout by intent:
  *   form  — geometry deform + Transform (+ smooth / flatten)
  *   paint — surface tools (paint, mask; room for blend)
+ *   alpha — stamp gallery (gated by alphasEnabled)
  *   workspace — spatial relationship (never the mesh itself)
  */
 export var XR_TAB_TOOLS = {
   form: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'smooth', 'flatten', 'transform'],
   paint: ['paint', 'masking', 'soften'],
+  alpha: [],
   opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
   workspace: []
 };
+
+/** Stick focus on FORM/PAINT: α toggle chrome then tools. */
+export function getFormPaintFocusList(state) {
+  var tools = XR_TAB_TOOLS[state.tab] || [];
+  return ['alphaToggle'].concat(tools);
+}
+
+export function visibleXRTabs(state) {
+  return state.alphasEnabled ? XR_TABS : XR_TABS_NO_ALPHA;
+}
 
 /** Legacy dock tab ids (pre Form/Paint rename) → current. */
 export function normalizeTabId(tab) {
@@ -75,7 +102,10 @@ export function normalizeTabId(tab) {
 }
 
 /** Always-visible file continuity rows (before paint opts / brush flags). */
-export var XR_FILE_OPTS = ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality'];
+export var XR_FILE_OPTS = [
+  'save', 'load', 'import', 'export', 'exportFmt',
+  'snapshot', 'record', 'recordFps', 'recordQuality'
+];
 export var XR_RECORD_FPS = [15, 24, 30];
 export var XR_RECORD_QUALITY = ['small', 'balanced', 'high'];
 
@@ -87,19 +117,16 @@ export var XR_SCENE_OPTS = ['clear', 'add'];
 
 export var XR_ADD_SHAPES = ['sphere', 'cube', 'cylinder', 'torus'];
 
-/** Extra Opts rows when Paint is the active tool (desktop Paint panel parity). */
+/** Extra Opts rows when Paint is the active tool (stamp UI lives on ALPHA tab). */
 export var XR_PAINT_OPTS = [
-  'alpha', 'alphaLock', 'alphaAngle', 'eyedropper', 'paintAll', 'picker', 'color', 'hardness', 'roughness', 'metallic',
+  'eyedropper', 'paintAll', 'picker', 'color', 'hardness', 'roughness', 'metallic',
   'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
 
-/** Soften: channel write + hardness + alpha. */
+/** Soften: channel write + hardness (stamp UI lives on ALPHA tab). */
 export var XR_SOFTEN_OPTS = [
-  'alpha', 'alphaLock', 'alphaAngle', 'hardness', 'writeAlbedo', 'writeRoughness', 'writeMetalness'
+  'hardness', 'writeAlbedo', 'writeRoughness', 'writeMetalness'
 ];
-
-/** Form tools that stamp with alphas — shared gallery row in OPTS. */
-export var XR_FORM_ALPHA_OPTS = ['alpha', 'alphaLock', 'alphaAngle'];
 
 export var XR_EXPORT_FMTS = ['obj', 'obj-maps', 'glb', 'ply', 'stl'];
 
@@ -201,8 +228,6 @@ export function getOptsList(state) {
     return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_PAINT_OPTS).concat(core.slice(headLen));
   if (state.tool === 'soften')
     return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_SOFTEN_OPTS).concat(core.slice(headLen));
-  if (toolSupportsAlpha(state.tool))
-    return XR_FILE_OPTS.concat(XR_SCENE_OPTS).concat(XR_FORM_ALPHA_OPTS).concat(core.slice(headLen));
   return core;
 }
 
@@ -259,6 +284,13 @@ export function createXRSculptDockState() {
     alphaId: AlphaLibrary.ALPHA_NONE_ID,
     alphaLock: false,
     alphaAngle: 0,
+    alphaFocus: 'gallery',
+    /** 'form' | 'paint' — which palette sent the artist to the ALPHA tab */
+    alphaFrom: 'form',
+    /** Master enable for stamp gallery (FORM/PAINT toggle). */
+    alphasEnabled: false,
+    /** Stick focus on FORM/PAINT: 'alphaToggle' or a tool key. */
+    formPaintFocus: 'brush',
     writeAlbedo: true,
     writeRoughness: true,
     writeMetalness: true,
@@ -286,16 +318,28 @@ export function createXRSculptDockState() {
 
     cycleTab: function (delta) {
       state.tab = normalizeTabId(state.tab);
-      var idx = XR_TABS.indexOf(state.tab);
+      var tabs = visibleXRTabs(state);
+      // If α disabled while sitting on alpha, leave first.
+      if (state.tab === 'alpha' && !state.alphasEnabled)
+        state.tab = state.alphaFrom === 'paint' ? 'paint' : 'form';
+      var idx = tabs.indexOf(state.tab);
       if (idx < 0) idx = 0;
-      idx = (idx + delta + XR_TABS.length) % XR_TABS.length;
-      var newTab = XR_TABS[idx];
-      if (newTab === 'opts' || newTab === 'workspace') {
+      idx = (idx + delta + tabs.length) % tabs.length;
+      var newTab = tabs[idx];
+      if (newTab === 'opts' || newTab === 'workspace' || newTab === 'alpha') {
         var patch = { tab: newTab };
         if (newTab === 'opts') {
           var opts = getOptsList(state);
           if (opts.indexOf(state.optFocus) < 0)
             patch.optFocus = opts[0];
+        }
+        if (newTab === 'alpha') {
+          if (XR_ALPHA_FOCUS.indexOf(state.alphaFocus) < 0)
+            patch.alphaFocus = 'gallery';
+          if (XR_TAB_TOOLS.paint.indexOf(state.tool) >= 0)
+            patch.alphaFrom = 'paint';
+          else
+            patch.alphaFrom = 'form';
         }
         state.set(patch);
         return;
@@ -304,7 +348,7 @@ export function createXRSculptDockState() {
       var nextTool = state.tool;
       if (tools && tools.length && tools.indexOf(state.tool) < 0)
         nextTool = tools[0];
-      state.set({ tab: newTab, tool: nextTool });
+      state.set({ tab: newTab, tool: nextTool, formPaintFocus: nextTool });
     },
 
     cycleToolInTab: function (delta) {
@@ -316,18 +360,131 @@ export function createXRSculptDockState() {
         state.set({ optFocus: opts[oi] });
         return;
       }
+      if (state.tab === 'alpha') {
+        var af = XR_ALPHA_FOCUS.indexOf(state.alphaFocus || 'gallery');
+        if (af < 0) af = 0;
+        af = (af + delta + XR_ALPHA_FOCUS.length) % XR_ALPHA_FOCUS.length;
+        state.set({ alphaFocus: XR_ALPHA_FOCUS[af] });
+        return;
+      }
       if (state.tab === 'workspace') return;
-      var tools = XR_TAB_TOOLS[state.tab];
-      if (!tools || !tools.length) return;
-      var cur = tools.indexOf(state.tool);
-      if (cur < 0) cur = 0;
-      cur = (cur + delta + tools.length) % tools.length;
-      var next = tools[cur];
-      var patch = { tool: next };
-      if (next === 'paint' && state.tab === 'opts') {
-        // keep paint opts focus valid when landing on paint via other paths
+      if (state.tab !== 'form' && state.tab !== 'paint') return;
+
+      var focusList = getFormPaintFocusList(state);
+      var cur = focusList.indexOf(state.formPaintFocus);
+      if (cur < 0) {
+        cur = focusList.indexOf(state.tool);
+        if (cur < 0) cur = 1; // first tool after alphaToggle
+      }
+      cur = (cur + delta + focusList.length) % focusList.length;
+      var next = focusList[cur];
+      if (next === 'alphaToggle') {
+        state.set({ formPaintFocus: 'alphaToggle' });
+        return;
+      }
+      var patch = { tool: next, formPaintFocus: next };
+      // Switching to Transform (or any non-alpha tool) while α ON → auto-off.
+      var disabled = false;
+      if (state.alphasEnabled && !toolSupportsAlpha(next)) {
+        patch.alphasEnabled = false;
+        disabled = true;
       }
       state.set(patch);
+      return disabled ? 'alpha-disabled' : null;
+    },
+
+    /**
+     * Toggle α maps on FORM/PAINT.
+     * @returns {'on'|'off'|'blocked'|null}
+     */
+    toggleAlphasEnabled: function () {
+      if (!toolSupportsAlpha(state.tool))
+        return 'blocked';
+      if (state.alphasEnabled) {
+        state.set({ alphasEnabled: false, formPaintFocus: state.tool });
+        return 'off';
+      }
+      var from = state.tab === 'paint' ? 'paint' : 'form';
+      state.set({
+        alphasEnabled: true,
+        tab: 'alpha',
+        alphaFrom: from,
+        alphaFocus: 'gallery',
+        formPaintFocus: 'alphaToggle'
+      });
+      return 'on';
+    },
+
+    /** Stick ↔ while formPaintFocus is alphaToggle. */
+    nudgeFormPaintFocus: function (delta) {
+      if (state.formPaintFocus !== 'alphaToggle') return null;
+      return state.toggleAlphasEnabled();
+    },
+
+    /**
+     * Y on ALPHA tab:
+     *   gallery → “Use stamp” return to FORM/PAINT (alphaFrom) with α still ON
+     *   lock → toggle
+     *   angle → +15°
+     */
+    toggleAlphaFocus: function () {
+      var focus = state.alphaFocus || 'gallery';
+      if (focus === 'gallery') {
+        var from = state.alphaFrom === 'paint' ? 'paint' : 'form';
+        var tools = XR_TAB_TOOLS[from] || [];
+        var tool = state.tool;
+        if (tools.indexOf(tool) < 0 || !toolSupportsAlpha(tool)) {
+          var ti;
+          for (ti = 0; ti < tools.length; ++ti) {
+            if (toolSupportsAlpha(tools[ti])) {
+              tool = tools[ti];
+              break;
+            }
+          }
+        }
+        state.set({
+          tab: from,
+          tool: tool,
+          alphasEnabled: true,
+          alphaFocus: 'gallery',
+          formPaintFocus: tool
+        });
+        return 'use';
+      }
+      if (focus === 'lock') {
+        state.set({ alphaLock: !state.alphaLock });
+        return 'lock';
+      }
+      if (focus === 'angle') {
+        var aa = (state.alphaAngle || 0) + 15;
+        if (aa > 360) aa = -360;
+        state.set({ alphaAngle: aa });
+        return 'angle';
+      }
+      return null;
+    },
+
+    /** Stick ↔ on ALPHA tab: gallery cycle (freehand default), lock toggle, or angle ±15. */
+    nudgeAlphaFocus: function (delta) {
+      var focus = state.alphaFocus || 'gallery';
+      if (focus === 'gallery') {
+        var nextN = cycleAlphaId(state.alphaId, delta);
+        state.set({ alphaId: nextN, alphaLock: false, alphasEnabled: true });
+        return 'gallery';
+      }
+      if (focus === 'lock') {
+        state.set({ alphaLock: !state.alphaLock });
+        return 'lock';
+      }
+      if (focus === 'angle') {
+        var stepA = delta > 0 ? 15 : -15;
+        var ang = (state.alphaAngle || 0) + stepA;
+        if (ang > 360) ang = -360;
+        if (ang < -360) ang = 360;
+        state.set({ alphaAngle: ang });
+        return 'angle';
+      }
+      return null;
     },
 
     cyclePaintColor: function (delta) {
@@ -394,7 +551,8 @@ export function createXRSculptDockState() {
         return focus; // dock calls scene.undoXR / redoXR
       if (focus === 'paintAll')
         return 'paintAll'; // dock calls scene.paintAllXR
-      if (focus === 'save' || focus === 'load' || focus === 'export' || focus === 'import' || focus === 'snapshot' || focus === 'record')
+      if (focus === 'save' || focus === 'load' || focus === 'export' || focus === 'import' ||
+          focus === 'snapshot' || focus === 'record')
         return focus; // dock calls scene file helpers / file picker
       if (focus === 'clear' || focus === 'add')
         return focus; // dock calls scene.clearXRScene / addXRShape
@@ -440,16 +598,6 @@ export function createXRSculptDockState() {
         var m = state.metallic + 5;
         state.set({ metallic: m > 100 ? 0 : m });
         markPaintMaterialTweaked(state);
-      } else if (focus === 'alpha') {
-        var nextA = cycleAlphaId(state.alphaId, 1);
-        var lockOn = AlphaLibrary.normalizeAlphaId(nextA) !== AlphaLibrary.ALPHA_NONE_ID;
-        state.set({ alphaId: nextA, alphaLock: lockOn });
-      } else if (focus === 'alphaLock') {
-        state.set({ alphaLock: !state.alphaLock });
-      } else if (focus === 'alphaAngle') {
-        var aa = (state.alphaAngle || 0) + 15;
-        if (aa > 360) aa = -360;
-        state.set({ alphaAngle: aa });
       }
       return null;
     },
@@ -513,18 +661,6 @@ export function createXRSculptDockState() {
       } else if (focus === 'metallic') {
         state.set({ metallic: Math.max(0, Math.min(100, state.metallic + step)) });
         markPaintMaterialTweaked(state);
-      } else if (focus === 'alpha') {
-        var nextN = cycleAlphaId(state.alphaId, delta);
-        var lockN = AlphaLibrary.normalizeAlphaId(nextN) !== AlphaLibrary.ALPHA_NONE_ID;
-        state.set({ alphaId: nextN, alphaLock: lockN });
-      } else if (focus === 'alphaLock') {
-        state.set({ alphaLock: !state.alphaLock });
-      } else if (focus === 'alphaAngle') {
-        var stepA = delta > 0 ? 15 : -15;
-        var ang = (state.alphaAngle || 0) + stepA;
-        if (ang > 360) ang = -360;
-        if (ang < -360) ang = 360;
-        state.set({ alphaAngle: ang });
       }
     }
   };
@@ -550,7 +686,7 @@ export function syncStateFromSculptManager(state, sculptManager) {
   var curTab = normalizeTabId(state.tab);
   var patch = {
     tool: tKey,
-    tab: (curTab === 'opts' || curTab === 'workspace')
+    tab: (curTab === 'opts' || curTab === 'workspace' || curTab === 'alpha')
       ? curTab
       : inferTabForToolKey(tKey),
     radius: tool._radius !== undefined ? Math.round(tool._radius) : state.radius,
@@ -562,12 +698,18 @@ export function syncStateFromSculptManager(state, sculptManager) {
   };
   if (tool._hardness !== undefined)
     patch.hardness = Math.round(tool._hardness * 100);
-  if (Object.prototype.hasOwnProperty.call(tool, '_idAlpha'))
-    patch.alphaId = AlphaLibrary.normalizeAlphaId(tool._idAlpha);
-  if (Object.prototype.hasOwnProperty.call(tool, '_lockPosition'))
-    patch.alphaLock = !!tool._lockPosition;
-  if (tool._alphaAngle !== undefined)
-    patch.alphaAngle = Math.max(-360, Math.min(360, Math.round(tool._alphaAngle)));
+  // Shared XR stamp: only seed dock from the tool when dock is still None (bootstrap
+  // from desktop). Tool switches must not overwrite a gallery selection.
+  if (Object.prototype.hasOwnProperty.call(tool, '_idAlpha')) {
+    var dockAid = AlphaLibrary.normalizeAlphaId(state.alphaId);
+    if (dockAid === AlphaLibrary.ALPHA_NONE_ID) {
+      patch.alphaId = AlphaLibrary.normalizeAlphaId(tool._idAlpha);
+      if (Object.prototype.hasOwnProperty.call(tool, '_lockPosition'))
+        patch.alphaLock = !!tool._lockPosition;
+      if (tool._alphaAngle !== undefined)
+        patch.alphaAngle = Math.max(-360, Math.min(360, Math.round(tool._alphaAngle)));
+    }
+  }
   if (tool._color) {
     patch.paintColor = [tool._color[0], tool._color[1], tool._color[2]];
     patch.paintColorIdx = nearestPaintPreset(patch.paintColor);
@@ -588,6 +730,37 @@ export function syncStateFromSculptManager(state, sculptManager) {
   if (Object.prototype.hasOwnProperty.call(tool, '_pickColor'))
     patch.paintEyedropper = !!tool._pickColor;
   state.set(patch);
+}
+
+/** Push dock stamp onto one tool instance (None when α maps disabled). */
+function applyStampToTool(tool, state, forceNone) {
+  if (!tool || !Object.prototype.hasOwnProperty.call(tool, '_idAlpha')) return;
+  var aid = forceNone
+    ? AlphaLibrary.ALPHA_NONE_ID
+    : AlphaLibrary.normalizeAlphaId(state.alphaId);
+  tool._idAlpha = aid === AlphaLibrary.ALPHA_NONE_ID ? 0 : aid;
+  if (tool._lockPosition === undefined)
+    tool._lockPosition = false;
+  if (forceNone || aid === AlphaLibrary.ALPHA_NONE_ID)
+    tool._lockPosition = false;
+  else if (state.alphaLock !== undefined)
+    tool._lockPosition = !!state.alphaLock;
+  else
+    tool._lockPosition = true;
+  if (tool._alphaAngle === undefined)
+    tool._alphaAngle = 0;
+  tool._alphaAngle = Math.max(-360, Math.min(360, state.alphaAngle || 0));
+}
+
+/** Shared XR stamp → allowlisted tools; disabled α maps clears stamps. */
+function applySharedStampToTools(sculptManager, state) {
+  var enabled = !!state.alphasEnabled;
+  var k;
+  for (k in TOOL_KEY_TO_ENUM) {
+    if (!Object.prototype.hasOwnProperty.call(TOOL_KEY_TO_ENUM, k)) continue;
+    if (!toolSupportsAlpha(k)) continue;
+    applyStampToTool(sculptManager.getTool(TOOL_KEY_TO_ENUM[k]), state, !enabled);
+  }
 }
 
 export function applyStateToSculptManager(state, scene) {
@@ -644,20 +817,8 @@ export function applyStateToSculptManager(state, scene) {
     t._writeRoughness = !!state.writeRoughness;
     t._writeMetalness = !!state.writeMetalness;
   }
-  if (Object.prototype.hasOwnProperty.call(t, '_idAlpha')) {
-    var aid = AlphaLibrary.normalizeAlphaId(state.alphaId);
-    t._idAlpha = aid === AlphaLibrary.ALPHA_NONE_ID ? 0 : aid;
-    if (t._lockPosition === undefined)
-      t._lockPosition = false;
-    // Prefer explicit dock flag; non-None defaults lock on when flag unset.
-    if (state.alphaLock !== undefined)
-      t._lockPosition = !!state.alphaLock;
-    else
-      t._lockPosition = aid !== AlphaLibrary.ALPHA_NONE_ID;
-    if (t._alphaAngle === undefined)
-      t._alphaAngle = 0;
-    t._alphaAngle = Math.max(-360, Math.min(360, state.alphaAngle || 0));
-  }
+  // Shared XR stamp → every alpha-capable tool (brush + paint stay in sync).
+  applySharedStampToTools(sm, state);
   if (Object.prototype.hasOwnProperty.call(t, '_pickColor'))
     t._pickColor = !!state.paintEyedropper && state.tool === 'paint';
   sm._symmetry = state.symmetry;

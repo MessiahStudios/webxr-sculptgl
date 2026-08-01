@@ -361,12 +361,13 @@ The dock **follows the left grip** and **always faces the headset** (independent
 
 | Tab label | Internal id | Job |
 |---|---|---|
-| **FORM** | `form` | Geometry deform + grab tools + Smooth / Flatten + **Transform** |
-| **PAINT** | `paint` | Paint, Mask (room for future Blend); paint chrome still in OPTS when Paint tool active |
+| **FORM** | `form` | Geometry deform + grab tools + Smooth / Flatten + **Transform**; **α maps** chip (ON/OFF) |
+| **PAINT** | `paint` | Paint, Mask, Soften; **α maps** chip; paint chrome still in OPTS when Paint tool active |
+| **α** | `alpha` | Stamp gallery + lock/angle — **only in X cycle while α maps is ON** |
 | **OPTS** | `opts` | Files, scene, paint opts, clay/symmetry (negative = right grip) |
 | **SPACE** | `workspace` | Artist ↔ sculpture placement (never the mesh) |
 
-X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (or recenter in SPACE).
+X cycles tabs (skips **α** when maps are OFF). Stick ↕ cycles tools / option focus (FORM/PAINT: α chip then tools). Y fires the focused opt / α toggle / Workspace recenter.
 
 ### Right hand (sculpt)
 
@@ -397,6 +398,23 @@ X cycles tabs. Stick ↕ cycles tools / option focus. Y fires the focused opt (o
 ### PAINT tools
 
 `paint` · `masking` · **`soften`** (desktop: “Soften (blend colors)”; XR: “blend colors”)
+
+### α maps — which tools earn stamps
+
+> **Compatibility is a fixed allowlist, not a guess.** Transform never stamps. Gallery only appears when **α maps is ON** *and* the current tool is allowlisted.
+
+Alphas in SculptGL modulate brush **falloff / intensity** via a texture (classic stamp when lock is on). Not every tool benefits equally:
+
+| Tier | Tools | Why |
+|---|---|---|
+| **Primary stamp** | brush, inflate, crease, pinch, flatten · paint, masking | Image-shaped form or surface marks — ZBrush/Nomad muscle memory |
+| **Useful falloff** | smooth · soften | Selective soften/smooth with a shaped edge — keep, lower “stamp art” expectation |
+| **Questionable** | drag, move, twist, localscale | Alpha is mostly radial falloff on a grab gesture, not a readable stamp. **Keep for now** (desktop parity + allowlist already includes them); demote from XR allowlist if sessions show confusion |
+| **Never** | **transform** | Whole-mesh pose — no brush kernel |
+
+**Product stance:** keep the current allowlist; treat **Primary + falloff** as the story we teach; watch Questionable tools and shrink the list if α feels muddy on grab tools.
+
+**UX (landed):** FORM/PAINT chip `α maps: OFF / ON / n/a` → ON opens ALPHA gallery → **Y Use stamp** returns with α still ON → OFF restores freehand round brush (keeps last `alphaId` for re-ON).
 
 ### OPTS — files & scene
 
@@ -449,50 +467,87 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ## Roadmap status
 
-### Where we are (2026-07-31)
+### Where we are (2026-08-01)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. Latest: **shared alpha gallery** (built-in free stamps + import), stronger stamp feel (bilinear / contrast / lock), and **stamp angle ±360°** with nudge presets — Desktop + XR.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** **α maps ON/OFF** toggle (allowlist; Transform = n/a; ALPHA tab gated); roadmap prune (cut Studio/smudge/Substance projection from active interest); Phase D UV marked *likely needed*; family playtest notes below.
 
 ```
 █████████████████████████  ~97% of first-class XR surface
 │                        │
-├─ Done: session · Workspace · FORM/PAINT · Transform · paint · Soften · Save/Load
+├─ Done: session · Workspace · FORM/PAINT/α · Transform · paint · Soften · Save/Load
 │        · Import GLB (UVs + live maps + Draco) · Export GLB / OBJ / OBJ+MAPS / PLY / STL
 │        · Paint into maps · brush feel · clay PBR defaults + shader hint
-│        · Shared alpha gallery + stamp lock/angle · head-facing dock
-│        · Local Snapshot PNG + video
-├─ Next: README media (hero GIF) · Import URL UX · optional Studio (UI) record
-├─ Parallel: Materials Phase D — UV create/edit (when needed); Phase E polish (projection)
-├─ Collaboration: Spectator (feasible — needs signaling; see below) · Co-sculpt (later)
-└─ Stretch: dock slot swap · hands · remesh · other-HMD · projection paint / layers / smudge
+│        · Shared alpha gallery + α maps toggle + ALPHA tab · stamp lock/angle
+│        · Local Snapshot PNG + video · dock/desktop polish · how-to PNG packs
+├─ Next: README media under docs/media/ · dock fine-tune from sculpt time
+│        · α allowlist watch (grab tools) · Import URL only if you actually use hosted CC0
+│        · **ADD shape / Workspace re-fit** — don’t shrink the room when stacking primitives (playtest)
+├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first)
+├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
+└─ Stretch (thin): dock slot swap · hands (after controllers stay boring) · remesh if Quest-safe
+         · thin Desktop paint layers (maybe)
 ```
+
+#### Playtest note (family / new-to-3D — 2026-08-01)
+
+- **Drag** at high radius/intensity stretches verts / skinny tris — expected; Smooth + remesh heal; teach lower R/I for first sessions.  
+- **Voxel remesh → Block** = Minecraft look — by design; use a smoother remesh for organic clay.  
+- **ADD cube/sphere in XR after a wild Drag** can make everything feel smaller: new primitives spawn at origin while the sculpt COM is far off → combined bbox balloons → `fitXRStageToScene()` re-scales the whole stage to ~34 cm. **Fix later:** place ADD near current sculpt at matching size; re-fit only on Clear / Recenter / explicit request.
+#### No longer pursuing (cut from active interest)
+
+These stay in the doc so we don’t re-open rabbit holes — they are **not** backlog.
+
+| Item | Why cut |
+|---|---|
+| **Studio record** (yagui in-frame encode) | Local Record + OS window capture cover tutorials; not worth a second encode path |
+| **XR presentation capture polish** (aim rays, MR plate, fancy framing) | Dock + controllers already in frame; polish ≠ product |
+| **Cloud / Sketchfab-style share from XR** | Non-goal adjacent; local Save/Load + honest export are enough |
+| **Other-headset first-class polish** | Quest-first stays; opportunistic only — not a tracked deliverable |
+| **Smudge / smear tool** | Soften covers blend intent; don’t lengthen PAINT |
+| **Substance-style projection + layer stacks** | α stamps own the image story; full projector is a different product |
+| **XR paint-layer manager** | Presence-over-panels; Desktop-thin layers only *maybe* later |
+| **Clone stamp · dedicated eraser · channel-only brushes · cavity/AO · decal tool** | Covered by negative paint, write flags, α, or out of clay scope |
+| **meshopt / exotic glTF loader polish** | Draco + live maps are enough; reopen only if real files fail |
+| **Freeform multi-mesh free-grab** | Gizmo group move works; optional restore not worth stick confusion |
+| **Desktop mirror as a product track** | Handy for debugging; not Spectator, not a roadmap goal |
+| **“Evaluate Nomad UX” checklist row** | Ongoing filter via charter — not a deliverable |
+| **Alphas → paint intensity special-case** | Vague; stamps already modulate falloff — no separate project |
+
+**Still on the fence (not cut, not scheduled):** thin Desktop paint layers · thin aim-projection if α leaves a gap · **Spectator** · **Import URL** · **dock slot swap** · **Phase D UV tools** (*likely needed* for textured/seam path — Desktop-first; not next sprint).
 
 #### Recent agreed list — what we said vs what advanced
 
 | Agreed item | Advanced? | Notes |
 |---|---|---|
-| **Local Snapshot PNG** | **Yes** | Desktop Camera + XR OPTS; virtual view only |
+| **Local Snapshot PNG** | **Yes** | Desktop Camera + XR OPTS; virtual view only; XR ~1.5s aim then head pose |
 | **Start/Stop video record** | **Yes** | Desktop + XR; FPS 15/24/30; Small/Balanced/High (clean bitrates). For post (DaVinci etc.), not OS Cast |
 | **XR capture ≈ Cast-like** | **Partial → Yes (app-side)** | Head pose + ~70° FOV; dock + controllers in frame. Still **not** OS Cast / passthrough |
 | **Desktop encode efficient** | **Yes** | Scales live view into preset sizes (not raw retina) |
 | **Cache freed when idle** | **Yes** | Scratch FBO/RT/encode canvas disposed after PNG, Stop, XR exit |
-| **Studio / UI-in-frame record** | **Design only** | Optional later; speed-sculpt post already covered by Local Record → Resolve |
+| **Studio / UI-in-frame record** | **Cut** | Local Record + OS capture enough — no longer pursuing |
 | **GLB import fidelity** | **Yes** | Phase A + live map slots (Phase C) |
 | **GLB export** | **Yes** | Phase B; prefers live maps when present |
 | **Paint into maps** | **Yes** | Phase C — overwrite imported texels; verts remain UV-less fallback |
 | **Paint brush feel + Soften** | **Yes** | Denser stamps, flow, XR trigger→intensity; Soften on PAINT (desktop dual button + “blend colors”) |
 | **Clay-friendly paint / shader hint** | **Yes** | Defaults ~R55 / M4; auto-correct chrome until user edits; Matcap/Flat vs PBR copy on desktop + XR |
-| **Shared alpha gallery** | **Yes** | Built-in free stamps (`AlphaLibrary` + generate script); Desktop thumbs; XR OPTS cycle; custom import |
-| **Alpha stamp feel + angle** | **Yes** | Bilinear + contrast; lock stamp; angle −360…360 with ±15° / 0° / 90° presets (Desktop) and stick nudge (XR) |
+| **Shared alpha gallery** | **Yes** | Built-in free stamps (`AlphaLibrary` + generate script); Desktop thumbs; **XR ALPHA tab** mini-gallery + shared stamp; custom import |
+| **α maps ON/OFF toggle** | **Yes** | FORM/PAINT chip; allowlist (Transform excluded); gallery only when ON; X skips α when OFF |
+| **Alpha stamp feel + angle** | **Yes** | Freehand default; lock opt-in; bilinear + contrast; angle −360…360 (Desktop presets + XR stick) |
+| **How-to menu PNG packs** | **Yes** | Camera → How-to docs: WebXR dock pack (full OPTS lists) + desktop sidebar/topbar pack. Docs/WIP — not headset product UI; regenerate when menus change |
+| **Desktop chrome consistency** | **Yes** | Shared CSS tokens; all topbar dropdowns match Camera (width, wrap, accents); sidebar folders/widgets aligned |
+| **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼ cues; shorter labels; `α∅` = no stamp |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
 
-1. **Bake / paint polish** — seam padding improved; further UV tools are Phase D.  
-2. **README media** — front-door README landed; add Quest MR / desktop hero GIF + stills under `docs/media/` when ready. Tunnel DIY linked from README (`tools/xr-tunnel.txt`).  
-3. **Import URL UX** — `addModelURL` exists; CORS / dock affordance still thin.  
-4. **Optional Studio record** — desktop UI in frame; not built (Local Record + OS capture cover most needs).  
-5. **XR capture polish** — aim ray visibility, MR plate, framing tweaks remain stretch.
+1. **README media** — how-to PNG packs exist; drop chosen stills/GIF under `docs/media/` when ready for the front door.  
+2. **Dock placement** — fine-tune from real sculpt sessions (offset / size only).  
+3. **α allowlist watch** — demote grab-tool α if muddy in practice.  
+4. **Import URL UX** — only if hosted CC0 / CORS workflow is something you use; else leave `addModelURL` as-is.  
+5. **How-to docs Camera buttons** — hide/gate before a “final” product cut (keep export helpers for maintainers).  
+6. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
+
+~~Bake polish / Studio record / XR capture chrome / other-HMD~~ — cut or absorbed (see *No longer pursuing*).
 
 Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) → wheel lock / multi-select → tools**. Right: sculpt / Transform / **grip = negative** / undo / redo. **Both grips = Smooth hold** (desktop Shift).
 
@@ -529,33 +584,39 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
   - FPS **15 / 24 / 30** (default 24); quality **Small 720p / Balanced 900p / High 1080p** with clean bitrates  
   - Desktop: live sculpt view scaled into encode canvas  
   - XR: Cast-like mono (head pose + ~70° FOV) with **clay + brush/gizmo + controllers + dock**  
+  - XR still: **~1.5s aim delay** then capture from current headset pose (same overlays as record)  
   - Scratch buffers disposed when idle  
+- [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; tighter labels  
+- [x] **Desktop yagui chrome facelift** — shared CSS tokens; topbar + sidebar consistent with Camera menu  
+- [x] **How-to docs PNG packs** (Camera → How-to docs) — WebXR dock full tabs + desktop sidebar/topbar; WIP docs helper, not product UX  
+- [x] **α maps ON/OFF** on FORM/PAINT — allowlisted tools; Transform = n/a; ALPHA tab gated; shared stamp 
 
 ### Next (near-term)
 
-1. [x] **glTF / GLB import** (Phase A — see Materials track)  
-2. [x] **GLB export** + **paint-into-maps** (Phase B / C)  
-3. [x] Document Quest + tunnel setup in README (link `tools/xr-tunnel.txt`) — add hero media when available  
-4. [x] **Local Snapshot / Record** (see Done + Collaboration & capture)  
-5. [ ] Optional **Import URL** dock/desktop affordance (`addModelURL` already exists; needs UX + CORS guidance)  
-6. [ ] Dock placement fine-tune from more tester feedback (offset / size only — keep head-facing follow)  
-7. [ ] Optional **Studio record** (desktop UI in frame) for speed-sculpt / tutorial exports — default stays sculpt-view-only  
-8. [x] **Paint brush feel** + **Blend (Soften)** on PAINT tab  
-9. [x] **Clay-friendly PBR paint params** + shader acceptance hint (desktop + XR)  
-10. [x] **Shared alpha gallery** + stamp feel (lock / angle ±360°) — Desktop + XR  
-11. [x] **README as front door** (pitch + quick start + philosophy); roadmap remains the manifesto  
+Active leftovers only (done items removed from the “todo” mental list):
+
+1. [ ] Place chosen how-to / hero stills under `docs/media/` and wire README when ready  
+2. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
+3. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
+4. [ ] Optional **Import URL** affordance — only if you use hosted CC0; else skip  
+5. [ ] Before “final” cut: hide or gate **How-to docs** Camera buttons  
+6. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+7. [ ] **XR ADD shape** — spawn near current sculpt / matching size; avoid `fitXRStageToScene` on every ADD (family playtest shrink)  
+
+**Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 
 ### Collaboration & capture (naming — keep distinct)
 
 | Feature | Meaning | Status |
 |---|---|---|
-| **Local Snapshot** | Image or short video of the *virtual* sculpt view — review or share later | **Done** — desktop + XR; clean presets; XR includes dock/controllers; not Cast/passthrough |
-| **Studio record** | Same encode path but includes **desktop yagui** (tools, saves, panels) for speed sculpts | **Agreed design** — not built; OS window capture works today |
-| **XR presentation capture** | Richer demo composite (aim rays, MR plate, framing) | **Mostly landed** (dock + controllers); polish remains stretch |
-| **Spectator** | Friend joins by invite code and **sees your live clay/scene** (view-only). Target: **headset-to-headset** — each person in their own room/passthrough; shared virtual sculptures, not a copy of your camera feed. Desktop viewer is an allowed thinner first step. Precursor to **Co-sculpt**. | **Feasible, not built** — needs signaling + sync (see below) |
-| **Desktop mirror** | Same machine / same origin shows live virtual view while XR is active | Easier adjacent step — **not** Spectator |
+| **Local Snapshot** | Image or short video of the *virtual* sculpt view — review or share later | **Done** — desktop + XR; XR aim delay; dock/controllers; not Cast/passthrough |
+| **How-to menu packs** | Flat PNGs of XR dock tabs + desktop chrome for README / tutorials | **Done (WIP helpers)** — Camera → How-to docs; re-export when UI changes; not headset product |
+| **Studio record** | Same encode path but includes **desktop yagui** | **Cut** — use OS window capture + Local Record |
+| **XR presentation capture** | Richer demo composite (aim rays, MR plate, framing) | **Done enough** — further polish cut |
+| **Spectator** | Friend joins by invite code and **sees your live clay/scene** (view-only). Target: **headset-to-headset** | **North-star, not scheduled** — needs signaling |
+| **Desktop mirror** | Same machine shows live virtual view while XR is active | **Not a product goal** (debug convenience only) |
 | **Cast / Stream** | Twitch / YouTube / Quest Cast / OS share | Outside our app |
-| **Co-sculpt** | Friend **edits** the same clay (Spectator + write authority) | Later — after Spectator |
+| **Co-sculpt** | Friend **edits** the same clay | After Spectator — still later |
 
 Do **not** call Local Snapshot, Local Record, or desktop mirror “Spectator.”  
 Do **not** promise OS Cast or that WebXR can share your passthrough camera feed to a friend.
@@ -627,25 +688,17 @@ You (Quest, sculpting) ──sync clay/scene──► Friend (Quest, view-only)
 
 ### Later (stretch)
 
+Keep short — most old stretch rows are done or cut (see *No longer pursuing*).
+
 - [ ] Lightweight dock slot replace (long-press primary → swap tool; no settings panel)  
-- [x] **Paint brush feel** (flow / denser stamp spacing; XR trigger→Tablet intensity)  
-- [x] **Blend (Soften)** under **PAINT** tab — 1-ring mix of color/rough/metal (+ maps); write channels / mask; desktop “blend colors” dual button  
-- [x] **Clay-friendly rough/metal defaults** + auto-correct chrome until edited; Matcap/Flat vs PBR copy  
-- [x] **Shared alpha gallery** — built-in free stamps + custom import; Desktop thumbs; XR OPTS cycle  
-- [x] **Alpha stamp feel** — bilinear + contrast; stable orientation; lock stamp default when alpha selected  
-- [x] **Stamp angle** −360…360 with friendly nudges/presets (Desktop + XR)  
-- [ ] Smudge / projection paint / layers — park until Soften earns more surface tools  
-- [ ] Freeform **group** free-grab while multi-selected (gizmo group move works today; optional restore)  
-- [ ] Hand tracking sculpt (optional path beside controllers)  
-- [ ] Multi-resolution / remesh flows that feel safe at Quest framerate  
-- [ ] Cloud / Sketchfab-style share from XR (optional; local continuity comes first)  
-- [ ] **Spectator** — invite-code live virtual watch (feasible — signaling + WebRTC; Desktop viewer v1)  
-- [ ] **XR presentation capture polish** — aim rays, MR plate options, framing tweaks  
-- [ ] **Studio record** — optional desktop UI compositing / guided OS capture for speed sculpts  
-- [ ] **Co-sculpt** — shared editing (after Spectator)  
-- [ ] **Other-headset validation** (Pico / PC VR / etc.) — opportunistic  
-- [ ] Evaluate Nomad-era UX lessons without abandoning the open SculptGL core  
----
+- [ ] Hand tracking sculpt — only after controllers stay boringsly reliable  
+- [ ] Multi-resolution / remesh if it stays safe at Quest framerate  
+- [ ] **Spectator** — invite-code live virtual watch (signaling + sync; not scheduled)  
+- [ ] **Co-sculpt** — after Spectator  
+- [ ] Thin **Desktop paint layers** (maybe; merge/bake required) — not XR dock chrome  
+- [ ] Thin aim-projection — *fence only* if α stamps leave a real gap  
+
+**Cut from stretch (do not re-add casually):** Studio record · XR capture chrome · smudge · Substance projection/layers · Sketchfab/cloud share · other-HMD deliverable · meshopt · freeform group free-grab · Nomad checklist row.
 
 ## Materials / GLB / Paint track
 
@@ -669,7 +722,7 @@ Import asset (keep what GLB/OBJ offers)
 | UV buffers + OBJ/SGL UV round-trip | Yes (`MeshData` tex coords / UV faces) |
 | UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
 | Vertex PBR paint (color / rough / metal / mask) | Yes — desktop + XR dock; clay-friendly defaults + Soften blend |
-| Brush **alpha** stamps (PNG/JPG falloff) | Yes — shared gallery (Desktop thumbs + XR OPTS); lock + angle ±360°; bilinear/contrast sampling |
+| Brush **alpha** stamps (PNG/JPG falloff) | Yes — shared gallery (Desktop thumbs + XR ALPHA tab); lock + angle ±360°; bilinear/contrast sampling |
 | GLB/glTF import | Yes — **UVs + welded topo + live maps + vertex fallback + Draco** |
 | GLB/glTF export | Yes — live maps when present; else bake from verts / COLOR_0 |
 | UV seam / unwrap editor | **No** (Phase D) |
@@ -693,7 +746,7 @@ Never advertise a format for data it cannot hold.
 |---|---|---|
 | Shared core | Preserve UVs/maps on import; weld topology; paint buffers; export writers | Same mesh / same buffers |
 | Dense creation | Seam editor, unwrap, texture slots, alpha library browser | — |
-| In-headset | — | Import/export continuity, paint, alpha cycle + lock/angle, map preview — not a full Blender UV suite in MR |
+| In-headset | — | Import/export continuity, paint, ALPHA gallery + lock/angle, map preview — not a full Blender UV suite in MR |
 
 Charter still applies: **Desktop invents density; XR gets the actions that keep sculpting flowing.**
 
@@ -706,8 +759,8 @@ Necessary follow-through after geometry-first GLB.
 - [x] **Bake or attach baseColor** (factors + optional texture sample → vertex color as first win)  
 - [x] Carry **metal/rough factors** into vertex material defaults when maps aren’t ready yet  
 - [x] **Draco** (`KHR_draco_mesh_compression`) so modern compressed GLBs open (`./draco/` decoder assets)  
-- [ ] Optional **meshopt** / better external `.gltf` + `.bin` path later  
 - [x] Multi-mesh / multi-material imports stay separate Multimeshes with clear selection  
+- ~~Optional meshopt~~ — **cut** (reopen only if real files fail)
 
 *Outcome:* imports look closer to “the file I made,” not anonymous grey clay.
 
@@ -729,19 +782,24 @@ Necessary follow-through after geometry-first GLB.
 - [x] Improved UV bake padding (wider weighted dilation + second pass)  
 - [x] **Clay-friendly metal/rough** defaults + auto ideals when selecting Paint (editable; eyedropper / slider edits stick)  
 - [x] Shader wording: Matcap/Flat accept paint as color; PBR uses metal/rough  
-- [ ] Layers or mask-aware map workflows if they earn their place (charter)  
+- [ ] **Paint layers** — *maybe, Desktop-first, thin* (see PAINT brainstorm); not Substance stacks in XR  
 - [x] Keep vertex paint as the always-available path (no UV required)  
 
 *Outcome:* paint serves both clay look *and* engine/DCC-ready maps — without accidental chrome under PBR.
 
 ### Phase D — UV creation & editing
 
+> **Why it may earn place:** map paint and honest textured export need UVs. Imported GLBs often already have them; clay you birth in-app often doesn’t. Artists who’ve fought seams in Mudbox/ZBrush know the pain — *hiding* seams (paint across, padding, projection) is different from *authoring* unwraps. We need both eventually: better bake/padding helps hide; Phase D creates or repairs the unwrap when Blender isn’t in the loop.
+
 - [ ] Keep imported UVs intact through sculpt ops that can break unwraps (document limits)  
 - [ ] Simple **project / planar / box** unwrap for primitives and UV-less meshes  
 - [ ] **Seam mark → unwrap → pack** (Desktop-first; density belongs on monitor)  
+- [ ] Soften seam visibility for map paint (padding / dilation already improved; more if needed)  
 - [ ] XR: preview UVs / “has UVs?” status — not a full seam editor in MR on day one  
 
-*Outcome:* artists can unwrap in-app when Blender isn’t in the loop; imported UVs stay first-class.
+*Outcome:* artists can unwrap or correct UVs in-app when Blender isn’t required; imported UVs stay first-class; Quest stays free of a Mudbox-class UV suite.
+
+**Interest note (2026-08):** confirmed as *likely needed* for the textured path — not scheduled ahead of README/sculpt polish; Desktop owns seam/unwrap density.
 
 ### Phase E — Texture-based sculpting (alphas & stamps)
 
@@ -749,15 +807,63 @@ Build on existing brush alpha stamps — don’t invent a second system.
 
 - [x] **Shared built-in alpha gallery** (Desktop + XR) — curated free stamps + custom import  
 - [x] Desktop thumbnail gallery (primary) + combobox / import  
-- [x] XR OPTS: cycle alpha stamps (stick ↔) for form + paint tools  
-- [x] **Stronger stamp application** — bilinear sample, contrast curve, stable tangent, lock-on when stamp selected  
-- [x] **Stamp angle** −360…360 — Desktop slider + −15°/+15° / 0°/90° presets; XR stick nudge + lock toggle  
-- [ ] Optional stencil / projection workflows if they earn spatial presence  
-- [ ] Alphas that also inform paint intensity where it helps  
+- [x] **XR ALPHA dock tab** — mini-gallery thumbs + lock/angle; shared stamp across allowlisted tools  
+- [x] **α maps ON/OFF** — FORM/PAINT chip; gallery gated; Transform excluded  
+- [x] **Stronger stamp application** — bilinear sample, contrast curve, stable tangent; freehand default, lock opt-in  
+- [x] **Stamp angle** −360…360 — Desktop slider + presets; XR ALPHA-tab stick nudge + lock toggle  
+- ~~Optional projection / stencil as a Phase E deliverable~~ — **fence / cut from schedule** (α stamps are the image story)  
+- [ ] Optionally **narrow XR allowlist** to Primary + falloff tiers after session feedback  
 
-*Outcome:* form-making uses images the way sculptors already expect (Nomad/ZBrush muscle memory), on open web + Quest.
+*Outcome:* form-making uses images the way sculptors already expect (Nomad/ZBrush muscle memory), on open web + Quest — without mystery menus or Transform stamps.
 
 **Pack note:** regenerate built-in PNGs with `npm run generate-alphas` (`tools/generate-alpha-pack.js` → `app/resources/alpha/`).
+
+### PAINT tools brainstorm (earn-its-place)
+
+**Today on PAINT:** `paint` · `masking` · `soften` (+ OPTS: eyedropper, paint-all, write channels, hardness/R/M) + **α stamps**.
+
+**North star reminder:** this fork is *not* racing Substance Painter or Nomad feature-for-feature. Upstream SculptGL had **no paint layers**; Nomad went denser on mobile. Our edge is **open-web clay at human scale in the room** — alphas + Soften + map paint already beat original SculptGL for surface work. Steal *feel* lessons; don’t import a DCC panel farm.
+
+#### Projection painting (on the fence)
+
+Substance-style projection (paint from a camera/frustum, often onto **layers**) looks great and is *spatially* tempting in XR. But:
+
+- Alphas (gallery + custom upload + lock/angle) already cover most “put this image on the clay” intent.  
+- True projection shines for large decals / logo placement / photo wrap — a narrower job than daily clay paint.  
+- Full Substance projection usually assumes **UV maps + layer stack + blend modes** — density we do not have, and should not bolt on just to unlock one tool.
+
+| Path | Verdict |
+|---|---|
+| Chase Substance projection now | **No** — α maps are the near-term image story |
+| Thin “project this α / image once from controller aim” later | **Maybe** — only if artists miss large-scale placement after living with stamps |
+| Full projector + layer stack in XR dock | **No** — breaks presence-over-panels |
+
+#### Paint layers (wanted, but careful)
+
+Layers would be nice (non-destructive color / mask experiments). Original SculptGL never had them — so this is **net-new core**, not a port. The app *can* accept them if we keep the shape thin:
+
+| Approach | Fit |
+|---|---|
+| **A. Thin Desktop layers** — few paint layers (e.g. 2–4), merge / clear / solo, bake down to current map/verts | **Acceptable later** — Desktop invents density; `.sgl` must store them |
+| **B. XR layer manager** in the dock | **Reject near-term** — stick budget + panels kill flow |
+| **C. Substance-style stacks** (blend modes, smart materials, projection per layer) | **Out of scope** — different product |
+
+**Prerequisite for layers:** honest storage (`.sgl` + map slots), merge-to-base so XR/export never depend on an infinite stack. Masking already gives a poor-man’s “protect then paint”; layers earn place when that stops being enough.
+
+| Idea | What it adds | Charter fit | Verdict |
+|---|---|---|---|
+| **Soften (landed)** | 1-ring color/material blend | High | **Keep** |
+| **α stamps (landed)** | Image-shaped form + paint falloff | High — already the image story | **Keep; deepen pack, not tools** |
+| **Smudge / smear** | Directional drag of color | Medium | **Park** |
+| **Projection paint** | Frustum / aim-based image wrap | Medium spatial; needs UVs + usually layers | **Fence** — don’t build until α gaps are real |
+| **Thin paint layers** | Non-destructive stacks | Medium — Desktop-first only | **Later maybe** — not XR dock chrome |
+| **Clone stamp** | Sample → paint elsewhere | Low for XR stick budget | **Desktop-first if ever** |
+| **Dedicated eraser** | Clear to clay default | Low — negative paint covers | **Skip** |
+| **Channel-only brushes** | Rough-only / metal-only tools | Low — write flags exist | **Skip** |
+| **Decal tool** | Place image once | Overlaps α + lock | **Skip** — improve stamps |
+| **Cavity / AO paint** | Procedural dirt | Not core clay | **Skip near-term** |
+
+**Stance:** surface stack is **good enough to sculpt**. Next wins are polish (feel, pack, README media) — not a painter product inside the dock. Projection and Substance layers are **cut from schedule**; thin Desktop layers stay *maybe*.
 
 ### Ordering reminder
 

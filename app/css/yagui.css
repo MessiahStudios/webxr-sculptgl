@@ -1,6 +1,31 @@
+/* WebXR Sculpt — desktop yagui chrome
+ * Shared tokens so topbar dropdowns + sidebar stay consistent.
+ */
+
+:root {
+  --gui-bg-deep: #16181e;
+  --gui-bg-bar: #1c1e24;
+  --gui-bg-panel: #2a2d36;
+  --gui-bg-elevated: #32363f;
+  --gui-bg-widget: rgba(0, 0, 0, 0.35);
+  --gui-bg-widget-hover: rgba(0, 0, 0, 0.48);
+  --gui-accent: #6ec8ff;
+  --gui-accent-soft: rgba(110, 200, 255, 0.18);
+  --gui-accent-warm: #ffb86b;
+  --gui-border: rgba(140, 160, 200, 0.22);
+  --gui-border-strong: rgba(140, 160, 200, 0.38);
+  --gui-text: #c8d0e0;
+  --gui-text-dim: #8b95a8;
+  --gui-text-bright: #f0f3fa;
+  --gui-radius: 8px;
+  --gui-radius-sm: 5px;
+  --gui-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  --gui-font: 'Open Sans', 'Segoe UI', sans-serif;
+}
+
 * {
-  font: 13px 'Open Sans', sans-serif;
-  color: #bbb;
+  font: 13px/1.35 var(--gui-font);
+  color: var(--gui-text);
   font-weight: 400;
   box-sizing: border-box;
   border: 0;
@@ -17,6 +42,7 @@
 body {
   overflow: hidden;
   margin: 0;
+  background: var(--gui-bg-deep);
 }
 
 #tablet-plugin {
@@ -41,24 +67,27 @@ body {
   position: absolute;
   bottom: 0;
   top: 0;
-  padding-bottom: 20px;
+  padding: 6px 0 24px 0;
   width: 310px;
-  background: #3c3c3c;
+  background: linear-gradient(180deg, #2e313a 0%, var(--gui-bg-panel) 48%, #262930 100%);
   overflow-x: hidden;
   overflow-y: auto;
-  border-right: double;
-  border-width: 4px;
-  border-color: rgba(255, 255, 255, 0.3);
+  border-right: 1px solid var(--gui-border-strong);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.28);
 }
 
 .gui-sidebar::-webkit-scrollbar {
-  width: 7px;
-  background: rgba(0, 0, 0, 0.3);
+  width: 8px;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .gui-sidebar::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(160, 180, 210, 0.28);
+}
+
+.gui-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 180, 210, 0.42);
 }
 
 .gui-sidebar::-webkit-scrollbar-corner {
@@ -82,29 +111,45 @@ body {
 /****** folder ******/
 
 .gui-sidebar > ul > label {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
-  color: #999;
+  letter-spacing: 0.06em;
+  color: var(--gui-text-dim);
   position: relative;
   display: block;
-  line-height: 30px;
-  margin: 5px 0 5px 0;
+  line-height: 32px;
+  margin: 6px 8px;
   text-transform: uppercase;
   cursor: pointer;
   vertical-align: middle;
   text-align: center;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--gui-border);
+  border-radius: var(--gui-radius-sm);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.gui-sidebar > ul > label:hover {
+  color: var(--gui-text-bright);
+  background: var(--gui-accent-soft);
+  border-color: rgba(110, 200, 255, 0.35);
+}
+
+.gui-sidebar > ul[opened=true] > label {
+  color: var(--gui-accent);
+  border-color: rgba(110, 200, 255, 0.4);
 }
 
 .gui-sidebar > ul[opened=true] > label:before {
   content: '▼';
-  text-indent: 1em;
+  text-indent: 0.85em;
   float: left;
+  color: var(--gui-accent);
 }
 
 .gui-sidebar > ul[opened=false] > label:before {
   content: '►';
-  text-indent: 1em;
+  text-indent: 0.85em;
   float: left;
 }
 
@@ -120,29 +165,30 @@ body {
 }
 
 .gui-sidebar > ul[opened=true] {
-  max-height: 1400px;
+  max-height: 1600px;
 }
 
 .gui-sidebar > ul[opened=false] {
-  height: 35px;
-  max-height: 35px;
+  height: 44px;
+  max-height: 44px;
 }
 
 .gui-sidebar > ul > li {
-  height: 22px;
-  margin: 4px 5px 4px 5px;
+  height: 24px;
+  margin: 5px 10px;
+  border-radius: var(--gui-radius-sm);
 }
 
-/* Alpha stamp gallery — must grow past the default 22px row height */
+/* Alpha stamp gallery — must grow past the default row height */
 .gui-sidebar > ul > li.sculptgl-alpha-gallery {
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
-  margin: 6px 5px 10px 5px !important;
+  margin: 8px 10px 12px 10px !important;
 }
 
 .gui-glowOnHover:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--gui-accent-soft);
 }
 
 .gui-pointerOnHover:hover {
@@ -160,6 +206,9 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--gui-text-dim);
+  line-height: 24px;
+  padding-left: 2px;
 }
 
 
@@ -173,11 +222,17 @@ body {
   float: right;
   cursor: pointer;
   position: relative;
-  border: 1px solid;
-  border-radius: 4px;
-  margin-top: 2px;
+  border: 1px solid var(--gui-border-strong);
+  border-radius: var(--gui-radius-sm);
+  margin-top: 3px;
   width: 18px;
   height: 18px;
+  background: var(--gui-bg-widget);
+}
+
+.gui-input-checkbox:checked + label {
+  border-color: var(--gui-accent);
+  background: var(--gui-accent-soft);
 }
 
 .gui-input-checkbox + label::before {
@@ -186,8 +241,8 @@ body {
   left: 5px;
   height: 14px;
   width: 6px;
-  border-right: 2px solid;
-  border-bottom: 2px solid;
+  border-right: 2px solid var(--gui-accent);
+  border-bottom: 2px solid var(--gui-accent);
   -webkit-transform: rotate(60deg) skew(25deg, 0);
   -ms-transform: rotate(60deg) skew(25deg, 0);
   transform: rotate(60deg) skew(25deg, 0);
@@ -209,9 +264,11 @@ body {
   margin-left: 2%;
   text-align: center;
   outline: none;
-  font-size: 10px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  color: var(--gui-text-bright);
+  border-radius: var(--gui-radius-sm);
+  background: var(--gui-bg-widget);
+  border: 1px solid transparent;
 }
 
 .gui-widget-color > input::-webkit-inner-spin-button,
@@ -227,7 +284,8 @@ body {
 
 .gui-slider:hover,
 .gui-input-number:hover {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--gui-bg-widget-hover);
+  border-color: var(--gui-border);
 }
 
 
@@ -240,13 +298,14 @@ body {
   width: 52%;
   height: 100%;
   overflow: hidden;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--gui-radius-sm);
+  background: var(--gui-bg-widget);
+  border: 1px solid transparent;
 }
 
 .gui-slider > div {
   height: 100%;
-  background: #525f63;
+  background: linear-gradient(90deg, #4a7a92, var(--gui-accent));
 }
 
 
@@ -262,8 +321,11 @@ body {
   width: 100%;
   height: 100%;
   outline: none;
-  border-radius: 4px;
-  background: #525f63;
+  border-radius: var(--gui-radius-sm);
+  background: var(--gui-bg-elevated);
+  border: 1px solid var(--gui-border);
+  color: var(--gui-text);
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .gui-button::-moz-focus-inner {
@@ -272,16 +334,19 @@ body {
 }
 
 .gui-button:enabled:hover {
-  color: #fff;
+  color: var(--gui-text-bright);
+  background: var(--gui-accent-soft);
+  border-color: rgba(110, 200, 255, 0.4);
 }
 
 .gui-button:active {
-  box-shadow: 0 1px 0 hsla(0, 0%, 100%, .1), inset 0 1px 4px hsla(0, 0%, 0%, .8);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .gui-button:disabled {
-  background: #444;
-  color: #555;
+  background: #3a3d46;
+  color: #666;
+  border-color: transparent;
 }
 
 
@@ -302,9 +367,10 @@ body {
   height: 100%;
   text-align: center;
   outline: none;
-  border-radius: 4px;
+  border-radius: var(--gui-radius-sm);
   font-size: 13px;
   background: #f00;
+  border: 1px solid var(--gui-border);
 }
 
 .gui-widget-color > input + div:hover,
@@ -317,11 +383,14 @@ body {
   display: none;
   position: absolute;
   pointer-events: none;
-  padding: 3px;
+  padding: 6px;
   width: 125px;
   height: 105px;
   z-index: 2;
-  background: #111;
+  background: var(--gui-bg-deep);
+  border: 1px solid var(--gui-border-strong);
+  border-radius: var(--gui-radius);
+  box-shadow: var(--gui-shadow);
 }
 
 
@@ -350,7 +419,6 @@ body {
   width: 10px;
   height: 10px;
   z-index: 4;
-  border: #fff;
   border-radius: 10px;
   border: 2px solid white;
 }
@@ -404,14 +472,19 @@ body {
   display: inline-block;
   width: 64%;
   height: 100%;
-  padding-left: 1%;
+  padding-left: 4px;
   outline: none;
-  background: #525f63;
-  border-radius: 4px;
+  background: var(--gui-bg-elevated);
+  border: 1px solid var(--gui-border);
+  border-radius: var(--gui-radius-sm);
+  color: var(--gui-text);
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .gui-select:hover {
-  color: #fff;
+  color: var(--gui-text-bright);
+  background: var(--gui-accent-soft);
+  border-color: rgba(110, 200, 255, 0.4);
 }
 
 
@@ -419,12 +492,14 @@ body {
 
 .gui-topbar {
   position: absolute;
-  background: #20211d;
+  background: linear-gradient(180deg, #22252d 0%, var(--gui-bg-bar) 100%);
   width: 100%;
-  padding-right: 10px;
-  padding-left: 10px;
+  padding-right: 12px;
+  padding-left: 12px;
   z-index: 1;
   float: left;
+  border-bottom: 1px solid var(--gui-border);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
 }
 
 .gui-topbar ul {
@@ -436,60 +511,108 @@ body {
 .gui-topbar ul > li {
   float: left;
   line-height: 40px;
-  padding: 0 15px;
+  padding: 0 14px;
   position: relative;
   cursor: pointer;
+  color: var(--gui-text-dim);
+  transition: color 0.12s ease, background 0.12s ease;
 }
 
 .gui-topbar ul > li .shortcut {
   float: right;
   font-style: oblique;
-  margin-right: 11px;
+  margin-right: 8px;
+  color: var(--gui-text-dim);
+  font-size: 11px;
 }
 
 .gui-topbar ul > li:hover {
-  color: #fff;
+  color: var(--gui-text-bright);
+  background: var(--gui-accent-soft);
 }
 
 .gui-topbar ul > li:hover > ul {
   display: block;
   opacity: 1;
   pointer-events: auto;
-  top: 30px;
+  top: 38px;
+  transform: translateY(0);
 }
 
 .gui-topbar ul > li > ul {
   position: absolute;
-  top: 20px;
-  left: 10px;
-  background: #222;
-  width: 220px;
-  padding: 8px;
-  border-radius: 0 4px 4px 0;
+  top: 28px;
+  left: 0;
+  background: var(--gui-bg-deep);
+  width: 280px;
+  padding: 10px 8px 12px;
+  border-radius: 0 0 var(--gui-radius) var(--gui-radius);
+  border: 1px solid var(--gui-border-strong);
+  border-top: 2px solid rgba(110, 200, 255, 0.55);
+  box-shadow: var(--gui-shadow);
   pointer-events: none;
   opacity: 0;
-  -webkit-transition: 0.15s all ease;
-  -ms-transition: 0.15s all ease;
-  -moz-transition: 0.15s all ease;
-  -o-transition: 0.15s all ease;
-  transition: 0.15s all ease;
+  max-height: calc(100vh - 56px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transform: translateY(-4px);
+  -webkit-transition: 0.15s opacity ease, 0.15s top ease, 0.15s transform ease;
+  -ms-transition: 0.15s opacity ease, 0.15s top ease, 0.15s transform ease;
+  -moz-transition: 0.15s opacity ease, 0.15s top ease, 0.15s transform ease;
+  -o-transition: 0.15s opacity ease, 0.15s top ease, 0.15s transform ease;
+  transition: 0.15s opacity ease, 0.15s top ease, 0.15s transform ease;
+}
+
+/* Kept for Camera.js back-compat; all menus are wide now */
+.gui-topbar ul > li > ul.gui-topbar-menu-wide {
+  width: 280px;
+}
+
+.gui-topbar ul > li > ul::-webkit-scrollbar {
+  width: 7px;
+}
+
+.gui-topbar ul > li > ul::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(160, 180, 210, 0.3);
 }
 
 .gui-topbar ul > li > ul > li {
   float: none;
-  height: 22px;
-  line-height: 22px;
-  margin: 6px 0 6px 0;
-  padding-left: 5px;
+  height: auto;
+  min-height: 24px;
+  line-height: 18px;
+  margin: 3px 2px;
+  padding: 5px 8px;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  border-radius: var(--gui-radius-sm);
+  color: var(--gui-text);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.gui-topbar ul > li > ul > li:hover {
+  background: var(--gui-accent-soft);
+  color: var(--gui-text-bright);
 }
 
 .group-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #999 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gui-accent) !important;
   cursor: default !important;
-  text-align: center;
-  border-bottom: 1px solid #444444;
-  padding-bottom: 5px;
-  margin: 10px 0 10px 0;
+  text-align: left !important;
+  border-bottom: 1px solid var(--gui-border);
+  padding: 8px 8px 6px !important;
+  margin: 8px 2px 6px !important;
+  background: transparent !important;
+  min-height: 0 !important;
+}
+
+.group-title:hover {
+  background: transparent !important;
+  color: var(--gui-accent) !important;
 }

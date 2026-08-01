@@ -64,6 +64,8 @@ class Scene {
     this._xrSnapTmp = mat4.create();
     this._xrSnapReady = false;
     this._xrSnapIsMR = false;
+    // XR still: queued until end of frame after aim delay (dock click faces the menu, not the clay).
+    this._xrSnapPending = null; // { resolve, reject, after, hideDock }
     this._localSnapshotTarget = null; // { fb, tex, depth, w, h, canvas2d, ctx }
     this._localSnapshotPass = false; // shaders: direct sRGB out (skip RGBM RTT encode)
     this._localSnapshotBusy = false; // block concurrent desktop applyRender during FBO capture
@@ -1362,12 +1364,15 @@ class Scene {
     } else {
       // Brush-like tools need a fresh surface hit each frame.
       // Drag/Move keep their own grab state — re-picking the surface would fight them.
-      if (!keepGrab) {
+      // Lock stamp freezes the center — re-picking would fight updateSculptLockXR.
+      var curTool = this.getSculptManager().getCurrentTool();
+      var lockStamp = !!(curTool && curTool._lockPosition);
+      if (!keepGrab && !lockStamp) {
         picking.intersectionSceneRayMeshes(nearScene, farScene);
         if (picking.getMesh() && this.getSculptManager().getSymmetry())
           this.getPickingSymmetry().intersectionSceneRayMesh(picking.getMesh(), nearScene, farScene);
       }
-      if (picking.getMesh() || keepGrab)
+      if (picking.getMesh() || keepGrab || lockStamp)
         this.getSculptManager().updateXR();
     }
   }
@@ -1463,22 +1468,174 @@ class Scene {
     gl.disable(gl.CULL_FACE);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Stills after pose update (same timing as record frames) — never mid dock-click / mid-eye.
+    this._tickPendingXRSnapshot();
     this._tickLocalRecording();
   }
 
   /**
    * Local Snapshot — PNG of the virtual sculpt view (not Quest Cast / not passthrough).
    * Desktop: copy the live WebGL canvas (same pixels the camera shows) — no offscreen FBO.
-   * XR: mono redraw from last headset eye into an FBO (headset FB is not readable as a canvas).
+   * XR: short aim delay, then mono redraw from current headset pose (dock click always faces the menu).
    * @returns {Promise<{name:string, bytes:number}>}
    */
   captureLocalSnapshot() {
+    if (this._xrSessionActive)
+      return this._queueXRLocalSnapshot();
+    return this._encodeLocalSnapshotCanvas(this._captureDesktopCanvasTo2D());
+  }
+
+  /**
+   * Flat PNG of the XR Sculpt Dock menu for how-tos / GitHub (desktop docs helper).
+   * @param {{tab?:string, tool?:string, keepToast?:boolean, full?:boolean, fileTag?:string}} [opts]
+   * @returns {Promise<{name:string, bytes:number, w:number, h:number, tab:string}>}
+   */
+  exportXRDockUI(opts) {
+    opts = opts || {};
+    if (opts.full === undefined) opts.full = true;
+    var cm = this._xrControllerModels;
+    var dock = cm && cm._sculptDock;
+    if (dock && dock.exportUIPng)
+      return dock.exportUIPng(opts);
+
+    var self = this;
+    return import(/* webpackChunkName: "xr-dock" */ 'xr/XRSculptDock')
+      .then(function (mod) {
+        var d = new mod.default(self);
+        d.syncFromDesktop();
+        return d.exportUIPng(opts).finally(function () {
+          try { d.dispose(); } catch (e) { /* ignore */ }
+        });
+      });
+  }
+
+  /**
+   * How-to pack: every WebXR dock tab at full height (OPTS includes hidden rows).
+   * Also dumps OPTS for brush + paint tool contexts (paint adds extra rows).
+   * Docs helper — regenerate when the XR menu settles; not an end-user headset feature.
+   * @returns {Promise<Array<{name:string, tab:string, tag?:string}>>}
+   */
+  exportXRDockUIAllTabs() {
+    var self = this;
+    var jobs = [
+      { tab: 'form', tool: 'brush', fileTag: 'form' },
+      { tab: 'paint', tool: 'paint', fileTag: 'paint' },
+      { tab: 'alpha', tool: 'brush', fileTag: 'alpha' },
+      { tab: 'opts', tool: 'brush', fileTag: 'opts-brush' },
+      { tab: 'opts', tool: 'paint', fileTag: 'opts-paint' },
+      { tab: 'workspace', fileTag: 'workspace' }
+    ];
+    var out = [];
+    var i = 0;
+    function next() {
+      if (i >= jobs.length)
+        return Promise.resolve(out);
+      var job = jobs[i++];
+      return self.exportXRDockUI({
+        tab: job.tab,
+        tool: job.tool,
+        fileTag: job.fileTag,
+        keepToast: false,
+        full: true
+      }).then(function (rec) {
+        out.push(rec);
+        return next();
+      });
+    }
+    return next();
+  }
+
+  /**
+   * Desktop how-to pack: sidebar folders + key topbar menus (DOM screenshots).
+   * Pair with exportXRDockUIAllTabs for WebXR menu docs. WIP — re-run when UI changes.
+   * @returns {Promise<Array<{name:string, bytes:number, tag:string}>>}
+   */
+  exportDesktopUIAllPanels() {
+    var self = this;
+    return import(/* webpackChunkName: "desktop-howto" */ 'gui/exportDesktopHowTo')
+      .then(function (mod) {
+        return mod.exportDesktopHowToPack(self);
+      });
+  }
+
+  /** Aim window so the artist can look at the clay after selecting LOCAL SNAPSHOT on the wrist dock. */
+  getXRSnapshotAimMs() {
+    return 1600;
+  }
+
+  /**
+   * Queue an XR still for the end of a later frame (fresh head pose).
+   * @returns {Promise<{name:string, bytes:number}>}
+   */
+  _queueXRLocalSnapshot() {
+    var self = this;
+    if (this._xrSnapPending) {
+      return Promise.reject(new Error('Snapshot already pending — look at your sculpt'));
+    }
+    var aimMs = this.getXRSnapshotAimMs();
+    var after = ((typeof performance !== 'undefined' && performance.now)
+      ? performance.now()
+      : Date.now()) + aimMs;
+    return new Promise(function (resolve, reject) {
+      self._xrSnapPending = {
+        resolve: resolve,
+        reject: reject,
+        after: after,
+        // Same overlays as Local Record (dock + controllers in the virtual view).
+        hideDock: false
+      };
+      XRRemoteLog.see('MR', 'Local Snapshot armed — look at your sculpt', {
+        aim_ms: aimMs,
+        note: 'capture runs from current headset pose after aim delay'
+      });
+    });
+  }
+
+  /** Cancel a waiting XR still (session end / re-entry). */
+  _cancelPendingXRSnapshot(reason) {
+    var p = this._xrSnapPending;
+    if (!p) return;
+    this._xrSnapPending = null;
+    try {
+      p.reject(new Error(reason || 'Snapshot cancelled'));
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Fire queued XR still once aim delay elapsed and viewer pose is fresh this frame.
+   */
+  _tickPendingXRSnapshot() {
+    var p = this._xrSnapPending;
+    if (!p || !this._xrSessionActive) return;
+    if (!this._xrSnapReady) return;
+    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (now < p.after) return;
+
+    this._xrSnapPending = null;
+    var dock = this._xrControllerModels && this._xrControllerModels._sculptDock;
+    var panel = dock && dock._panelGroup;
+    var wasVisible = panel ? panel.visible !== false : true;
+
+    try {
+      if (p.hideDock && panel) panel.visible = false;
+      var canvas2d = this._renderLocalSnapshotToCanvas2D();
+      this._encodeLocalSnapshotCanvas(canvas2d).then(p.resolve, p.reject);
+    } catch (err) {
+      p.reject(err);
+      this._disposeLocalCaptureCaches();
+    } finally {
+      if (panel) panel.visible = wasVisible;
+    }
+  }
+
+  /**
+   * @param {HTMLCanvasElement|null} canvas2d
+   * @returns {Promise<{name:string, bytes:number}>}
+   */
+  _encodeLocalSnapshotCanvas(canvas2d) {
     var self = this;
     return new Promise(function (resolve, reject) {
       try {
-        var canvas2d = self._xrSessionActive
-          ? self._renderLocalSnapshotToCanvas2D()
-          : self._captureDesktopCanvasTo2D();
         if (!canvas2d) {
           reject(new Error('Snapshot render failed'));
           return;
@@ -1503,7 +1660,6 @@ class Scene {
         reject(err);
       }
     }).finally(function () {
-      // Free GPU / canvas scratch whether save succeeded or failed.
       self._disposeLocalCaptureCaches();
     });
   }
@@ -2086,6 +2242,7 @@ class Scene {
   stopXRControllers() {
     if (this._xrControllerModels)
       this._xrControllerModels.stop();
+    this._cancelPendingXRSnapshot('XR session ended');
     // Always end an in-progress stroke — even if the sculpting flag was lost mid-glitch.
     try {
       this.getSculptManager().end();

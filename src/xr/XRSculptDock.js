@@ -3,10 +3,10 @@
  * Offset sits above/clear of the controller so new users can still see the real buttons.
  *
  * Controls (deliberately separated so workspace-adjust doesn't flip tabs):
- *   X button     → cycle tabs (form / paint / opts / workspace)
- *   stick Y      → cycle tools (brush/surf) or option focus (opts)
- *   stick X      → nudge paint color / hardness / rough / metal (opts)
- *   Y button     → toggle/cycle focused option (opts) OR recenter (workspace)
+ *   X button     → cycle tabs (form / paint / α / opts / workspace)
+ *   stick Y      → cycle tools (brush/surf), alpha focus, or option focus (opts)
+ *   stick X      → nudge paint color / hardness / rough / metal (opts); α gallery / lock / angle
+ *   Y button     → toggle/cycle focused option (opts / α) OR recenter (workspace)
  *   squeeze+stick→ radius (Y) / intensity (X) — stepped, min 5%
  *                 (disabled while paint color wheel is open; squeeze+Y = brightness only)
  *   workspace + stick → Y distance, X scale (never changes tabs)
@@ -20,8 +20,10 @@
  *   Wheel: stick aims color · left trigger locks · squeeze+↕ brightness
  */
 import * as THREE from 'three';
+import { saveAs } from 'file-saver';
 import XRRemoteLog from 'xr/XRRemoteLog';
 import AlphaLibrary from 'misc/AlphaLibrary';
+import Picking from 'math3d/Picking';
 import {
   XR_TABS,
   XR_TAB_LABELS,
@@ -29,15 +31,30 @@ import {
   PAINT_COLOR_PRESETS,
   applyStateToSculptManager,
   createXRSculptDockState,
+  getAlphaGalleryIds,
   getOptsList,
   nearestPaintPreset,
   rgbToHsv,
   hsvToRgb,
-  syncStateFromSculptManager
+  syncStateFromSculptManager,
+  toolSupportsAlpha,
+  visibleXRTabs
 } from 'xr/XRSculptDockState';
 
 var CANVAS_W = 512;
 var CANVAS_H = 500;
+/** World width (m); height follows canvas aspect so text is not stretched. */
+var PLANE_W = 0.26;
+var PLANE_H = PLANE_W * (CANVAS_H / CANVAS_W);
+
+/** Ellipsize so OPTS labels fit inside the row pill. */
+function fitText(ctx, text, maxW) {
+  var t = String(text || '');
+  if (ctx.measureText(t).width <= maxW) return t;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxW)
+    t = t.slice(0, -1);
+  return t + '…';
+}
 
 function stickXY(gamepad) {
   var a = gamepad.axes;
@@ -111,32 +128,32 @@ function exportFmtLabel(fmt) {
 }
 
 function optLabel(ok, s) {
-  if (ok === 'save') return 'SAVE project (.sgl)';
-  if (ok === 'load') return 'LOAD last (.sgl) — replaces scene';
-  if (ok === 'import') return 'IMPORT file — may fail in XR; prefer before enter';
+  if (ok === 'save') return 'SAVE .sgl project';
+  if (ok === 'load') return 'LOAD last .sgl (replaces scene)';
+  if (ok === 'import') return 'IMPORT file (prefer before XR)';
   if (ok === 'export') return 'EXPORT ' + exportFmtLabel(s.exportFmt);
-  if (ok === 'snapshot') return 'LOCAL SNAPSHOT — virtual view PNG (no room)';
+  if (ok === 'snapshot') return 'SNAPSHOT sculpt view (1.5s aim)';
   if (ok === 'record') return s.recording ? 'STOP RECORD — save video' : 'START RECORD — virtual view';
   if (ok === 'recordFps') return 'record FPS: ' + (s.recordFps || 24);
   if (ok === 'recordQuality') {
     var q = s.recordQuality || 'balanced';
-    if (q === 'small') return 'record size: SMALL (720p, clean)';
-    if (q === 'high') return 'record size: HIGH (1080p, clean)';
-    return 'record size: BALANCED (900p, clean)';
+    if (q === 'small') return 'record size: SMALL 720p';
+    if (q === 'high') return 'record size: HIGH 1080p';
+    return 'record size: BALANCED 900p';
   }
   if (ok === 'exportFmt') {
     var f = (s.exportFmt || 'obj').toLowerCase();
-    if (f === 'obj') return 'format: OBJ — geo + UVs';
-    if (f === 'obj-maps') return 'format: OBJ+MAPS — zip w/ MTL+PNGs (needs UVs)';
-    if (f === 'glb' || f === 'gltf') return 'format: GLB — geo + baked PBR maps (UVs) or vertex color';
-    if (f === 'ply') return 'format: PLY — geo ± color (no UVs)';
-    if (f === 'stl') return 'format: STL — geo only';
-    return 'export format: ' + exportFmtLabel(f);
+    if (f === 'obj') return 'format: OBJ (geo + UVs)';
+    if (f === 'obj-maps') return 'format: OBJ+MAPS (zip)';
+    if (f === 'glb' || f === 'gltf') return 'format: GLB (geo + PBR)';
+    if (f === 'ply') return 'format: PLY (geo ± color)';
+    if (f === 'stl') return 'format: STL (geo only)';
+    return 'format: ' + exportFmtLabel(f);
   }
   if (ok === 'clear') return 'CLEAR scene';
-  if (ok === 'add') return 'ADD ' + (s.addShape || 'sphere').toUpperCase() + '  (stick ↔ type)';
-  if (ok === 'undo') return 'UNDO  (or Right B)';
-  if (ok === 'redo') return 'REDO  (or R stick click)';
+  if (ok === 'add') return 'ADD ' + (s.addShape || 'sphere').toUpperCase() + ' (stick ↔)';
+  if (ok === 'undo') return 'UNDO (Right B)';
+  if (ok === 'redo') return 'REDO (R stick click)';
   if (ok === 'eyedropper') return 'eyedropper: ' + (s.paintEyedropper ? 'ON — trigger samples' : 'OFF');
   if (ok === 'paintAll') return 'PAINT ALL (fill unmasked)';
   if (ok === 'picker') return 'picker: ' + (s.paintPicker === 'wheel' ? 'WHEEL' : 'SWATCHES');
@@ -149,17 +166,32 @@ function optLabel(ok, s) {
   if (ok === 'hardness') return 'hardness: ' + s.hardness + '%';
   if (ok === 'roughness') return 'roughness: ' + s.roughness + '%';
   if (ok === 'metallic') return 'metallic: ' + s.metallic + '%';
-  if (ok === 'alpha') {
-    var aid = AlphaLibrary.normalizeAlphaId(s.alphaId);
-    if (aid === AlphaLibrary.ALPHA_NONE_ID) return 'alpha: None  (stick ↔ gallery)';
-    return 'alpha: ' + aid + '  (stick ↔ gallery)';
-  }
-  if (ok === 'alphaLock') return 'lock stamp: ' + (s.alphaLock ? 'ON' : 'OFF');
-  if (ok === 'alphaAngle') return 'stamp angle: ' + (s.alphaAngle || 0) + '° (−360…360, stick ↔ ±15)';
   if (ok === 'writeAlbedo') return 'write color: ' + (s.writeAlbedo ? 'ON' : 'OFF');
   if (ok === 'writeRoughness') return 'write rough: ' + (s.writeRoughness ? 'ON' : 'OFF');
   if (ok === 'writeMetalness') return 'write metal: ' + (s.writeMetalness ? 'ON' : 'OFF');
   return ok + ': ' + (s[ok] ? 'ON' : 'OFF');
+}
+
+/** Build a canvas ImageSource for a luminance alpha buffer (custom imports). */
+function lumTextureToCanvas(alpha) {
+  if (!alpha || !alpha._texture || !alpha._width || !alpha._height) return null;
+  var c = document.createElement('canvas');
+  c.width = alpha._width;
+  c.height = alpha._height;
+  var ctx = c.getContext('2d');
+  var img = ctx.createImageData(alpha._width, alpha._height);
+  var src = alpha._texture;
+  var i;
+  for (i = 0; i < src.length; ++i) {
+    var v = src[i];
+    var o = i * 4;
+    img.data[o] = v;
+    img.data[o + 1] = v;
+    img.data[o + 2] = v;
+    img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
 }
 
 function drawColorWheel(ctx, cx, cy, radius, hue, sat) {
@@ -259,6 +291,8 @@ class XRSculptDock {
     this._brushToastKind = null;
     this._brushToastValue = null;
     this._squeezeHeld = false;
+    /** @type {Object.<string, HTMLImageElement|HTMLCanvasElement>} */
+    this._alphaThumbCache = {};
 
     // Follow left grip in local space, but float above the button deck (not on top of it)
     // so Quest newcomers can still see X/Y/stick/squeeze while learning. +Y ≈ toward the
@@ -522,15 +556,13 @@ class XRSculptDock {
     });
     this._material = mat;
 
-    var w = 0.26;
-    var h = 0.22;
-    var geo = new THREE.PlaneGeometry(w, h, 1, 1);
+    // Match canvas pixel aspect so UI type isn't stretched in-world.
+    var geo = new THREE.PlaneGeometry(PLANE_W, PLANE_H, 1, 1);
     this._mesh = new THREE.Mesh(geo, mat);
 
     this._panelGroup = new THREE.Group();
     this._panelGroup.name = 'xr-sculpt-dock';
     this._panelGroup.add(this._mesh);
-    // Slightly under life-size so the controller stays readable beside/under the panel.
     this._panelGroup.scale.set(1.0, 1.0, 1.0);
     this._orientReady = false;
     this._gripRoot = gripRoot;
@@ -567,12 +599,15 @@ class XRSculptDock {
     this.detach();
   }
 
-  _paintCanvas() {
-    if (!this._canvas) return;
-    var ctx = this._canvas.getContext('2d');
+  _paintCanvas(paintOpts) {
+    paintOpts = paintOpts || {};
+    var target = paintOpts.canvas || this._canvas;
+    if (!target) return;
+    var ctx = target.getContext('2d');
     var s = this.state;
-    var w = CANVAS_W;
-    var h = CANVAS_H;
+    var w = target.width || CANVAS_W;
+    var h = target.height || CANVAS_H;
+    var fullExport = !!paintOpts.fullExport;
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = 'rgba(22,24,32,0.92)';
@@ -639,7 +674,7 @@ class XRSculptDock {
         toastMsg = String(this._brushToastValue || '');
       else if (eyedropHint)
         toastMsg = 'EYEDROPPER ON — aim + right trigger to sample';
-      ctx.fillText(toastMsg, 26, 98);
+      ctx.fillText(fitText(ctx, toastMsg, w - 52), 26, 98);
     } else if (s.tool === 'paint') {
       ctx.fillStyle = rgbCss(s.paintColor || PAINT_COLOR_PRESETS[0].rgb);
       roundRect(ctx, 22, 82, 28, 18, 4);
@@ -650,9 +685,10 @@ class XRSculptDock {
       ctx.fillStyle = '#aab8e8';
       ctx.font = '13px system-ui,Segoe UI,sans-serif';
       var cName = (PAINT_COLOR_PRESETS[s.paintColorIdx] && PAINT_COLOR_PRESETS[s.paintColorIdx].name) || 'color';
-      var aPaint = AlphaLibrary.normalizeAlphaId(s.alphaId);
-      var aPaintLab = aPaint === AlphaLibrary.ALPHA_NONE_ID ? 'α∅' : 'α ' + aPaint;
-      ctx.fillText(cName + '  H' + s.hardness + '  R' + s.roughness + '  M' + s.metallic + '  ' + aPaintLab, 58, 96);
+      var aPaint = (!s.alphasEnabled || AlphaLibrary.normalizeAlphaId(s.alphaId) === AlphaLibrary.ALPHA_NONE_ID)
+        ? 'α∅'
+        : 'α ' + AlphaLibrary.normalizeAlphaId(s.alphaId);
+      ctx.fillText(fitText(ctx, cName + '  H' + s.hardness + '  R' + s.roughness + '  M' + s.metallic + '  ' + aPaint, w - 70), 58, 96);
     } else {
       ctx.fillStyle = '#aab8e8';
       ctx.font = '13px system-ui,Segoe UI,sans-serif';
@@ -661,28 +697,32 @@ class XRSculptDock {
       if (supportsNeg)
         flags += this._effectiveNegative() ? 'NEG·ON  ' : 'grip=NEG  ';
       flags += (s.clay ? 'CLAY ' : '') + (s.symmetry ? 'SYM ' : '') + (s.culling ? 'CULL ' : '');
-      var aForm = AlphaLibrary.normalizeAlphaId(s.alphaId);
-      if (aForm !== AlphaLibrary.ALPHA_NONE_ID)
-        flags += 'α ' + aForm;
-      else
+      if (!s.alphasEnabled || !toolSupportsAlpha(s.tool) ||
+          AlphaLibrary.normalizeAlphaId(s.alphaId) === AlphaLibrary.ALPHA_NONE_ID)
         flags += 'α∅';
-      ctx.fillText(flags.trim() || 'left squeeze+stick = size / strength', 22, 96);
+      else
+        flags += 'α ' + AlphaLibrary.normalizeAlphaId(s.alphaId);
+      ctx.fillText(fitText(ctx, flags.trim() || 'left squeeze+stick = size / strength', w - 44), 22, 96);
     }
 
     var line = 118;
     var i;
-    var tabX = 22;
-    var tabW = 110;
-    for (i = 0; i < XR_TABS.length; ++i) {
-      var tid = XR_TABS[i];
+    var tabs = visibleXRTabs(s);
+    var tabX = 18;
+    var tabW = tabs.length >= 5 ? 90 : 110;
+    var tabGap = 6;
+    for (i = 0; i < tabs.length; ++i) {
+      var tid = tabs[i];
       var active = tid === s.tab;
       ctx.fillStyle = active ? 'rgba(90,140,255,0.4)' : 'rgba(60,70,90,0.4)';
       roundRect(ctx, tabX, line - 14, tabW, 28, 6);
       ctx.fill();
       ctx.fillStyle = active ? '#ffffff' : '#9ca8cc';
-      ctx.font = 'bold 14px system-ui,Segoe UI,sans-serif';
-      ctx.fillText((XR_TAB_LABELS[tid] || tid).toUpperCase(), tabX + 12, line + 5);
-      tabX += tabW + 8;
+      ctx.font = 'bold 13px system-ui,Segoe UI,sans-serif';
+      var tLab = XR_TAB_LABELS[tid] || tid;
+      var tPad = Math.max(6, (tabW - ctx.measureText(tLab).width) * 0.5);
+      ctx.fillText(tLab, tabX + tPad, line + 5);
+      tabX += tabW + tabGap;
     }
 
     line += 40;
@@ -728,29 +768,64 @@ class XRSculptDock {
       line += 22;
       ctx.fillStyle = '#8899cc';
       ctx.fillText('Right stick: ↔ orbit selection · ↕ closer/farther', 22, line);
+    } else if (s.tab === 'alpha') {
+      this._paintAlphaTab(ctx, s, w, h, line);
     } else if (s.tab === 'opts') {
       ctx.fillStyle = '#ffd09a';
       if (s.tool === 'paint' || s.tool === 'soften')
-        ctx.fillText((s.tool === 'soften' ? 'SOFTEN' : 'PAINT') + ' OPTIONS — stick Y focus, X nudge, Y button cycle/toggle', 22, line);
+        ctx.fillText(fitText(ctx, (s.tool === 'soften' ? 'SOFTEN' : 'PAINT') +
+          ' OPTIONS — stick Y focus, X nudge, Y toggle', w - 44), 22, line);
       else
         ctx.fillText('OPTIONS — stick Y selects, Y button toggles', 22, line);
       line += 26;
       var opts = getOptsList(s);
-      for (i = 0; i < opts.length; ++i) {
+      var rowH = 26;
+      var pillW = w - 44;
+      var footerReserve = 56;
+      var cueH = 14;
+      var listBottom = h - footerReserve;
+      var focusIdx = opts.indexOf(s.optFocus);
+      if (focusIdx < 0) focusIdx = 0;
+      var scroll = 0;
+      var end = opts.length;
+      if (!fullExport) {
+        // Live XR panel: window the list; stick Y moves focus and scrolls.
+        var maxVisible = Math.max(1, Math.floor((listBottom - line - cueH * 2) / rowH));
+        if (opts.length > maxVisible)
+          scroll = Math.max(0, Math.min(opts.length - maxVisible, focusIdx - (maxVisible - 1)));
+        if (scroll > 0) {
+          ctx.fillStyle = '#8899cc';
+          ctx.font = '11px system-ui,Segoe UI,sans-serif';
+          ctx.fillText('▲ ' + scroll + ' more', 22, line);
+          line += cueH;
+        }
+        end = Math.min(opts.length, scroll + maxVisible);
+      }
+      for (i = scroll; i < end; ++i) {
         var ok = opts[i];
-        var on = ok === s.optFocus;
+        var on = !fullExport && ok === s.optFocus;
         ctx.fillStyle = on ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
-        roundRect(ctx, 22, line - 16, ok === 'color' ? 280 : 260, 24, 4);
+        roundRect(ctx, 22, line - 16, pillW, 24, 4);
         ctx.fill();
+        var textX = 32;
         if (ok === 'color') {
           ctx.fillStyle = rgbCss(s.paintColor || PAINT_COLOR_PRESETS[0].rgb);
           roundRect(ctx, 28, line - 12, 18, 16, 3);
           ctx.fill();
+          textX = 54;
         }
         ctx.fillStyle = on ? '#fff4e8' : '#b8c0d8';
-        ctx.fillText(optLabel(ok, s), ok === 'color' ? 54 : 32, line);
-        line += 26;
-        if (line > h - 70) break;
+        ctx.font = '14px system-ui,Segoe UI,sans-serif';
+        ctx.fillText(fitText(ctx, optLabel(ok, s), pillW - (textX - 22) - 10), textX, line);
+        line += rowH;
+      }
+      if (!fullExport) {
+        var below = opts.length - end;
+        if (below > 0) {
+          ctx.fillStyle = '#8899cc';
+          ctx.font = '11px system-ui,Segoe UI,sans-serif';
+          ctx.fillText('▼ ' + below + ' more — stick Y to scroll', 22, line);
+        }
       }
     } else {
       ctx.fillStyle = '#8899cc';
@@ -765,6 +840,32 @@ class XRSculptDock {
       } else {
         line += 4;
       }
+
+      // α maps enable chip (gated by current tool allowlist)
+      var canAlpha = toolSupportsAlpha(s.tool);
+      var toggleFocus = s.formPaintFocus === 'alphaToggle';
+      var aOn = !!s.alphasEnabled && canAlpha;
+      if (!canAlpha)
+        ctx.fillStyle = toggleFocus ? 'rgba(90,90,100,0.55)' : 'rgba(50,55,70,0.45)';
+      else if (aOn)
+        ctx.fillStyle = toggleFocus ? 'rgba(120,200,140,0.55)' : 'rgba(90,160,120,0.4)';
+      else
+        ctx.fillStyle = toggleFocus ? 'rgba(255,180,90,0.45)' : 'rgba(50,55,70,0.5)';
+      roundRect(ctx, 22, line - 16, w - 44, 26, 4);
+      ctx.fill();
+      ctx.fillStyle = !canAlpha ? '#8899aa' : (toggleFocus ? '#fff4e8' : '#c8d0e8');
+      ctx.font = (toggleFocus ? 'bold ' : '') + '14px system-ui,Segoe UI,sans-serif';
+      var aChip;
+      if (!canAlpha)
+        aChip = 'α maps: n/a — ' + s.tool + ' cannot stamp';
+      else if (aOn) {
+        var aidLab = AlphaLibrary.normalizeAlphaId(s.alphaId);
+        aChip = 'α maps: ON' + (aidLab === AlphaLibrary.ALPHA_NONE_ID ? '' : ' · ' + aidLab) + '  (Y / ↔)';
+      } else
+        aChip = 'α maps: OFF  (Y / ↔ to enable + pick stamp)';
+      ctx.fillText(fitText(ctx, aChip, w - 64), 32, line);
+      line += 32;
+
       var tools = XR_TAB_TOOLS[s.tab] || [];
       var cols = 2;
       var cellW = 230;
@@ -773,7 +874,7 @@ class XRSculptDock {
         var r = Math.floor(i / cols);
         var c = i % cols;
         var tk = tools[i];
-        var sel = tk === s.tool;
+        var sel = tk === s.tool && s.formPaintFocus !== 'alphaToggle';
         var cx = 22 + c * cellW;
         var cy = line + r * cellH;
         ctx.fillStyle = sel ? 'rgba(120,200,140,0.45)' : 'rgba(50,55,70,0.5)';
@@ -890,7 +991,246 @@ class XRSculptDock {
     else
       ctx.fillText('X: tabs  ·  Right B: undo  ·  stick click: redo  ·  both grips 2.5s exit', 22, h - 22);
 
-    this._texture.needsUpdate = true;
+    if (this._texture && target === this._canvas)
+      this._texture.needsUpdate = true;
+  }
+
+  /**
+   * Resolve a drawable thumb for a gallery id (builtin URL or custom luminance canvas).
+   * @param {string} id
+   * @returns {HTMLImageElement|HTMLCanvasElement|null}
+   */
+  _getAlphaThumb(id) {
+    var aid = AlphaLibrary.normalizeAlphaId(id);
+    if (aid === AlphaLibrary.ALPHA_NONE_ID) return null;
+    if (this._alphaThumbCache[aid]) return this._alphaThumbCache[aid];
+    var self = this;
+    var builtin = AlphaLibrary.findBuiltinById(aid);
+    if (builtin) {
+      var img = new Image();
+      img.onload = function () {
+        self._paintCanvas();
+      };
+      img.src = AlphaLibrary.alphaThumbUrl(builtin.file);
+      this._alphaThumbCache[aid] = img;
+      return img;
+    }
+    var alpha = Picking.ALPHAS[aid];
+    var canv = lumTextureToCanvas(alpha);
+    if (canv) {
+      this._alphaThumbCache[aid] = canv;
+      return canv;
+    }
+    return null;
+  }
+
+  /**
+   * ALPHA tab: mini-gallery + lock / angle (freehand default; Y = use stamp).
+   */
+  _paintAlphaTab(ctx, s, w, h, line) {
+    var focus = s.alphaFocus || 'gallery';
+    var from = s.alphaFrom === 'paint' ? 'paint' : 'form';
+    ctx.fillStyle = '#ffd09a';
+    ctx.font = 'bold 15px system-ui,Segoe UI,sans-serif';
+    ctx.fillText(from === 'paint' ? 'ALPHA · paint stamps' : 'ALPHA · sculpt stamps', 22, line);
+    line += 20;
+
+    ctx.fillStyle = 'rgba(90,140,255,0.28)';
+    roundRect(ctx, 18, line - 14, w - 36, 40, 6);
+    ctx.fill();
+    ctx.fillStyle = '#dce6ff';
+    ctx.font = '12px system-ui,Segoe UI,sans-serif';
+    if (from === 'paint')
+      ctx.fillText(fitText(ctx, '↔ pick map · Y returns to PAINT · trigger paints with stamp', w - 52), 26, line + 2);
+    else
+      ctx.fillText(fitText(ctx, '↔ pick map · Y returns to FORM · trigger strokes clay with stamp', w - 52), 26, line + 2);
+    ctx.fillStyle = '#a8b4cc';
+    ctx.fillText('Default: freehand (lock OFF). Lock ON = place then drag tip to size.', 26, line + 18);
+    line += 38;
+
+    var ids = getAlphaGalleryIds();
+    var cur = AlphaLibrary.normalizeAlphaId(s.alphaId);
+    var cell = 48;
+    var gap = 7;
+    var perRow = Math.max(1, Math.floor((w - 44) / (cell + gap)));
+    var i;
+    var galleryOn = focus === 'gallery';
+    if (galleryOn) {
+      ctx.strokeStyle = 'rgba(255,180,90,0.75)';
+      ctx.lineWidth = 2;
+      var gridH = Math.ceil(ids.length / perRow) * (cell + gap) + 10;
+      roundRect(ctx, 18, line - 10, w - 36, gridH + 8, 6);
+      ctx.stroke();
+    }
+
+    for (i = 0; i < ids.length; ++i) {
+      var id = ids[i];
+      var pr = Math.floor(i / perRow);
+      var pc = i % perRow;
+      var sx = 22 + pc * (cell + gap);
+      var sy = line + pr * (cell + gap);
+      var sel = AlphaLibrary.normalizeAlphaId(id) === cur;
+      ctx.fillStyle = sel ? 'rgba(90,140,255,0.6)' : 'rgba(40,45,60,0.8)';
+      roundRect(ctx, sx, sy, cell, cell, 6);
+      ctx.fill();
+      if (sel) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        roundRect(ctx, sx, sy, cell, cell, 6);
+        ctx.stroke();
+      }
+      if (id === AlphaLibrary.ALPHA_NONE_ID) {
+        ctx.fillStyle = '#c8d0e8';
+        ctx.font = 'bold 15px system-ui,Segoe UI,sans-serif';
+        ctx.fillText('α∅', sx + 12, sy + 30);
+      } else {
+        var thumb = this._getAlphaThumb(id);
+        if (thumb && (thumb.complete !== false) && (thumb.naturalWidth > 0 || thumb.width > 0)) {
+          try {
+            ctx.save();
+            roundRect(ctx, sx + 3, sy + 3, cell - 6, cell - 6, 4);
+            ctx.clip();
+            ctx.drawImage(thumb, sx + 3, sy + 3, cell - 6, cell - 6);
+            ctx.restore();
+          } catch (err) {
+            ctx.fillStyle = '#aab8e8';
+            ctx.font = '11px system-ui,Segoe UI,sans-serif';
+            ctx.fillText(String(id).charAt(0), sx + 18, sy + 28);
+          }
+        } else {
+          ctx.fillStyle = '#aab8e8';
+          ctx.font = '11px system-ui,Segoe UI,sans-serif';
+          ctx.fillText(String(id).charAt(0), sx + 18, sy + 28);
+        }
+      }
+    }
+
+    var gridRows = Math.ceil(ids.length / perRow);
+    line += gridRows * (cell + gap) + 12;
+
+    var curLab = cur === AlphaLibrary.ALPHA_NONE_ID ? 'None' : String(cur);
+    ctx.fillStyle = '#e8ecff';
+    ctx.font = 'bold 13px system-ui,Segoe UI,sans-serif';
+    ctx.fillText(fitText(ctx, 'Selected: ' + curLab + (s.alphaLock ? ' · PLACE' : ' · FREEHAND'), w - 44), 22, line);
+    line += 22;
+
+    var lockOn = focus === 'lock';
+    ctx.fillStyle = lockOn ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
+    roundRect(ctx, 22, line - 16, w - 44, 26, 4);
+    ctx.fill();
+    ctx.fillStyle = lockOn ? '#fff4e8' : '#b8c0d8';
+    ctx.font = '14px system-ui,Segoe UI,sans-serif';
+    ctx.fillText('lock: ' + (s.alphaLock ? 'ON (place+drag)' : 'OFF (freehand)') + '  (↔ / Y)', 32, line);
+    line += 28;
+
+    var angOn = focus === 'angle';
+    ctx.fillStyle = angOn ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
+    roundRect(ctx, 22, line - 16, w - 44, 26, 4);
+    ctx.fill();
+    ctx.fillStyle = angOn ? '#fff4e8' : '#b8c0d8';
+    ctx.fillText('stamp angle: ' + (s.alphaAngle || 0) + '°  (↔ ±15)', 32, line);
+    line += 26;
+
+    ctx.fillStyle = '#8899cc';
+    ctx.font = '11px system-ui,Segoe UI,sans-serif';
+    ctx.fillText(fitText(ctx, 'Y: use stamp → ' + (from === 'paint' ? 'PAINT' : 'FORM') + ' · Stick ↕ focus', w - 44), 22, line);
+  }
+
+  /** Ensure a paint canvas exists (XR attach, or desktop docs export without a grip). */
+  _ensurePaintCanvas() {
+    if (this._canvas) return;
+    this._canvas = document.createElement('canvas');
+    this._canvas.width = CANVAS_W;
+    this._canvas.height = CANVAS_H;
+  }
+
+  /**
+   * How tall a docs export canvas must be so OPTS / tool grids are not clipped.
+   * @param {string} tab
+   * @returns {number}
+   */
+  _exportHeightForTab(tab) {
+    var chromeTop = 158; // title + meters + status + tabs
+    var footer = 56;
+    var pad = 24;
+    if (tab === 'opts') {
+      var opts = getOptsList(this.state);
+      return Math.max(CANVAS_H, chromeTop + 26 + opts.length * 26 + footer + pad);
+    }
+    if (tab === 'alpha') {
+      var ids = getAlphaGalleryIds();
+      var perRow = Math.max(1, Math.floor((CANVAS_W - 44) / 52));
+      var rows = Math.ceil(ids.length / perRow);
+      return Math.max(CANVAS_H, chromeTop + 24 + rows * 52 + 120 + footer + pad);
+    }
+    if (tab === 'form' || tab === 'paint') {
+      var tools = XR_TAB_TOOLS[tab] || [];
+      var tRows = Math.ceil(tools.length / 2);
+      var paintExtra = (tab === 'paint') ? 220 : 40;
+      return Math.max(CANVAS_H, chromeTop + 24 + tRows * 26 + paintExtra + footer + pad);
+    }
+    return CANVAS_H;
+  }
+
+  /**
+   * Docs / GitHub how-to PNG of the dock menu (flat pixels, not Local Snapshot).
+   * Defaults to a tall canvas that includes every OPTS row (no “N more” clip).
+   * @param {{tab?:string, tool?:string, keepToast?:boolean, full?:boolean, fileTag?:string}} [opts]
+   * @returns {Promise<{name:string, bytes:number, w:number, h:number, tab:string}>}
+   */
+  exportUIPng(opts) {
+    var self = this;
+    opts = opts || {};
+    var full = opts.full !== false;
+    return new Promise(function (resolve, reject) {
+      try {
+        self._ensurePaintCanvas();
+        var prevTab = self.state.tab;
+        var prevTool = self.state.tool;
+        var prevToast = self._brushToastUntil;
+        if (opts.tab && XR_TABS.indexOf(opts.tab) >= 0)
+          self.state.tab = opts.tab;
+        if (opts.tool)
+          self.state.tool = opts.tool;
+        if (!opts.keepToast)
+          self._brushToastUntil = 0;
+
+        var tabId = self.state.tab || 'dock';
+        var h = full ? self._exportHeightForTab(tabId) : CANVAS_H;
+        var off = document.createElement('canvas');
+        off.width = CANVAS_W;
+        off.height = h;
+        self._paintCanvas({ canvas: off, fullExport: full });
+
+        var tag = opts.fileTag || tabId;
+        if (tabId === 'opts' && self.state.tool)
+          tag = 'opts-' + self.state.tool;
+
+        off.toBlob(function (blob) {
+          self.state.tab = prevTab;
+          self.state.tool = prevTool;
+          self._brushToastUntil = prevToast;
+          if (self._canvas) self._paintCanvas();
+
+          if (!blob) {
+            reject(new Error('Dock UI encode failed'));
+            return;
+          }
+          var name = 'sculpt-dock-ui-' + tag + '-' + Date.now() + '.png';
+          saveAs(blob, name);
+          XRRemoteLog.see('MR', 'Dock UI PNG saved', {
+            name: name,
+            bytes: blob.size,
+            tab: tabId,
+            h: h,
+            note: 'how-to docs export — full list, not headset OPTS'
+          });
+          resolve({ name: name, bytes: blob.size, w: CANVAS_W, h: h, tab: tabId, tag: tag });
+        }, 'image/png');
+      } catch (err) {
+        reject(err);
+      }
+    });
   }
 
   _applyAndLog() {
@@ -1004,7 +1344,8 @@ class XRSculptDock {
       return;
     }
     if (action === 'snapshot') {
-      self._showFileToast('Capturing Local Snapshot…', 2000);
+      var aimMs = (this._scene.getXRSnapshotAimMs && this._scene.getXRSnapshotAimMs()) || 1600;
+      self._showFileToast('Look at your sculpt — snapshot in ' + (aimMs / 1000).toFixed(1) + 's', aimMs + 400);
       this._scene.captureLocalSnapshot().then(function (out) {
         self._showFileToast('Snapshot · ' + out.name, 4500);
       }).catch(function (err) {
@@ -1092,11 +1433,48 @@ class XRSculptDock {
           if (action === 'undo') this._scene.undoXR();
           else if (action === 'redo') this._scene.redoXR();
           else if (action === 'paintAll') this._scene.paintAllXR();
-          else if (action === 'save' || action === 'load' || action === 'export' || action === 'import' || action === 'snapshot' || action === 'record')
+          else if (action === 'save' || action === 'load' || action === 'export' || action === 'import' ||
+            action === 'snapshot' || action === 'record')
             this._runFileAction(action);
           else if (action === 'clear' || action === 'add')
             this._runSceneAction(action);
           else this._applyAndLog();
+        } else if (this.state.tab === 'alpha') {
+          var alphaAct = this.state.toggleAlphaFocus();
+          this._applyAndLog();
+          var aid = AlphaLibrary.normalizeAlphaId(this.state.alphaId);
+          var mode = this.state.alphaLock ? 'lock' : 'freehand';
+          if (alphaAct === 'use') {
+            var dest = this.state.alphaFrom === 'paint' ? 'PAINT' : 'FORM';
+            var label = aid === AlphaLibrary.ALPHA_NONE_ID ? 'None' : aid;
+            this._showFileToast(label + ' · ' + mode + ' → ' + dest, 2800);
+            XRRemoteLog.see('MR', 'Alpha ready → ' + label + ' (' + mode + ') on ' + dest, {
+              alphaId: aid,
+              lock: !!this.state.alphaLock,
+              tab: this.state.tab,
+              tool: this.state.tool,
+              alphasEnabled: true
+            });
+          } else if (alphaAct === 'lock') {
+            this._showFileToast('Lock ' + (this.state.alphaLock ? 'ON — place+drag tip' : 'OFF — freehand'), 2200);
+            XRRemoteLog.see('MR', 'Alpha lock → ' + (this.state.alphaLock ? 'ON' : 'OFF'));
+          } else {
+            XRRemoteLog.see('MR', 'Alpha angle → ' + (this.state.alphaAngle || 0));
+          }
+        } else if ((this.state.tab === 'form' || this.state.tab === 'paint') &&
+            this.state.formPaintFocus === 'alphaToggle') {
+          var tog = this.state.toggleAlphasEnabled();
+          this._applyAndLog();
+          if (tog === 'blocked') {
+            this._showFileToast(this.state.tool + " can't use α maps", 2500);
+            XRRemoteLog.see('MR', 'Alpha blocked — ' + this.state.tool);
+          } else if (tog === 'on') {
+            this._showFileToast('α maps ON — pick a stamp', 2200);
+            XRRemoteLog.see('MR', 'Alpha maps → ON', { from: this.state.alphaFrom, tool: this.state.tool });
+          } else if (tog === 'off') {
+            this._showFileToast('α maps OFF', 1800);
+            XRRemoteLog.see('MR', 'Alpha maps → OFF');
+          }
         } else if (this.state.tool === 'paint') {
           this.state.togglePaintPicker();
           if (this.state.paintPicker === 'wheel') {
@@ -1308,25 +1686,56 @@ class XRSculptDock {
         return;
       }
 
-      // form / paint / opts: stick Y cycles selection (hold repeats)
+      // form / paint / opts / alpha: stick Y cycles selection (hold repeats)
       var nowStick = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       var sy = stickStepY(this._stickLatchedY, this._stickRepeatAt, st.y, nowStick);
       this._stickLatchedY = sy.latched;
       this._stickRepeatAt = sy.repeatAt;
       if (sy.step !== 0) {
-        this.state.cycleToolInTab(sy.step);
-        if (this.state.tab !== 'opts')
+        var cycleRes = this.state.cycleToolInTab(sy.step);
+        if (cycleRes === 'alpha-disabled') {
+          this._showFileToast(this.state.tool + " can't use α maps — turned OFF", 2800);
+          XRRemoteLog.see('MR', 'Alpha auto-OFF — switched to ' + this.state.tool);
+        }
+        if (this.state.tab !== 'opts' && this.state.tab !== 'alpha')
           this._applyAndLog();
       }
 
-      // Stick X: paint color on Paint tab, or nudge focused paint opt on Opts
+      // Stick X: α gallery/lock/angle, α maps toggle, paint color, or opts nudge
       var sx = stickStepX(this._stickLatchedX, this._stickRepeatAtX, st.x, nowStick);
       this._stickLatchedX = sx.latched;
       this._stickRepeatAtX = sx.repeatAt;
       if (sx.step !== 0) {
-        if (this.state.tab === 'opts') {
+        if (this.state.tab === 'alpha') {
+          var nudged = this.state.nudgeAlphaFocus(sx.step);
+          this._applyAndLog();
+          if (nudged === 'gallery') {
+            var gid = AlphaLibrary.normalizeAlphaId(this.state.alphaId);
+            var gLab = gid === AlphaLibrary.ALPHA_NONE_ID ? 'None' : gid;
+            var gFrom = this.state.alphaFrom === 'paint' ? 'paint' : 'brush';
+            this._showFileToast(gLab + ' ready — Y: use on ' + gFrom, 2400);
+            XRRemoteLog.see('MR', 'Alpha pick → ' + gLab + ' (freehand)', {
+              alphaId: gid,
+              lock: false,
+              from: this.state.alphaFrom
+            });
+          }
+        } else if (this.state.tab === 'opts') {
           this.state.nudgeFocusedOption(sx.step);
           this._applyAndLog();
+        } else if ((this.state.tab === 'form' || this.state.tab === 'paint') &&
+            this.state.formPaintFocus === 'alphaToggle') {
+          var nx = this.state.nudgeFormPaintFocus(sx.step);
+          this._applyAndLog();
+          if (nx === 'blocked') {
+            this._showFileToast(this.state.tool + " can't use α maps", 2500);
+          } else if (nx === 'on') {
+            this._showFileToast('α maps ON — pick a stamp', 2200);
+            XRRemoteLog.see('MR', 'Alpha maps → ON', { from: this.state.alphaFrom });
+          } else if (nx === 'off') {
+            this._showFileToast('α maps OFF', 1800);
+            XRRemoteLog.see('MR', 'Alpha maps → OFF');
+          }
         } else if (this.state.tool === 'paint') {
           this.state.cyclePaintColor(sx.step);
           this._applyAndLog();

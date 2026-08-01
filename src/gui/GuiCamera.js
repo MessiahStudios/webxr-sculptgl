@@ -47,17 +47,23 @@ class GuiCamera {
     // Local Snapshot — capture what the camera sees (virtual view PNG / video).
     menu.addTitle(TR('cameraSnapshotTitle'));
     menu.addButton(TR('cameraLocalSnapshot'), this, 'saveLocalSnapshot');
+
+    // How-to docs helpers (WebXR dock + desktop yagui). Packs cover full menus.
+    menu.addTitle(TR('cameraHowToDocsTitle'));
+    menu.addButton(TR('cameraDockUIExportAll'), this, 'saveDockUIAllTabs');
+    menu.addButton(TR('cameraDesktopUIExportAll'), this, 'saveDesktopUIAllPanels');
+
+    menu.addTitle(TR('cameraRecordTitle'));
     this._recFps = this._main.getLocalRecordFps ? this._main.getLocalRecordFps() : 12;
     this._recQuality = this._main.getLocalRecordQuality ? this._main.getLocalRecordQuality() : 'balanced';
-    var fpsOpts = { 15: '15 fps', 24: '24 fps', 30: '30 fps' };
+    var fpsOpts = { 15: '15', 24: '24', 30: '30' };
     this._ctrlRecFps = menu.addCombobox(TR('cameraRecordFps'), this._recFps, this.onRecFpsChange.bind(this), fpsOpts);
     var qOpts = { small: TR('cameraRecordQualitySmall'), balanced: TR('cameraRecordQualityBalanced'), high: TR('cameraRecordQualityHigh') };
     this._ctrlRecQuality = menu.addCombobox(TR('cameraRecordQuality'), this._recQuality, this.onRecQualityChange.bind(this), qOpts);
     this._ctrlRecStatus = menu.addTitle(TR('cameraRecordIdle'));
     this._ctrlRecToggle = menu.addButton(TR('cameraRecordStart'), this, 'toggleLocalRecord');
 
-    // TR('CameraSpeed') ...
-    menu.addSlider('speed', this._main, '_cameraSpeed', 0.05, 1.0, 0.001);
+    menu.addSlider(TR('cameraSpeed'), this._main, '_cameraSpeed', 0.05, 1.0, 0.001);
     this._syncRecUi(false);
   }
 
@@ -65,6 +71,22 @@ class GuiCamera {
   saveLocalSnapshot() {
     this._main.captureLocalSnapshot().catch(function (err) {
       window.alert((err && err.message) || 'Local Snapshot failed');
+    });
+  }
+
+  /** WebXR wrist-dock pack: form / paint / alpha / opts-brush / opts-paint / workspace. */
+  saveDockUIAllTabs() {
+    this._main.exportXRDockUIAllTabs().catch(function (err) {
+      window.alert((err && err.message) || 'Dock UI export failed');
+    });
+  }
+
+  /** Desktop yagui pack: sidebar folders + Files/Scene/Camera/History menus. */
+  saveDesktopUIAllPanels() {
+    this._main.exportDesktopUIAllPanels().then(function (list) {
+      window.alert('Desktop how-to pack: ' + (list && list.length ? list.length : 0) + ' PNG(s) downloaded');
+    }).catch(function (err) {
+      window.alert((err && err.message) || 'Desktop UI export failed');
     });
   }
 
