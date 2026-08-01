@@ -117,7 +117,12 @@ var TR = {
   dynamicLinear: 'Linear subdivision',
 
   // sculpt
-  sculptTitle: 'Sculpting & Painting',
+  sculptTitle: 'Form & Paint',
+  sculptGroupForm: 'Form',
+  sculptGroupPaint: 'Paint',
+  sculptLocalScaleShort: 'Scale',
+  sculptSoftenShort: 'Blend',
+  sculptMaskingShort: 'Mask',
   sculptBrush: 'Brush',
   sculptInflate: 'Inflate',
   sculptTwist: 'Twist',

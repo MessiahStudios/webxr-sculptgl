@@ -79,7 +79,7 @@ export var XR_TAB_TOOLS = {
   form: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'smooth', 'flatten', 'transform'],
   paint: ['paint', 'masking', 'soften'],
   alpha: [],
-  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling'],
+  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling', 'wireframe'],
   workspace: []
 };
 
@@ -578,6 +578,7 @@ export function createXRSculptDockState() {
       else if (focus === 'clay') state.set({ clay: !state.clay });
       else if (focus === 'symmetry') state.set({ symmetry: !state.symmetry });
       else if (focus === 'culling') state.set({ culling: !state.culling });
+      else if (focus === 'wireframe') state.set({ wireframe: !state.wireframe });
       else if (focus === 'writeAlbedo') state.set({ writeAlbedo: !state.writeAlbedo });
       else if (focus === 'writeRoughness') state.set({ writeRoughness: !state.writeRoughness });
       else if (focus === 'writeMetalness') state.set({ writeMetalness: !state.writeMetalness });
@@ -674,7 +675,7 @@ export function createXRSculptDockState() {
   return state;
 }
 
-export function syncStateFromSculptManager(state, sculptManager) {
+export function syncStateFromSculptManager(state, sculptManager, scene) {
   var tool = sculptManager.getCurrentTool();
   var idx = sculptManager.getToolIndex();
   var tKey = toolKeyFromEnum(idx);
@@ -684,6 +685,12 @@ export function syncStateFromSculptManager(state, sculptManager) {
     tool = sculptManager.getCurrentTool();
   }
   var curTab = normalizeTabId(state.tab);
+  var wireOn = !!state.wireframe;
+  if (scene && scene.getMeshes) {
+    var meshes = scene.getMeshes();
+    if (meshes && meshes.length && meshes[0].getShowWireframe)
+      wireOn = !!meshes[0].getShowWireframe();
+  }
   var patch = {
     tool: tKey,
     tab: (curTab === 'opts' || curTab === 'workspace' || curTab === 'alpha')
@@ -694,7 +701,8 @@ export function syncStateFromSculptManager(state, sculptManager) {
     negative: !!tool._negative,
     clay: tool._clay !== undefined ? !!tool._clay : state.clay,
     culling: tool._culling !== undefined ? !!tool._culling : state.culling,
-    symmetry: sculptManager.getSymmetry()
+    symmetry: sculptManager.getSymmetry(),
+    wireframe: wireOn
   };
   if (tool._hardness !== undefined)
     patch.hardness = Math.round(tool._hardness * 100);
@@ -822,6 +830,15 @@ export function applyStateToSculptManager(state, scene) {
   if (Object.prototype.hasOwnProperty.call(t, '_pickColor'))
     t._pickColor = !!state.paintEyedropper && state.tool === 'paint';
   sm._symmetry = state.symmetry;
+  // Wireframe is a scene/mesh display flag (desktop Rendering), not a sculpt tool param.
+  if (scene.getMeshes) {
+    var meshes = scene.getMeshes();
+    var wi;
+    for (wi = 0; wi < meshes.length; ++wi) {
+      if (meshes[wi] && meshes[wi].setShowWireframe)
+        meshes[wi].setShowWireframe(!!state.wireframe);
+    }
+  }
   // Desktop radius uses screen projection; during XR that fights applyXRBrushRadius.
   if (scene.isXRSessionActive && scene.isXRSessionActive()) {
     if (scene.getPicking().getMesh())

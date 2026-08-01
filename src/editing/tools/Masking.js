@@ -27,7 +27,13 @@ class Masking extends SculptBase {
   }
 
   updateMeshBuffers() {
+    if (!this._forceUploadMeshBuffers &&
+        this._main.isXRSessionActive && this._main.isXRSessionActive()) {
+      this._meshBuffersDirty = true;
+      return;
+    }
     var mesh = this.getMesh();
+    if (!mesh) return;
     if (mesh.isDynamic)
       mesh.updateBuffers();
     else

@@ -113,6 +113,14 @@ function stickStepX(latched, repeatAt, x, now) {
   return stickStepAxis(latched, repeatAt, x, now);
 }
 
+function toolShortLabel(tk) {
+  if (tk === 'localscale') return 'scale';
+  if (tk === 'soften') return 'blend';
+  if (tk === 'masking') return 'mask';
+  if (tk === 'transform') return 'xform';
+  return tk;
+}
+
 function rgbCss(rgb) {
   var r = Math.round(Math.max(0, Math.min(1, rgb[0])) * 255);
   var g = Math.round(Math.max(0, Math.min(1, rgb[1])) * 255);
@@ -293,6 +301,8 @@ class XRSculptDock {
     this._squeezeHeld = false;
     /** @type {Object.<string, HTMLImageElement|HTMLCanvasElement>} */
     this._alphaThumbCache = {};
+    /** @type {Object.<string, HTMLImageElement>} */
+    this._toolIconCache = {};
 
     // Follow left grip in local space, but float above the button deck (not on top of it)
     // so Quest newcomers can still see X/Y/stick/squeeze while learning. +Y ≈ toward the
@@ -320,7 +330,7 @@ class XRSculptDock {
   }
 
   syncFromDesktop() {
-    syncStateFromSculptManager(this.state, this._scene.getSculptManager());
+    syncStateFromSculptManager(this.state, this._scene.getSculptManager(), this._scene);
     // After a glitch / bad squeeze session, intensity can be stuck at 0% and
     // sculpting appears completely broken. Restore a usable default.
     if (!this.state.intensity || this.state.intensity < 5) {
@@ -697,6 +707,7 @@ class XRSculptDock {
       if (supportsNeg)
         flags += this._effectiveNegative() ? 'NEG·ON  ' : 'grip=NEG  ';
       flags += (s.clay ? 'CLAY ' : '') + (s.symmetry ? 'SYM ' : '') + (s.culling ? 'CULL ' : '');
+      if (s.wireframe) flags += 'WIRE ';
       if (!s.alphasEnabled || !toolSupportsAlpha(s.tool) ||
           AlphaLibrary.normalizeAlphaId(s.alphaId) === AlphaLibrary.ALPHA_NONE_ID)
         flags += 'α∅';
@@ -867,25 +878,41 @@ class XRSculptDock {
       line += 32;
 
       var tools = XR_TAB_TOOLS[s.tab] || [];
-      var cols = 2;
-      var cellW = 230;
-      var cellH = 26;
+      var cols = s.tab === 'paint' ? 3 : 4;
+      var gap = 8;
+      var cellW = Math.floor((w - 44 - gap * (cols - 1)) / cols);
+      var iconSize = Math.min(52, cellW - 10);
+      var cellH = iconSize + 22;
       for (i = 0; i < tools.length; ++i) {
         var r = Math.floor(i / cols);
         var c = i % cols;
         var tk = tools[i];
         var sel = tk === s.tool && s.formPaintFocus !== 'alphaToggle';
-        var cx = 22 + c * cellW;
+        var cx = 22 + c * (cellW + gap);
         var cy = line + r * cellH;
-        ctx.fillStyle = sel ? 'rgba(120,200,140,0.45)' : 'rgba(50,55,70,0.5)';
-        roundRect(ctx, cx, cy - 16, cellW - 12, 22, 4);
+        ctx.fillStyle = sel ? 'rgba(120,200,140,0.5)' : 'rgba(40,45,58,0.85)';
+        roundRect(ctx, cx, cy - 4, cellW, cellH - 4, 8);
         ctx.fill();
+        if (sel) {
+          ctx.strokeStyle = 'rgba(140,220,170,0.95)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        var icon = this._getToolIcon(tk);
+        var ix = cx + Math.floor((cellW - iconSize) / 2);
+        var iy = cy;
+        if (icon && icon.complete && icon.naturalWidth) {
+          ctx.drawImage(icon, ix, iy, iconSize, iconSize);
+        } else {
+          ctx.fillStyle = sel ? '#c8f0d0' : '#6a7388';
+          roundRect(ctx, ix, iy, iconSize, iconSize, 6);
+          ctx.fill();
+        }
         ctx.fillStyle = sel ? '#e8ffe8' : '#b8c0d8';
-        ctx.font = (sel ? 'bold ' : '') + '14px system-ui,Segoe UI,sans-serif';
-        var label = tk;
-        if (tk === 'soften') label = 'blend colors';
-        else if (tk === 'masking') label = 'mask';
-        ctx.fillText(label, cx + 10, cy);
+        ctx.font = (sel ? 'bold ' : '') + '11px system-ui,Segoe UI,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(fitText(ctx, toolShortLabel(tk), cellW - 6), cx + cellW / 2, cy + iconSize + 12);
+        ctx.textAlign = 'left';
       }
 
       if (s.tool === 'paint' && s.tab === 'paint') {
@@ -1022,6 +1049,27 @@ class XRSculptDock {
       return canv;
     }
     return null;
+  }
+
+  /**
+   * Form/Paint tool icon (same pack as desktop sidebar).
+   * @param {string} key
+   * @returns {HTMLImageElement|null}
+   */
+  _getToolIcon(key) {
+    if (!key) return null;
+    if (this._toolIconCache[key]) return this._toolIconCache[key];
+    var self = this;
+    var img = new Image();
+    img.onload = function () {
+      self._paintCanvas();
+    };
+    img.onerror = function () {
+      /* leave placeholder; dock still shows short label */
+    };
+    img.src = 'resources/tool-icons/' + key + '.png';
+    this._toolIconCache[key] = img;
+    return img;
   }
 
   /**
@@ -1165,9 +1213,10 @@ class XRSculptDock {
     }
     if (tab === 'form' || tab === 'paint') {
       var tools = XR_TAB_TOOLS[tab] || [];
-      var tRows = Math.ceil(tools.length / 2);
+      var cols = tab === 'paint' ? 3 : 4;
+      var tRows = Math.ceil(tools.length / cols);
       var paintExtra = (tab === 'paint') ? 220 : 40;
-      return Math.max(CANVAS_H, chromeTop + 24 + tRows * 26 + paintExtra + footer + pad);
+      return Math.max(CANVAS_H, chromeTop + 56 + tRows * 74 + paintExtra + footer + pad);
     }
     return CANVAS_H;
   }

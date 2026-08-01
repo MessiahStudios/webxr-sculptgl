@@ -4,8 +4,148 @@ import Tools from 'editing/tools/Tools';
 import getOptionsURL from 'misc/getOptionsURL';
 import GuiSculptingTools from 'gui/GuiSculptingTools';
 import XRRemoteLog from 'xr/XRRemoteLog';
+import { XR_TAB_TOOLS, TOOL_KEY_TO_ENUM } from 'xr/XRSculptDockState';
 
 var GuiTools = GuiSculptingTools.tools;
+
+function toolIconUrl(key) {
+  return 'resources/tool-icons/' + key + '.png';
+}
+
+/** Short caption under icon (sidebar-friendly). */
+function toolIconCaption(key) {
+  if (key === 'localscale') return TR('sculptLocalScaleShort') || 'Scale';
+  if (key === 'soften') return TR('sculptSoftenShort') || 'Blend';
+  if (key === 'masking') return TR('sculptMaskingShort') || 'Mask';
+  var enumId = TOOL_KEY_TO_ENUM[key];
+  if (enumId === undefined || !Tools[enumId]) return key;
+  var full = TR(Tools[enumId].uiName);
+  // Drop shortcut suffixes: "Smooth (-Shift)" → "Smooth"
+  return String(full).replace(/\s*\([^)]*\)\s*$/, '');
+}
+
+/** Build flat enum→label map for yagui (needs Array so getValue() parseInt works). */
+function buildToolOptionLabels() {
+  var optTools = [];
+  var keys = XR_TAB_TOOLS.form.concat(XR_TAB_TOOLS.paint);
+  var i;
+  for (i = 0; i < keys.length; ++i) {
+    var enumId = TOOL_KEY_TO_ENUM[keys[i]];
+    if (enumId === undefined || !Tools[enumId]) continue;
+    optTools[enumId] = TR(Tools[enumId].uiName);
+  }
+  return optTools;
+}
+
+/**
+ * Replace flat yagui options with Form / Paint <optgroup>s.
+ * Children match XR FORM/PAINT tool lists; option values stay Enums.Tools indices.
+ */
+function applyFormPaintOptgroups(domSelect) {
+  if (!domSelect) return;
+  while (domSelect.firstChild)
+    domSelect.removeChild(domSelect.firstChild);
+
+  var groups = [
+    { labelKey: 'sculptGroupForm', keys: XR_TAB_TOOLS.form },
+    { labelKey: 'sculptGroupPaint', keys: XR_TAB_TOOLS.paint }
+  ];
+  var g;
+  for (g = 0; g < groups.length; ++g) {
+    var og = document.createElement('optgroup');
+    og.label = TR(groups[g].labelKey);
+    var keys = groups[g].keys;
+    var i;
+    for (i = 0; i < keys.length; ++i) {
+      var enumId = TOOL_KEY_TO_ENUM[keys[i]];
+      if (enumId === undefined || !Tools[enumId]) continue;
+      var opt = document.createElement('option');
+      opt.value = String(enumId);
+      opt.textContent = TR(Tools[enumId].uiName);
+      og.appendChild(opt);
+    }
+    domSelect.appendChild(og);
+  }
+}
+
+/**
+ * Desktop Form / Paint icon grids (same kids as XR dock).
+ * Combobox stays in DOM (hidden) so hotkeys / setValue keep working.
+ */
+function buildToolIconGrids(fold, onPick) {
+  var wrapLine = fold._addLine ? fold._addLine('') : document.createElement('li');
+  if (!fold._addLine && fold.domUl) fold.domUl.appendChild(wrapLine);
+  wrapLine.className = (wrapLine.className ? wrapLine.className + ' ' : '') + 'sculptgl-tool-icons';
+  wrapLine.style.height = 'auto';
+  wrapLine.style.minHeight = '22px';
+  wrapLine.style.overflow = 'visible';
+  wrapLine.innerHTML = '';
+
+  var root = document.createElement('div');
+  root.className = 'sculptgl-tool-icons-root';
+  wrapLine.appendChild(root);
+
+  var buttonsByEnum = {};
+
+  function addGroup(title, keys, accentClass) {
+    var section = document.createElement('div');
+    section.className = 'sculptgl-tool-icons-section ' + accentClass;
+    var h = document.createElement('div');
+    h.className = 'sculptgl-tool-icons-heading';
+    h.textContent = title;
+    section.appendChild(h);
+    var grid = document.createElement('div');
+    grid.className = 'sculptgl-tool-icons-grid';
+    var i;
+    for (i = 0; i < keys.length; ++i) {
+      (function (key) {
+        var enumId = TOOL_KEY_TO_ENUM[key];
+        if (enumId === undefined || !Tools[enumId]) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sculptgl-tool-icon-btn';
+        btn.dataset.toolEnum = String(enumId);
+        btn.dataset.toolKey = key;
+        btn.title = TR(Tools[enumId].uiName);
+        var img = document.createElement('img');
+        img.src = toolIconUrl(key);
+        img.alt = toolIconCaption(key);
+        img.draggable = false;
+        btn.appendChild(img);
+        var cap = document.createElement('span');
+        cap.className = 'sculptgl-tool-icon-cap';
+        cap.textContent = toolIconCaption(key);
+        btn.appendChild(cap);
+        btn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          onPick(enumId);
+        });
+        grid.appendChild(btn);
+        buttonsByEnum[enumId] = btn;
+      })(keys[i]);
+    }
+    section.appendChild(grid);
+    root.appendChild(section);
+  }
+
+  addGroup(TR('sculptGroupForm'), XR_TAB_TOOLS.form, 'is-form');
+  addGroup(TR('sculptGroupPaint'), XR_TAB_TOOLS.paint, 'is-paint');
+
+  return {
+    domContainer: wrapLine,
+    buttonsByEnum: buttonsByEnum,
+    setSelected: function (toolIndex) {
+      var k;
+      for (k in buttonsByEnum) {
+        if (!Object.prototype.hasOwnProperty.call(buttonsByEnum, k)) continue;
+        var on = (k | 0) === (toolIndex | 0);
+        buttonsByEnum[k].classList.toggle('is-selected', on);
+        buttonsByEnum[k].setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+    }
+  };
+}
 
 class GuiSculpting {
 
@@ -28,6 +168,7 @@ class GuiSculpting {
 
     this._menu = null;
     this._ctrlSculpt = null;
+    this._toolIconGrid = null;
     this._ctrlSymmetry = null;
     this._ctrlContinuous = null;
     this._ctrlTitleCommon = null;
@@ -38,17 +179,25 @@ class GuiSculpting {
     var menu = this._menu = guiParent.addMenu(TR('sculptTitle'));
     menu.open();
 
-    // Title once; combobox has no side label (avoids "Tool" reading twice).
-    menu.addTitle(TR('sculptTool'));
-
-    // Must be a real Array — yagui Combobox uses options.length to decide parseInt.
-    // A plain {} makes getValue() return strings ("7"), so Drag !== Enums.Tools.DRAG and
-    // canBeContinuous() wrongly stays true → preUpdate re-picks every frame and kills drag.
-    var optTools = [];
-    for (var i = 0, nbTools = Tools.length; i < nbTools; ++i) {
-      if (Tools[i]) optTools[i] = TR(Tools[i].uiName);
+    var optTools = buildToolOptionLabels();
+    var initialTool = this._sculptManager.getToolIndex();
+    // Keep combobox for hotkeys / getValue / setValue — hide visually; icons are primary.
+    this._ctrlSculpt = menu.addCombobox('', initialTool, this.onChangeTool.bind(this), optTools);
+    applyFormPaintOptgroups(this._ctrlSculpt.domSelect);
+    this._ctrlSculpt.domSelect.value = String(initialTool);
+    if (this._ctrlSculpt.domContainer)
+      this._ctrlSculpt.domContainer.classList.add('sculptgl-tool-select-hidden');
+    else if (this._ctrlSculpt.domSelect) {
+      var hideEl = this._ctrlSculpt.domSelect.closest
+        ? this._ctrlSculpt.domSelect.closest('li')
+        : this._ctrlSculpt.domSelect.parentElement;
+      if (hideEl) hideEl.classList.add('sculptgl-tool-select-hidden');
     }
-    this._ctrlSculpt = menu.addCombobox('', this._sculptManager.getToolIndex(), this.onChangeTool.bind(this), optTools);
+    var self = this;
+    this._toolIconGrid = buildToolIconGrids(menu, function (enumId) {
+      self._ctrlSculpt.setValue(enumId);
+    });
+    this._toolIconGrid.setSelected(initialTool);
 
     GuiSculptingTools.initGuiTools(this._sculptManager, this._menu, this._main);
 
@@ -111,6 +260,9 @@ class GuiSculpting {
 
     if (newValue === Enums.Tools.PAINT)
       GuiSculptingTools.onPaintToolSelected(this._main);
+
+    if (this._toolIconGrid)
+      this._toolIconGrid.setSelected(newValue);
 
     if (!(this._main.isXRSessionActive && this._main.isXRSessionActive())) {
       var ui = (Tools[newValue] && Tools[newValue].uiName) || String(newValue);

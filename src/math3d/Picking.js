@@ -55,6 +55,11 @@ class Picking {
     this._alphaLastDir = [0.0, 1.0, 0.0]; // stable tangent for updateAlpha
     this._alphaHasDir = false;
     this._alphaAngleRad = 0.0; // stamp twist around surface normal
+
+    // XR brush radius: avoid recomputing AABB every ray hit (Quest hot path).
+    this._xrBoundCacheMesh = null;
+    this._xrBoundCacheFp = 0;
+    this._xrBoundCacheRadius = 0;
   }
 
   setIdAlpha(id, angleDeg) {
@@ -355,17 +360,31 @@ class Picking {
     if (!this._mesh) return;
     var tool = this._main.getSculptManager().getCurrentTool();
     var screenR = (tool && tool._radius) ? tool._radius : 50;
-    var meshRadius = 20.0;
-    if (this._main.computeBoundingBoxMeshes && this._main.computeRadiusFromBoundingBox) {
-      var box = this._main.computeBoundingBoxMeshes([this._mesh]);
-      var r = this._main.computeRadiusFromBoundingBox(box);
-      if (isFinite(r) && r > 0.01) meshRadius = r;
+    var mesh = this._mesh;
+    var m = mesh.getMatrix();
+    var nb = mesh.getNbVertices ? mesh.getNbVertices() : 0;
+    // Invalidate when mesh identity, vertex count (dyn topo / remesh), or transform changes.
+    // Local sculpt verts moving do not change nb/matrix — keep stable brush size during a stroke.
+    var fp = nb + m[0] + m[5] + m[10] + m[12] + m[13] + m[14] + mesh.getScale2();
+    var meshRadius;
+    if (this._xrBoundCacheMesh === mesh && this._xrBoundCacheFp === fp && this._xrBoundCacheRadius > 0) {
+      meshRadius = this._xrBoundCacheRadius;
+    } else {
+      meshRadius = 20.0;
+      if (this._main.computeBoundingBoxMeshes && this._main.computeRadiusFromBoundingBox) {
+        var box = this._main.computeBoundingBoxMeshes([mesh]);
+        var r = this._main.computeRadiusFromBoundingBox(box);
+        if (isFinite(r) && r > 0.01) meshRadius = r;
+      }
+      this._xrBoundCacheMesh = mesh;
+      this._xrBoundCacheFp = fp;
+      this._xrBoundCacheRadius = meshRadius;
     }
     // Slider 50 → ~10% of mesh radius (visible clay push at Quest stage scale).
     var worldR = (screenR / 50.0) * meshRadius * 0.10;
     worldR = Math.min(meshRadius * 0.4, Math.max(meshRadius * 0.02, worldR));
     this._rWorld2 = worldR * worldR;
-    this._rLocal2 = this._rWorld2 / this._mesh.getScale2();
+    this._rLocal2 = this._rWorld2 / mesh.getScale2();
   }
 
   /** Intersection between a ray and a mesh */

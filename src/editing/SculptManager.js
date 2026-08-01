@@ -140,6 +140,13 @@ class SculptManager {
       tool.updateXR();
   }
 
+  /** Coalesce deferred mesh GPU uploads once per XR frame. */
+  flushXRMeshBuffers() {
+    var tool = this.getCurrentTool();
+    if (tool && tool.flushXRMeshBuffers)
+      tool.flushXRMeshBuffers();
+  }
+
   end() {
     this.getCurrentTool().end();
     if (this._sculptTimer !== -1) {

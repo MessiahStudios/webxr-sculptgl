@@ -1282,28 +1282,30 @@ class Scene {
       this.getPickingSymmetry()._mesh = null;
 
     // Throttled diagnostics while trigger is held (helps Quest remote logs).
+    // Never run pickVerticesInSphere here while already sculpting — logging must not pay a full pick.
     if (triggerPressed) {
       var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       if (!this._xrSculptDiagAt || now - this._xrSculptDiagAt > 1200) {
         this._xrSculptDiagAt = now;
         var verts = 0;
         if (hit) {
-          // Don't clobber Move/Drag topological picks with a fresh sphere query.
           var tIdx = this.getSculptManager().getToolIndex();
           var grabbing = tIdx === Enums.Tools.DRAG || tIdx === Enums.Tools.MOVE ||
             tIdx === Enums.Tools.TWIST || tIdx === Enums.Tools.LOCALSCALE ||
             tIdx === Enums.Tools.TRANSFORM;
-          if ((!grabbing || !this._xrSculpting) && picking.getMesh() &&
+          if (this._xrSculpting) {
+            // Reuse last pick count if present; do not re-pick for diag.
+            var picked = picking.getPickedVertices && picking.getPickedVertices();
+            verts = grabbing ? -1 : (picked && picked.length ? picked.length : -1);
+          } else if (!grabbing && picking.getMesh() &&
               typeof picking.getMesh().getVertices === 'function' &&
               picking.getMesh().getVertices()) {
             picking.pickVerticesInSphere(picking.getLocalRadius2());
             verts = picking.getPickedVertices().length;
-          } else if (grabbing && this._xrSculpting) {
-            verts = -1;
           } else {
-            verts = 0;
+            verts = grabbing ? -1 : 0;
           }
-          XRRemoteLog.see('MR', 'Right trigger sculpt: HIT — brushR=' + picking.getWorldRadius().toFixed(2) + (verts >= 0 ? (' verts~' + verts) : ' (grab)'), {
+          XRRemoteLog.see('MR', 'Right trigger sculpt: HIT — brushR=' + picking.getWorldRadius().toFixed(2) + (verts >= 0 ? (' verts~' + verts) : ' (sculpting/grab)'), {
             hit: true,
             trigger: Math.round(triggerValue * 100) / 100,
             brush_world_r: Math.round(picking.getWorldRadius() * 100) / 100,
@@ -1375,6 +1377,8 @@ class Scene {
       if (picking.getMesh() || keepGrab || lockStamp)
         this.getSculptManager().updateXR();
     }
+    // One GPU upload per XR frame (stamps only dirty-flag during makeStrokeXR / grab tools).
+    this.getSculptManager().flushXRMeshBuffers();
   }
 
   /**
@@ -2406,7 +2410,11 @@ class Scene {
     }
 
     WebGLCaps.initWebGLExtensions(gl);
-    if (!WebGLCaps.getWebGLExtension('OES_element_index_uint'))
+    // WebGL2 has uint element indices as core — OES_element_index_uint is not listed.
+    // Treating a missing extension as "no uint" wrongly forces ONLY_DRAW_ARRAYS and hides Wireframe.
+    var hasUintIndex = !!WebGLCaps.getWebGLExtension('OES_element_index_uint') ||
+      (typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext);
+    if (!hasUintIndex)
       RenderData.ONLY_DRAW_ARRAYS = true;
 
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);

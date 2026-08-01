@@ -53,6 +53,7 @@ class Paint extends SculptBase {
 
   end() {
     // Leave _pickColor to the UI (desktop checkbox / XR eyedropper opt).
+    this.flushXRMeshBuffers();
     var mesh = this.getMesh();
     if (mesh && mesh.hasPbrMaps && mesh.hasPbrMaps())
       MeshPbrMaps.flush(mesh);
@@ -117,15 +118,20 @@ class Paint extends SculptBase {
   }
 
   updateMeshBuffers() {
+    if (!this._forceUploadMeshBuffers &&
+        this._main.isXRSessionActive && this._main.isXRSessionActive()) {
+      this._meshBuffersDirty = true;
+      return;
+    }
     var mesh = this.getMesh();
+    if (!mesh) return;
     if (mesh.isDynamic) {
       mesh.updateBuffers();
     } else {
       mesh.updateColorBuffer();
       mesh.updateMaterialBuffer();
     }
-    if (mesh.hasPbrMaps && mesh.hasPbrMaps())
-      MeshPbrMaps.flush(mesh);
+    // PBR map flush deferred to end() — dense stamps must not rebuild maps every stamp.
   }
 
   updatePickColor() {

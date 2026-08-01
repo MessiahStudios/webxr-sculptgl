@@ -1,5 +1,9 @@
 # WebXR Sculpt
 
+<p align="center">
+  <img src="app/resources/tool-icons/brush.png" alt="WebXR Sculpt brush" width="160" />
+</p>
+
 **An open, Quest-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — extending the original desktop sculpting engine with spatial interaction, Workspace, lightweight PBR painting, and modern asset interoperability.
 
 > Shape digital clay at human scale in Meta Quest MR/VR, while keeping a full desktop workflow on the same core.
@@ -9,6 +13,23 @@
 <!-- Hero: add a Quest MR / dock GIF under docs/media/hero.gif when available
 ![WebXR Sculpt in Quest MR](docs/media/hero.gif)
 -->
+
+---
+
+## Where we are toward release
+
+| Layer | Status |
+|---|---|
+| **Core sculpt loop (Quest + desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
+| **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
+| **Presentation polish** | In progress — tool icon pack (desktop + XR), wireframe in OPTS, Quest perf pass |
+| **Ship-ready “final cut”** | **~90%** — usable product today; leftover is polish, not missing clay |
+
+**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer How-to PNG buttons, optional README hero stills under `docs/media/`, light dock offset fine-tune.
+
+**Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
+
+Deep checklist: **[`XR_Roadmap.MD`](./XR_Roadmap.MD)** → *Roadmap status* / *Path to product cut*.
 
 ---
 
@@ -26,9 +47,31 @@
 
 ---
 
+## Tool palette
+
+Same icons on **desktop Form / Paint** and the **XR dock** (`app/resources/tool-icons/`).
+
+### Form
+
+| <img src="app/resources/tool-icons/brush.png" width="56" alt="Brush" /> | <img src="app/resources/tool-icons/inflate.png" width="56" alt="Inflate" /> | <img src="app/resources/tool-icons/pinch.png" width="56" alt="Pinch" /> | <img src="app/resources/tool-icons/crease.png" width="56" alt="Crease" /> | <img src="app/resources/tool-icons/drag.png" width="56" alt="Drag" /> |
+|:---:|:---:|:---:|:---:|:---:|
+| Brush | Inflate | Pinch | Crease | Drag |
+
+| <img src="app/resources/tool-icons/move.png" width="56" alt="Move" /> | <img src="app/resources/tool-icons/twist.png" width="56" alt="Twist" /> | <img src="app/resources/tool-icons/localscale.png" width="56" alt="Local scale" /> | <img src="app/resources/tool-icons/smooth.png" width="56" alt="Smooth" /> | <img src="app/resources/tool-icons/flatten.png" width="56" alt="Flatten" /> | <img src="app/resources/tool-icons/transform.png" width="56" alt="Transform" /> |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| Move | Twist | Local scale | Smooth | Flatten | Transform |
+
+### Paint
+
+| <img src="app/resources/tool-icons/paint.png" width="56" alt="Paint" /> | <img src="app/resources/tool-icons/masking.png" width="56" alt="Mask" /> | <img src="app/resources/tool-icons/soften.png" width="56" alt="Soften" /> |
+|:---:|:---:|:---:|
+| Paint | Mask | Soften |
+
+---
+
 ## Screenshots
 
-_Add Quest MR and desktop stills or short GIFs here (e.g. `docs/media/`)._
+_Quest MR and desktop stills / short GIFs welcome under `docs/media/` when you have them. Tool icons above are the living palette until then._
 
 <!--
 | MR sculpt | Desktop paint | Alpha stamps |

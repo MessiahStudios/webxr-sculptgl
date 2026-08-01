@@ -30,6 +30,9 @@ class SculptBase {
     this._xrLockStrokeStarted = false;
     this._xrLockRadiusSmooth = 0;
     this._xrLockLastStrokeR = -1;
+    // XR: coalesce mesh GPU uploads to once per frame
+    this._meshBuffersDirty = false;
+    this._forceUploadMeshBuffers = false;
   }
 
   setToolMesh(mesh) {
@@ -105,6 +108,7 @@ class SculptBase {
   }
 
   end() {
+    this.flushXRMeshBuffers();
     this._xrLastHit = null;
     this._xrLastStrokeAt = 0;
     this._clearXRLockStamp();
@@ -428,10 +432,11 @@ class SculptBase {
     if (this._xrLastHit) {
       var minSpacing = Math.sqrt(picking.getWorldRadius2()) * this.getXRStampSpacingFactor();
       var moved = vec3.dist(this._xrLastHit, hitWorld);
-      // Desktop continuous: brush keeps deforming while held still. XR: allow a stroke ~30Hz when parked.
+      // Desktop continuous: brush keeps deforming while held still.
+      // XR parked restroke ~20Hz (50ms) — Quest headroom vs prior ~30Hz/33ms.
       if (moved < minSpacing) {
         var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-        if (this._xrLastStrokeAt && (now - this._xrLastStrokeAt) < 33)
+        if (this._xrLastStrokeAt && (now - this._xrLastStrokeAt) < 50)
           return true;
       }
     }
@@ -478,12 +483,28 @@ class SculptBase {
     this.makeStrokeXR(picking, pickingSym);
   }
 
+  /** During XR, coalesce GPU uploads to once per frame via flushXRMeshBuffers. */
   updateMeshBuffers() {
+    if (!this._forceUploadMeshBuffers &&
+        this._main.isXRSessionActive && this._main.isXRSessionActive()) {
+      this._meshBuffersDirty = true;
+      return;
+    }
     var mesh = this.getMesh();
+    if (!mesh) return;
     if (mesh.isDynamic)
       mesh.updateBuffers();
     else
       mesh.updateGeometryBuffers();
+  }
+
+  /** Flush deferred mesh buffer uploads once per XR frame (or stroke end). */
+  flushXRMeshBuffers() {
+    if (!this._meshBuffersDirty) return;
+    this._meshBuffersDirty = false;
+    this._forceUploadMeshBuffers = true;
+    this.updateMeshBuffers();
+    this._forceUploadMeshBuffers = false;
   }
 
   updateContinuous() {

@@ -187,6 +187,112 @@ body {
   margin: 8px 10px 12px 10px !important;
 }
 
+/* Hidden combobox — kept for hotkeys / setValue sync */
+.gui-sidebar > ul > li.sculptgl-tool-select-hidden,
+li.sculptgl-tool-select-hidden {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Form / Paint tool icon grids */
+.gui-sidebar > ul > li.sculptgl-tool-icons {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin: 6px 8px 10px 8px !important;
+  padding: 0 !important;
+}
+
+.sculptgl-tool-icons-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.sculptgl-tool-icons-heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 2px 6px 2px;
+  color: var(--gui-text-dim);
+}
+
+.sculptgl-tool-icons-section.is-form .sculptgl-tool-icons-heading {
+  color: #7eb8e8;
+}
+
+.sculptgl-tool-icons-section.is-paint .sculptgl-tool-icons-heading {
+  color: #e8a06a;
+}
+
+.sculptgl-tool-icons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.sculptgl-tool-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+  padding: 4px 2px 5px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: #1a1e28;
+  cursor: pointer;
+  color: var(--gui-text);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sculptgl-tool-icon-btn img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  pointer-events: none;
+  background: #12151c;
+}
+
+.sculptgl-tool-icon-cap {
+  font-size: 10px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--gui-text-dim);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+.sculptgl-tool-icon-btn:hover {
+  background: var(--gui-accent-soft);
+  border-color: rgba(110, 200, 255, 0.35);
+}
+
+.sculptgl-tool-icon-btn.is-selected {
+  border-color: var(--gui-accent);
+  background: rgba(110, 200, 255, 0.16);
+}
+
+.sculptgl-tool-icon-btn.is-selected .sculptgl-tool-icon-cap {
+  color: var(--gui-text-bright);
+}
+
+.sculptgl-tool-icons-section.is-paint .sculptgl-tool-icon-btn.is-selected {
+  border-color: #e8a06a;
+  background: rgba(232, 160, 106, 0.16);
+}
+
 .gui-glowOnHover:hover {
   background: var(--gui-accent-soft);
 }
@@ -478,6 +584,8 @@ body {
   border: 1px solid var(--gui-border);
   border-radius: var(--gui-radius-sm);
   color: var(--gui-text);
+  /* Native popup often uses a light OS panel; keep dark so option text stays readable. */
+  color-scheme: dark;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
@@ -485,6 +593,18 @@ body {
   color: var(--gui-text-bright);
   background: var(--gui-accent-soft);
   border-color: rgba(110, 200, 255, 0.4);
+}
+
+.gui-select option,
+.gui-select optgroup {
+  background-color: #2a2e38;
+  color: #e8ecf4;
+}
+
+.gui-select option:checked,
+.gui-select option:hover {
+  background-color: #3d6a9e;
+  color: #ffffff;
 }
 
 
