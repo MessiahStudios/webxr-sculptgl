@@ -60,9 +60,15 @@ ShaderBase.strings.fragColorFunction = [
   '      col = min(col * 1.5, 1.0);',
   // Desktop draws into an RGBM RTT then ShaderMerge decodes. XR draws straight to the
   // headset layer — RGBM alpha would look like transparency (ghost mesh in MR).
+  // Single return keeps ANGLE/HLSL happy (avoids X4000 on f_encodeFragColor).
+  '  vec4 outColor;',
   '  if (uDirectOutput == 1)',
-  '    return vec4(linearTosRGB(col) * alpha, alpha);',
-  '  return alpha != 1.0 ? vec4(col * alpha, alpha) : encodeRGBM(col);',
+  '    outColor = vec4(linearTosRGB(col) * alpha, alpha);',
+  '  else if (alpha != 1.0)',
+  '    outColor = vec4(col * alpha, alpha);',
+  '  else',
+  '    outColor = encodeRGBM(col);',
+  '  return outColor;',
   '}'
 ].join('\n');
 

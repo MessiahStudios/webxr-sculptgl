@@ -305,7 +305,7 @@ That is the opposite of “rewrite sculpting for VR.” It is also different fro
 
 1. **Session** — `immersive-vr` *or* `immersive-ar` (passthrough / MR) via a setup panel (profile + mode).
 2. **Workspace** — clay sits in the room (fit / scale / distance / orbit / recenter), never inside the head.
-3. **Eyes** — per-eye viewport + scissor clear; RGBM / direct-output so stereo doesn’t look ghosted.
+3. **Eyes** — per-eye viewport + scissor clear; RGBM / direct-output so stereo doesn’t look ghosted (`encodeFragColor` single-return path — no ANGLE X4000 noise).
 4. **Aim** — right-controller target ray → scene-space hit → same tools as Desktop.
 5. **Grab tools** — Move / Drag / Twist / LocalScale get XR-specific `startXR`/`updateXR` so 6DOF doesn’t explode topology.
 6. **GUI** — left-hand **Sculpt Dock** (tabs, tools, paint swatches/wheel, opts, workspace) instead of relying on HTML in MR.
@@ -464,7 +464,7 @@ Around XR: Desktop Files menu / 2D browser picker  →  OBJ PLY STL SGL GLB/glTF
 Optional:  ?modelurl=https://… at boot (same validators)
 ```
 
-File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR. **Import URL** is the immersive-friendly path when the host allows CORS; always verify the link first.
+File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR. **Import URL** is the immersive-friendly path when the host allows CORS; always verify the link first. Pasted links that wrap with spaces/newlines are stripped before validation.
 
 **Honest import note:** GLB/glTF import keeps **indexed topology**, **UVs**, **live albedo/metalRough textures** (ShaderPBR samples them), and still fills vertex paint as fallback. Draco via `./draco/`. Export prefers live maps when present.
 
@@ -491,9 +491,9 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 **Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to · **XR ADD spawn** (landed).
 
-### Where we are (2026-08-01)
+### Where we are (2026-08-02)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **Import URL** (paste-friendly); **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
 
 ```
 ███████████████████████▓░  ~93% toward named product cut
@@ -509,7 +509,8 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Welcome splash (logo + links + Don’t show again; headset → XR setup)
 │        · Public How-to guide (docs/HOW_TO.md) with tool icons
 │        · XR ADD near selection (no Workspace re-fit on every ADD)
-│        · Import URL (https + CORS + extension/size safeguards)
+│        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
+│        · XR direct-output encodeFragColor (silence ANGLE X4000)
 ├─ Next: gate Camera How-to PNG buttons · dock fine-tune
 │        · α allowlist watch
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
@@ -572,7 +573,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Product logo + brand sync** | **Yes** | `docs/media/webxr-sculpt-logo.png` README hero; UI accents `#58A8F0` / `#F7974B` (logo-sampled) |
 | **Welcome splash** | **Yes** | Logo + Messiah Studios links; `sculptgl.welcome.hide`; Let’s Sculpt → Desktop dismiss / headset XR setup |
 | **Public How-to guide** | **Yes** | [`docs/HOW_TO.md`](./docs/HOW_TO.md) — tool icons + Desktop/Quest controls; README links it |
-| **Import URL** | **Yes** | Files + XR OPTS; HTTPS-only (localhost http OK); extension allowlist; size/timeout; CORS caution |
+| **Import URL** | **Yes** | Files + XR OPTS; HTTPS-only (localhost http OK); extension allowlist; size/timeout; CORS caution; strips wrap whitespace on paste |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -632,7 +633,8 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Welcome splash** — logo + links; Don’t show again; Let’s Sculpt dismisses (Desktop) or opens XR setup (headset)  
 - [x] **Public How-to** — [`docs/HOW_TO.md`](./docs/HOW_TO.md) with shared tool icons; README How-to section  
 - [x] **XR ADD spawn** — place near selection at matching size; no `fitXRStageToScene` on ADD (Clear/Recenter/load still re-fit)  
-- [x] **Import URL** — HTTPS (+ localhost http); extension allowlist; ~80 MB / 60s caps; CORS caution (Files + XR OPTS)  
+- [x] **Import URL** — HTTPS (+ localhost http); extension allowlist; ~80 MB / 60s caps; CORS caution; paste whitespace strip (Files + XR OPTS)
+- [x] **XR encodeFragColor** — single-return path for `uDirectOutput` (avoids ANGLE/HLSL X4000 warn)  
 
 ### Next (near-term)
 
@@ -724,7 +726,7 @@ You (Quest, sculpting) ──sync clay/scene──► Friend (Quest, view-only)
 | **Export** | `.obj` / `.ply` / `.stl` / **`.glb`** | Hand off — only what each format honestly carries (see Materials track) |
 | **Export (textured zip)** | `.obj` + `.mtl` + PNG maps | Same bake as GLB maps, looser DCC pack |
 | **Import** | `.obj` / `.ply` / `.stl` / `.sgl` / **`.glb` / `.gltf`** | Adds to scene (Desktop Files / 2D picker / XR OPTS Import) |
-| **Import URL** | HTTPS (+ localhost http) + CORS + allowlisted extension | Hosted CC0 / personal static hosts (`addModelURL` / OPTS) |
+| **Import URL** | HTTPS (+ localhost http) + CORS + allowlisted extension; paste strips spaces/newlines | Hosted CC0 / personal static hosts (`addModelURL` / OPTS) |
 
 ### Later (stretch)
 

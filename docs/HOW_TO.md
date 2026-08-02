@@ -65,7 +65,7 @@ Transform never stamps. Best on Brush / Inflate / Crease / Pinch / Flatten / Pai
 
 - **Form / Paint** icon grids in the sculpt sidebar (same art as XR).  
 - Radius / intensity / hardness in the tool panel; tablet pressure when available.  
-- **Files:** Save/Load `.sgl`, Import file, **Import URL** (https + CORS — verify the link first), Export OBJ / OBJ+MAPS / GLB / PLY / STL.  
+- **Files:** Save/Load `.sgl`, Import file, **Import URL** (https + CORS — verify the link first; wrapped pastes OK), Export OBJ / OBJ+MAPS / GLB / PLY / STL.  
 - **Camera:** Local Snapshot PNG + Start/Stop video (virtual view — not OS Cast).  
 - Undo / Redo: usual shortcuts + UI.
 
@@ -84,7 +84,7 @@ Left dock tabs: **FORM · PAINT · α · OPTS · SPACE**
 **SPACE** moves the sculpture in the *room* (scale, distance, turntable) — not mesh Transform.  
 **OPTS:** Save/Load `.sgl` (IndexedDB), Import/Export, Snapshot/Record, Add primitives, clay/symmetry/wireframe.
 
-Prefer Import from the 2D browser **before** entering XR if the immersive picker fails. Or use **OPTS → IMPORT URL** with a public https:// mesh link (host must allow CORS).
+Prefer Import from the 2D browser **before** entering XR if the immersive picker fails. Or use **OPTS → IMPORT URL** with a public https:// mesh link (host must allow CORS). Spaces/newlines from wrapped pastes are stripped automatically.
 
 ---
 
