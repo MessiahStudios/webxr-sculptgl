@@ -623,6 +623,10 @@ class WebXRSession {
             scene._xrOrbitPitch = 0.0;
             scene._xrDistanceOffset = 0.0;
             scene._xrEntryScale = 1.0;
+            scene._xrOrbitViewOffset = [0.0, 0.0, 0.0];
+            // Seat on first viewer pose (guardian size varies) — not session-origin −Z alone.
+            scene._xrViewerAnchor = null;
+            scene._xrPendingViewerAnchor = true;
             scene.fitXRStageToScene();
             scene.setXRSessionActive(true);
             scene.startXRControllers(session, refSpace);
@@ -708,6 +712,7 @@ class WebXRSession {
     }
     if (!pose) return;
 
+    this._scene.updateXRViewerFromPose(pose);
     this._scene.updateXROrbitInput(frame, session, refSpace);
     this._scene.updateXRSculptInput(frame, session, refSpace);
     this._scene.drawXRFrame(frame, pose, session, refSpace);

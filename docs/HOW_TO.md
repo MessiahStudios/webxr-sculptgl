@@ -86,7 +86,7 @@ Left dock tabs: **FORM · PAINT · α · OPTS · SPACE**
 | **Left** | Stick = cycle tools · Squeeze+stick = radius / intensity · X = tabs · Y = confirm / toggle |
 | **Both grips ~2.5s** | Exit XR when the DOM overlay isn’t available in MR |
 
-**SPACE** moves the sculpture in the *room* (scale, distance, turntable) — not mesh Transform.  
+**SPACE** moves the sculpture in the *room* (scale, distance, turntable) — not mesh Transform. **Y** on SPACE re-seats clay in front of your headset (works for any guardian size).  
 **OPTS:** Save/Load `.sgl` (IndexedDB), Import/Export, Snapshot/Record, Add primitives, clay/symmetry/wireframe.
 
 Prefer Import from the 2D browser **before** entering XR if the immersive picker fails. Or use **OPTS → IMPORT URL** with a public https:// mesh link (host must allow CORS). Spaces/newlines from wrapped pastes are stripped automatically.

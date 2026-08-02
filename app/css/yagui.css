@@ -169,7 +169,8 @@ body {
 }
 
 .gui-sidebar > ul[opened=true] {
-  max-height: 1600px;
+  /* Form & Paint + alpha gallery exceed the old 1600px cap (clipped content + how-to PNGs). */
+  max-height: 20000px;
 }
 
 .gui-sidebar > ul[opened=false] {

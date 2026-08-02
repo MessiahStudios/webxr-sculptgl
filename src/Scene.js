@@ -43,6 +43,12 @@ class Scene {
     this._xrOrbitYaw = 0.0;
     this._xrOrbitPitch = 0.0;
     this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
+    /** @type {{x:number,y:number,z:number,yaw:number}|null} headset pose used to seat Workspace ahead of the user */
+    this._xrViewerAnchor = null;
+    /** Latest viewer pose each XR frame (for SPACE recenter). */
+    this._xrLastViewer = null;
+    /** True until first viewer pose seats the stage in front of the headset. */
+    this._xrPendingViewerAnchor = false;
     this._xrEnterFeedbackUntil = 0;
     this._xrSculpting = false;
     this._xrSmoothLatch = false;
@@ -315,6 +321,9 @@ class Scene {
     if (!active) {
       this._xrSessionMode = null;
       this._xrPassthroughComposite = false;
+      this._xrPendingViewerAnchor = false;
+      this._xrViewerAnchor = null;
+      this._xrLastViewer = null;
       if (this.isLocalRecording()) this._startLocalRecordDesktopLoop();
     } else {
       this._stopLocalRecordDesktopLoop();
@@ -333,6 +342,57 @@ class Scene {
   /** True during draw when the runtime composites over the real world (MR / passthrough). */
   isXRPassthroughComposite() {
     return !!this._xrPassthroughComposite;
+  }
+
+  /**
+   * Yaw (Y-up) from a WebXR orientation quaternion — facing direction on the floor plane.
+   * @param {{x:number,y:number,z:number,w:number}} o
+   * @returns {number}
+   */
+  _yawFromXROrientation(o) {
+    if (!o) return 0;
+    var qx = o.x || 0;
+    var qy = o.y || 0;
+    var qz = o.z || 0;
+    var qw = o.w == null ? 1 : o.w;
+    // Rotate local forward (0, 0, -1) into world
+    var vx = 0;
+    var vy = 0;
+    var vz = -1;
+    var tx = 2 * (qy * vz - qz * vy);
+    var ty = 2 * (qz * vx - qx * vz);
+    var tz = 2 * (qx * vy - qy * vx);
+    var fx = vx + qw * tx + (qy * tz - qz * ty);
+    var fz = vz + qw * tz + (qx * ty - qy * tx);
+    return Math.atan2(fx, -fz);
+  }
+
+  /**
+   * Track headset pose each XR frame; seat Workspace on first pose (and when recenter is pending).
+   * Guardian / boundary size varies — place relative to the headset, not session origin alone.
+   * @param {XRViewerPose|null} pose
+   */
+  updateXRViewerFromPose(pose) {
+    if (!pose || !pose.transform) return;
+    var p = pose.transform.position;
+    var o = pose.transform.orientation;
+    if (!p) return;
+    var yaw = this._yawFromXROrientation(o);
+    this._xrLastViewer = { x: p.x, y: p.y, z: p.z, yaw: yaw };
+    if (!this._xrPendingViewerAnchor) return;
+    this._xrPendingViewerAnchor = false;
+    this._xrViewerAnchor = {
+      x: p.x,
+      y: p.y,
+      z: p.z,
+      yaw: yaw
+    };
+    this.fitXRStageToScene();
+    XRRemoteLog.see('MR', 'Workspace seated in front of headset', {
+      yaw_deg: Math.round((yaw * 180) / Math.PI),
+      eye_y_m: Math.round(p.y * 100) / 100,
+      note: 'independent of guardian size — Meta recenter not required'
+    });
   }
 
   /**
@@ -379,10 +439,26 @@ class Scene {
       scale: 1, distance: 0.85, radius: 1, scaledRadius: 1
     };
     var off = this._xrOrbitViewOffset || [0.0, 0.0, 0.0];
+    var ax = 0.0;
+    var ay = 1.25;
+    var az = 0.0;
+    var faceYaw = 0.0;
+    var anchor = this._xrViewerAnchor;
+    if (anchor) {
+      ax = anchor.x || 0;
+      az = anchor.z || 0;
+      faceYaw = anchor.yaw || 0;
+      // Sculpt height from eye: slightly below headset, clamped for standing comfort.
+      if (anchor.y != null)
+        ay = Math.min(1.55, Math.max(1.05, anchor.y - 0.35));
+    }
     // Orbit rotates about selection COM (f.center*). View offset keeps the room stable when that
     // COM is updated after Transform (otherwise T(-C) changes → snap).
+    // Seat: headset XZ + facing yaw, then push clay forward (−Z) by distance.
     mat4.identity(this._xrStageMatrix);
-    mat4.translate(this._xrStageMatrix, this._xrStageMatrix, [0.0, 1.25, -f.distance]);
+    mat4.translate(this._xrStageMatrix, this._xrStageMatrix, [ax, ay, az]);
+    mat4.rotateY(this._xrStageMatrix, this._xrStageMatrix, faceYaw);
+    mat4.translate(this._xrStageMatrix, this._xrStageMatrix, [0.0, 0.0, -f.distance]);
     mat4.translate(this._xrStageMatrix, this._xrStageMatrix, off);
     mat4.rotateY(this._xrStageMatrix, this._xrStageMatrix, this._xrOrbitYaw || 0);
     mat4.rotateX(this._xrStageMatrix, this._xrStageMatrix, this._xrOrbitPitch || 0);
@@ -391,7 +467,7 @@ class Scene {
 
     var scaledR = f.scaledRadius != null ? f.scaledRadius : (f.radius * f.scale);
     this._xrStageDesc = {
-      height_m: 1.25,
+      height_m: Math.round(ay * 100) / 100,
       distance_ahead_m: Math.round(f.distance * 100) / 100,
       scale: Math.round(f.scale * 100000) / 100000,
       mesh_center: [
@@ -403,7 +479,9 @@ class Scene {
       scaled_radius_m: Math.round(scaledR * 1000) / 1000,
       surface_clearance_m: Math.round((f.distance - scaledR) * 1000) / 1000,
       orbit_yaw: Math.round((this._xrOrbitYaw || 0) * 100) / 100,
-      orbit_pitch: Math.round((this._xrOrbitPitch || 0) * 100) / 100
+      orbit_pitch: Math.round((this._xrOrbitPitch || 0) * 100) / 100,
+      viewer_anchored: !!anchor,
+      face_yaw_deg: Math.round((faceYaw * 180) / Math.PI)
     };
   }
 
@@ -418,12 +496,28 @@ class Scene {
     };
   }
 
+  /**
+   * Reset Workspace size/orbit and re-seat clay in front of the current headset pose.
+   * Prefer last viewer pose from the XR frame loop (works across guardian sizes).
+   */
   recenterXRStage() {
     this._xrOrbitYaw = 0.0;
     this._xrOrbitPitch = 0.0;
     this._xrDistanceOffset = 0.0;
     this._xrEntryScale = 1.0;
     this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
+    if (this._xrLastViewer) {
+      this._xrViewerAnchor = {
+        x: this._xrLastViewer.x,
+        y: this._xrLastViewer.y,
+        z: this._xrLastViewer.z,
+        yaw: this._xrLastViewer.yaw
+      };
+      this._xrPendingViewerAnchor = false;
+      this.fitXRStageToScene();
+      return;
+    }
+    this._xrPendingViewerAnchor = true;
     this.fitXRStageToScene();
   }
 
@@ -526,17 +620,34 @@ class Scene {
     if (!this._xrOrbitViewOffset)
       this._xrOrbitViewOffset = [0.0, 0.0, 0.0];
 
-    // Selection COM in ref space (maps to eye + offset after stage matrix).
+    // Selection COM in ref space after viewer-anchored stage (see _rebuildXRStageMatrix).
     var f = this._xrStageFit;
     if (!f) return;
     var off = this._xrOrbitViewOffset;
-    var comX = off[0];
-    var comY = 1.25 + off[1];
-    var comZ = -f.distance + off[2];
+    var ax = 0.0;
+    var ay = 1.25;
+    var az = 0.0;
+    var faceYaw = 0.0;
+    var anchor = this._xrViewerAnchor;
+    if (anchor) {
+      ax = anchor.x || 0;
+      az = anchor.z || 0;
+      faceYaw = anchor.yaw || 0;
+      if (anchor.y != null)
+        ay = Math.min(1.55, Math.max(1.05, anchor.y - 0.35));
+    }
+    var lx = off[0];
+    var ly = off[1];
+    var lz = off[2] - f.distance;
+    var cosY = Math.cos(faceYaw);
+    var sinY = Math.sin(faceYaw);
+    var comX = ax + lx * cosY + lz * sinY;
+    var comY = ay + ly;
+    var comZ = az - lx * sinY + lz * cosY;
 
-    var hx = viewerPos ? viewerPos.x : 0.0;
-    var hy = viewerPos ? viewerPos.y : 1.6;
-    var hz = viewerPos ? viewerPos.z : 0.0;
+    var hx = viewerPos ? viewerPos.x : ax;
+    var hy = viewerPos ? viewerPos.y : (ay + 0.35);
+    var hz = viewerPos ? viewerPos.z : az;
 
     var dirX = hx - comX;
     var dirY = hy - comY;

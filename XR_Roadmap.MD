@@ -150,7 +150,7 @@ WebXR is an open API — other headsets *may* enter a session — but Quest is w
 | Form tools (brush, inflate, crease, smooth, flatten, pinch, drag, move, twist, local scale) | Core artistic loop |
 | Paint / material lightly | Surface intent at true scale |
 | Symmetry + negative | Fast bilateral form |
-| **Workspace** (place, scale, rotate, distance, recenter, turntable) | Body-scale judgment — the XR advantage |
+| **Workspace** (place, scale, rotate, distance, recenter, turntable) | Body-scale judgment — seats ahead of headset (guardian-independent) |
 | Brush radius + intensity | Always reachable; never silently zero |
 | Undo / redo | Muscle memory, not menu archaeology |
 | Aim feedback (ray + brush ring) | Hit and size in real space |
@@ -511,6 +511,7 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · XR ADD near selection (no Workspace re-fit on every ADD)
 │        · XR dock FORM layout — clamp above footer + flush paint when entry-hint ends
 │        · Dock tool label Transform (match Desktop; was xform)
+│        · Workspace seats ahead of headset (viewer pose) on enter / SPACE recenter
 │        · Desktop-only sessions on WebXR devices (Cancel setup → yagui; chip to enter later)
 │        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
 │        · XR direct-output encodeFragColor (silence ANGLE X4000)
@@ -567,7 +568,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Shared alpha gallery** | **Yes** | Built-in free stamps (`AlphaLibrary` + generate script); Desktop thumbs; **XR ALPHA tab** mini-gallery + shared stamp; custom import |
 | **α maps ON/OFF toggle** | **Yes** | FORM/PAINT chip; allowlist (Transform excluded); gallery only when ON; X skips α when OFF |
 | **Alpha stamp feel + angle** | **Yes** | Freehand default; lock opt-in; bilinear + contrast; angle −360…360 (Desktop presets + XR stick) |
-| **How-to menu PNG packs** | **Yes** | Camera → How-to docs: WebXR dock pack (full OPTS lists) + Desktop sidebar/topbar pack. Docs/WIP — not headset product UI; regenerate when menus change |
+| **How-to menu PNG packs** | **Yes** | Camera → How-to docs: live DOM/dock snapshots; Desktop pack unlocks max-height/overflow + explicit scroll size (no clipped bottoms) |
 | **Desktop chrome consistency** | **Yes** | Shared CSS tokens; all topbar dropdowns match Camera (width, wrap, accents); sidebar folders/widgets aligned |
 | **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼; FORM grid clamps above footer + post–entry-hint reflow (no stuck overlap) |
 | **Tool icon pack** | **Yes** | `app/resources/tool-icons/*.png` — Desktop Form/Paint grid + XR dock thumbs; README tool palette |
@@ -577,7 +578,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Welcome splash** | **Yes** | Logo + Messiah Studios links; `sculptgl.welcome.hide`; Let’s Sculpt → Desktop dismiss / headset XR setup |
 | **Public How-to guide** | **Yes** | [`docs/HOW_TO.md`](./docs/HOW_TO.md) — tool icons + Desktop/Quest controls; README links it |
 | **Import URL** | **Yes** | Files + XR OPTS; HTTPS-only (localhost http OK); extension allowlist; size/timeout; CORS caution; strips wrap whitespace on paste |
-| **Desktop-only on WebXR device** | **Yes (verified)** | Quest Browser: Cancel XR setup → full Desktop UI + canvas; WebXR chip to enter/re-enter immersive anytime |
+| **Workspace viewer-relative seat** | **Yes** | Enter + SPACE Y recenter place clay ahead of headset pose — works across guardian sizes |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -594,7 +595,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 ### Done (working baseline)
 
 - [x] Enter **MR (passthrough)** or **VR** from a setup UI  
-- [x] **Workspace / SPACE** — fit, scale, distance, turntable, tilt, recenter, enter-size feedback  
+- [x] **Workspace / SPACE** — fit, scale, distance, turntable, tilt, recenter; enter + Y seat ahead of headset  
 - [x] Stereo draw without one eye wiping the other  
 - [x] Official controller models (WebXR input profiles)  
 - [x] Left-hand **Sculpt Dock** — tabs **FORM / PAINT / OPTS / SPACE** (ids `form` / `paint` / …; legacy `shape`/`surface` migrate)  
@@ -628,7 +629,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
   - Scratch buffers disposed when idle  
 - [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; FORM entry-hint reflow (no stuck footer overlap)  
 - [x] **Desktop yagui chrome facelift** — shared CSS tokens; topbar + sidebar consistent with Camera menu  
-- [x] **How-to docs PNG packs** (Camera → How-to docs) — WebXR dock full tabs + Desktop sidebar/topbar; WIP docs helper, not product UX  
+- [x] **How-to docs PNG packs** (Camera → How-to docs) — WebXR dock full tabs + Desktop sidebar/topbar; Desktop capture unlocks clip + scrollHeight (no bottom crop); WIP docs helper, not product UX  
 - [x] **α maps ON/OFF** on FORM/PAINT — allowlisted tools; Transform = n/a; ALPHA tab gated; shared stamp  
 - [x] **Tool icon pack** — Desktop Form/Paint icon grid + XR dock; README tool palette  
 - [x] **OPTS wireframe** + WebGL2 wireframe draw fix  
@@ -641,6 +642,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **XR encodeFragColor** — single-return path for `uDirectOutput` (avoids ANGLE/HLSL X4000 warn)
 - [x] **XR dock FORM reflow** — clamp tool grid above footer; flush paint when entry-hint ends; tool label **Transform** (Desktop parity)
 - [x] **Desktop-only on WebXR devices** — Cancel XR setup stays on yagui + canvas (Quest Browser verified); enter immersive anytime from chip  
+- [x] **Workspace viewer-relative seat** — enter + SPACE recenter place clay ahead of headset pose (guardian-size independent)  
 
 ### Next (near-term)
 
@@ -650,6 +652,8 @@ Active leftovers only (done items removed from the “todo” mental list):
 2. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
 3. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
 4. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+
+**Landed for v1 comfort:** Workspace seats in front of the **headset** on enter / SPACE recenter (guardian size independent — Meta-button recenter not required).
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 

@@ -153,7 +153,7 @@ var TR = {
   sculptAlphaTitle: 'Alpha',
   sculptAlphaGalleryHint: 'Gallery — built-in free stamps (or import your own)',
   sculptLockPositon: 'Lock position',
-  sculptAlphaAngle: 'Stamp angle (−360…360)',
+  sculptAlphaAngle: 'Stamp angle °',
   sculptAlphaAngleHint: 'Twist the stamp on the surface. Lock position, set angle, then click.',
   sculptAlphaAngleCCW: '−15°',
   sculptAlphaAngleCW: '+15°',
