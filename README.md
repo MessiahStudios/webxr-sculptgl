@@ -1,7 +1,7 @@
 # WebXR Sculpt
 
 <p align="center">
-  <img src="app/resources/tool-icons/brush.png" alt="WebXR Sculpt brush" width="160" />
+  <img src="docs/media/webxr-sculpt-logo.png" alt="WebXR Sculpt — sculpt, paint, create anywhere" width="420" />
 </p>
 
 **An open, Quest-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — extending the original desktop sculpting engine with spatial interaction, Workspace, lightweight PBR painting, and modern asset interoperability.
@@ -9,10 +9,6 @@
 > Shape digital clay at human scale in Meta Quest MR/VR, while keeping a full desktop workflow on the same core.
 
 **Product:** WebXR Sculpt · **Studio:** [Messiah Studios](https://github.com/MessiahStudios) · **Repo:** [MessiahStudios/webxr-sculptgl](https://github.com/MessiahStudios/webxr-sculptgl)
-
-<!-- Hero: add a Quest MR / dock GIF under docs/media/hero.gif when available
-![WebXR Sculpt in Quest MR](docs/media/hero.gif)
--->
 
 ---
 
@@ -22,14 +18,27 @@
 |---|---|
 | **Core sculpt loop (Quest + desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
-| **Presentation polish** | In progress — tool icon pack (desktop + XR), wireframe in OPTS, Quest perf pass |
+| **Presentation / brand** | Logo hero on GitHub; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
 | **Ship-ready “final cut”** | **~90%** — usable product today; leftover is polish, not missing clay |
 
-**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer How-to PNG buttons, optional README hero stills under `docs/media/`, light dock offset fine-tune.
+**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer How-to PNG buttons, light dock offset fine-tune.
 
 **Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
 
 Deep checklist: **[`XR_Roadmap.MD`](./XR_Roadmap.MD)** → *Roadmap status* / *Path to product cut*.
+
+---
+
+## Brand
+
+| Role | Hex | Notes |
+|---|---|---|
+| Accent (cool) | `#58A8F0` | Logo “XR” / ring / UI focus |
+| Glow | `#51D1F8` | Stylus tip bloom (sparingly in-app) |
+| Accent (warm) | `#F7974B` | Logo “SCULPT” / PAINT / warm UI |
+| Ground | `#16181E` | Desktop / dock charcoal |
+
+Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png) (hero) · [`app/resources/brand/`](./app/resources/brand/) (app copy)
 
 ---
 
@@ -71,14 +80,7 @@ Same icons on **desktop Form / Paint** and the **XR dock** (`app/resources/tool-
 
 ## Screenshots
 
-_Quest MR and desktop stills / short GIFs welcome under `docs/media/` when you have them. Tool icons above are the living palette until then._
-
-<!--
-| MR sculpt | Desktop paint | Alpha stamps |
-|---|---|---|
-| ![](docs/media/mr.jpg) | ![](docs/media/desktop.jpg) | ![](docs/media/alphas.jpg) |
--->
-
+Brand hero above is the GitHub product image. Quest MR / desktop stills or short GIFs can still land under `docs/media/` when you have them.
 ---
 
 ## Quick start

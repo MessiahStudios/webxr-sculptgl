@@ -3,15 +3,19 @@
  */
 
 :root {
+  /* Brand accents sampled from docs/media/webxr-sculpt-logo.png */
   --gui-bg-deep: #16181e;
   --gui-bg-bar: #1c1e24;
   --gui-bg-panel: #2a2d36;
   --gui-bg-elevated: #32363f;
   --gui-bg-widget: rgba(0, 0, 0, 0.35);
   --gui-bg-widget-hover: rgba(0, 0, 0, 0.48);
-  --gui-accent: #6ec8ff;
-  --gui-accent-soft: rgba(110, 200, 255, 0.18);
-  --gui-accent-warm: #ffb86b;
+  --gui-accent: #58a8f0;
+  --gui-accent-soft: rgba(88, 168, 240, 0.18);
+  --gui-accent-glow: #51d1f8;
+  --gui-accent-warm: #f7974b;
+  --gui-accent-warm-soft: rgba(247, 151, 75, 0.18);
+  --gui-accent-warm-bright: #ffc48a;
   --gui-border: rgba(140, 160, 200, 0.22);
   --gui-border-strong: rgba(140, 160, 200, 0.38);
   --gui-text: #c8d0e0;
@@ -132,12 +136,12 @@ body {
 .gui-sidebar > ul > label:hover {
   color: var(--gui-text-bright);
   background: var(--gui-accent-soft);
-  border-color: rgba(110, 200, 255, 0.35);
+  border-color: rgba(88, 168, 240, 0.35);
 }
 
 .gui-sidebar > ul[opened=true] > label {
   color: var(--gui-accent);
-  border-color: rgba(110, 200, 255, 0.4);
+  border-color: rgba(88, 168, 240, 0.4);
 }
 
 .gui-sidebar > ul[opened=true] > label:before {
@@ -223,11 +227,11 @@ li.sculptgl-tool-select-hidden {
 }
 
 .sculptgl-tool-icons-section.is-form .sculptgl-tool-icons-heading {
-  color: #7eb8e8;
+  color: var(--gui-accent);
 }
 
 .sculptgl-tool-icons-section.is-paint .sculptgl-tool-icons-heading {
-  color: #e8a06a;
+  color: var(--gui-accent-warm);
 }
 
 .sculptgl-tool-icons-grid {
@@ -276,12 +280,12 @@ li.sculptgl-tool-select-hidden {
 
 .sculptgl-tool-icon-btn:hover {
   background: var(--gui-accent-soft);
-  border-color: rgba(110, 200, 255, 0.35);
+  border-color: rgba(88, 168, 240, 0.35);
 }
 
 .sculptgl-tool-icon-btn.is-selected {
   border-color: var(--gui-accent);
-  background: rgba(110, 200, 255, 0.16);
+  background: rgba(88, 168, 240, 0.16);
 }
 
 .sculptgl-tool-icon-btn.is-selected .sculptgl-tool-icon-cap {
@@ -289,8 +293,8 @@ li.sculptgl-tool-select-hidden {
 }
 
 .sculptgl-tool-icons-section.is-paint .sculptgl-tool-icon-btn.is-selected {
-  border-color: #e8a06a;
-  background: rgba(232, 160, 106, 0.16);
+  border-color: var(--gui-accent-warm);
+  background: var(--gui-accent-warm-soft);
 }
 
 .gui-glowOnHover:hover {
@@ -411,7 +415,7 @@ li.sculptgl-tool-select-hidden {
 
 .gui-slider > div {
   height: 100%;
-  background: linear-gradient(90deg, #4a7a92, var(--gui-accent));
+  background: linear-gradient(90deg, #3a6a9a, var(--gui-accent));
 }
 
 
@@ -442,7 +446,7 @@ li.sculptgl-tool-select-hidden {
 .gui-button:enabled:hover {
   color: var(--gui-text-bright);
   background: var(--gui-accent-soft);
-  border-color: rgba(110, 200, 255, 0.4);
+  border-color: rgba(88, 168, 240, 0.4);
 }
 
 .gui-button:active {
@@ -592,7 +596,7 @@ li.sculptgl-tool-select-hidden {
 .gui-select:hover {
   color: var(--gui-text-bright);
   background: var(--gui-accent-soft);
-  border-color: rgba(110, 200, 255, 0.4);
+  border-color: rgba(88, 168, 240, 0.4);
 }
 
 .gui-select option,
@@ -668,7 +672,7 @@ li.sculptgl-tool-select-hidden {
   padding: 10px 8px 12px;
   border-radius: 0 0 var(--gui-radius) var(--gui-radius);
   border: 1px solid var(--gui-border-strong);
-  border-top: 2px solid rgba(110, 200, 255, 0.55);
+  border-top: 2px solid rgba(88, 168, 240, 0.55);
   box-shadow: var(--gui-shadow);
   pointer-events: none;
   opacity: 0;

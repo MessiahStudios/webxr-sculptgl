@@ -16,7 +16,7 @@ function addPlaceholderGrip(root) {
   var geo = new THREE.BoxGeometry(0.06, 0.09, 0.14);
   // BasicMaterial stays visible in MR / minimal lighting (Standard can look invisible).
   var mat = new THREE.MeshBasicMaterial({
-    color: 0x33ccff,
+    color: 0x58a8f0,
     transparent: true,
     opacity: 0.95,
     depthTest: true,

@@ -621,7 +621,7 @@ class XRSculptDock {
 
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = 'rgba(22,24,32,0.92)';
-    ctx.strokeStyle = 'rgba(120,170,255,0.55)';
+    ctx.strokeStyle = 'rgba(88,168,240,0.55)';
     ctx.lineWidth = 3;
     roundRect(ctx, 8, 8, w - 16, h - 16, 14);
     ctx.fill();
@@ -646,10 +646,10 @@ class XRSculptDock {
     ctx.fill();
     roundRect(ctx, barX + barW * 0.52, 64, barW * 0.48, barH, 4);
     ctx.fill();
-    ctx.fillStyle = '#6ec8ff';
+    ctx.fillStyle = '#58a8f0';
     roundRect(ctx, barX, 64, Math.max(4, barW * 0.48 * rNorm), barH, 4);
     ctx.fill();
-    ctx.fillStyle = '#ffb86b';
+    ctx.fillStyle = '#f7974b';
     roundRect(ctx, barX + barW * 0.52, 64, Math.max(4, barW * 0.48 * iNorm), barH, 4);
     ctx.fill();
 
@@ -660,7 +660,7 @@ class XRSculptDock {
     var smoothHold = !!(this._scene._xrSmoothHold);
     var negHold = !!this._rightGripNeg && this._toolSupportsNegative(this._scene.getSculptManager() && this._scene.getSculptManager().getCurrentTool());
     if (toastLive || squeezeHint || eyedropHint || smoothHold || negHold) {
-      ctx.fillStyle = toastLive ? 'rgba(255,180,90,0.42)' : (eyedropHint ? 'rgba(120,200,140,0.4)' : (smoothHold || negHold ? 'rgba(255,160,80,0.4)' : 'rgba(90,140,255,0.38)'));
+      ctx.fillStyle = toastLive ? 'rgba(247,151,75,0.42)' : (eyedropHint ? 'rgba(120,200,140,0.4)' : (smoothHold || negHold ? 'rgba(247,151,75,0.4)' : 'rgba(88,168,240,0.38)'));
       roundRect(ctx, 18, 80, w - 36, 28, 6);
       ctx.fill();
       ctx.fillStyle = '#fff8ee';
@@ -725,7 +725,7 @@ class XRSculptDock {
     for (i = 0; i < tabs.length; ++i) {
       var tid = tabs[i];
       var active = tid === s.tab;
-      ctx.fillStyle = active ? 'rgba(90,140,255,0.4)' : 'rgba(60,70,90,0.4)';
+      ctx.fillStyle = active ? 'rgba(88,168,240,0.4)' : 'rgba(60,70,90,0.4)';
       roundRect(ctx, tabX, line - 14, tabW, 28, 6);
       ctx.fill();
       ctx.fillStyle = active ? '#ffffff' : '#9ca8cc';
@@ -741,10 +741,10 @@ class XRSculptDock {
 
     var hud = this._scene.getXRWorkspaceHud ? this._scene.getXRWorkspaceHud() : null;
     if (hud && hud.entryHint && s.tab !== 'workspace') {
-      ctx.fillStyle = 'rgba(255,180,90,0.28)';
+      ctx.fillStyle = 'rgba(247,151,75,0.28)';
       roundRect(ctx, 18, line - 16, w - 36, 36, 6);
       ctx.fill();
-      ctx.fillStyle = '#ffd09a';
+      ctx.fillStyle = '#ffc48a';
       ctx.font = 'bold 13px system-ui,Segoe UI,sans-serif';
       ctx.fillText('Clay ~' + hud.sizeCm + 'cm at ' + hud.scalePct + '% — SPACE tab to adjust', 26, line + 6);
       line += 44;
@@ -752,12 +752,12 @@ class XRSculptDock {
     }
 
     if (s.tab === 'workspace') {
-      ctx.fillStyle = '#ffd09a';
+      ctx.fillStyle = '#ffc48a';
       ctx.font = 'bold 15px system-ui,Segoe UI,sans-serif';
       ctx.fillText('WORKSPACE — artist ↔ sculpture (not the mesh)', 22, line);
       line += 26;
       if (hud) {
-        ctx.fillStyle = 'rgba(90,140,255,0.35)';
+        ctx.fillStyle = 'rgba(88,168,240,0.35)';
         roundRect(ctx, 18, line - 18, w - 36, 34, 6);
         ctx.fill();
         ctx.fillStyle = '#ffffff';
@@ -782,7 +782,7 @@ class XRSculptDock {
     } else if (s.tab === 'alpha') {
       this._paintAlphaTab(ctx, s, w, h, line);
     } else if (s.tab === 'opts') {
-      ctx.fillStyle = '#ffd09a';
+      ctx.fillStyle = '#ffc48a';
       if (s.tool === 'paint' || s.tool === 'soften')
         ctx.fillText(fitText(ctx, (s.tool === 'soften' ? 'SOFTEN' : 'PAINT') +
           ' OPTIONS — stick Y focus, X nudge, Y toggle', w - 44), 22, line);
@@ -815,7 +815,7 @@ class XRSculptDock {
       for (i = scroll; i < end; ++i) {
         var ok = opts[i];
         var on = !fullExport && ok === s.optFocus;
-        ctx.fillStyle = on ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
+        ctx.fillStyle = on ? 'rgba(247,151,75,0.4)' : 'rgba(50,55,70,0.5)';
         roundRect(ctx, 22, line - 16, pillW, 24, 4);
         ctx.fill();
         var textX = 32;
@@ -861,7 +861,7 @@ class XRSculptDock {
       else if (aOn)
         ctx.fillStyle = toggleFocus ? 'rgba(120,200,140,0.55)' : 'rgba(90,160,120,0.4)';
       else
-        ctx.fillStyle = toggleFocus ? 'rgba(255,180,90,0.45)' : 'rgba(50,55,70,0.5)';
+        ctx.fillStyle = toggleFocus ? 'rgba(247,151,75,0.45)' : 'rgba(50,55,70,0.5)';
       roundRect(ctx, 22, line - 16, w - 44, 26, 4);
       ctx.fill();
       ctx.fillStyle = !canAlpha ? '#8899aa' : (toggleFocus ? '#fff4e8' : '#c8d0e8');
@@ -928,7 +928,7 @@ class XRSculptDock {
         ctx.font = '13px system-ui,Segoe UI,sans-serif';
         ctx.fillText('Swatches', 34, line + 2);
         ctx.fillText('Wheel', 158, line + 2);
-        ctx.fillStyle = '#ffd09a';
+        ctx.fillStyle = '#ffc48a';
         ctx.fillText('Y: toggle picker', 250, line + 2);
         line += 28;
 
@@ -952,11 +952,11 @@ class XRSculptDock {
             ctx.strokeStyle = 'rgba(255,255,255,0.7)';
             ctx.lineWidth = 2;
             ctx.stroke();
-            ctx.fillStyle = '#ffd09a';
+            ctx.fillStyle = '#ffc48a';
             ctx.font = 'bold 11px system-ui,Segoe UI,sans-serif';
             ctx.fillText('next', 300, line + 78);
           }
-          ctx.fillStyle = this._wheelAiming ? '#ffd09a' : '#9dffb0';
+          ctx.fillStyle = this._wheelAiming ? '#ffc48a' : '#9dffb0';
           ctx.font = 'bold 13px system-ui,Segoe UI,sans-serif';
           ctx.fillText(this._wheelAiming ? 'AIMING…' : 'LOCKED', 230, line + 96);
           ctx.fillStyle = '#c8d0e8';
@@ -980,7 +980,7 @@ class XRSculptDock {
             ctx.fillText('Paint keeps locked color', 230, line + 148);
           }
         } else {
-          ctx.fillStyle = '#ffd09a';
+          ctx.fillStyle = '#ffc48a';
           ctx.font = '13px system-ui,Segoe UI,sans-serif';
           ctx.fillText('Stick X cycles color · Opts for hardness / PBR', 22, line);
           line += 16;
@@ -1078,12 +1078,12 @@ class XRSculptDock {
   _paintAlphaTab(ctx, s, w, h, line) {
     var focus = s.alphaFocus || 'gallery';
     var from = s.alphaFrom === 'paint' ? 'paint' : 'form';
-    ctx.fillStyle = '#ffd09a';
+    ctx.fillStyle = '#ffc48a';
     ctx.font = 'bold 15px system-ui,Segoe UI,sans-serif';
     ctx.fillText(from === 'paint' ? 'ALPHA · paint stamps' : 'ALPHA · sculpt stamps', 22, line);
     line += 20;
 
-    ctx.fillStyle = 'rgba(90,140,255,0.28)';
+    ctx.fillStyle = 'rgba(88,168,240,0.28)';
     roundRect(ctx, 18, line - 14, w - 36, 40, 6);
     ctx.fill();
     ctx.fillStyle = '#dce6ff';
@@ -1104,7 +1104,7 @@ class XRSculptDock {
     var i;
     var galleryOn = focus === 'gallery';
     if (galleryOn) {
-      ctx.strokeStyle = 'rgba(255,180,90,0.75)';
+      ctx.strokeStyle = 'rgba(247,151,75,0.75)';
       ctx.lineWidth = 2;
       var gridH = Math.ceil(ids.length / perRow) * (cell + gap) + 10;
       roundRect(ctx, 18, line - 10, w - 36, gridH + 8, 6);
@@ -1118,7 +1118,7 @@ class XRSculptDock {
       var sx = 22 + pc * (cell + gap);
       var sy = line + pr * (cell + gap);
       var sel = AlphaLibrary.normalizeAlphaId(id) === cur;
-      ctx.fillStyle = sel ? 'rgba(90,140,255,0.6)' : 'rgba(40,45,60,0.8)';
+      ctx.fillStyle = sel ? 'rgba(88,168,240,0.6)' : 'rgba(40,45,60,0.8)';
       roundRect(ctx, sx, sy, cell, cell, 6);
       ctx.fill();
       if (sel) {
@@ -1163,7 +1163,7 @@ class XRSculptDock {
     line += 22;
 
     var lockOn = focus === 'lock';
-    ctx.fillStyle = lockOn ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
+    ctx.fillStyle = lockOn ? 'rgba(247,151,75,0.4)' : 'rgba(50,55,70,0.5)';
     roundRect(ctx, 22, line - 16, w - 44, 26, 4);
     ctx.fill();
     ctx.fillStyle = lockOn ? '#fff4e8' : '#b8c0d8';
@@ -1172,7 +1172,7 @@ class XRSculptDock {
     line += 28;
 
     var angOn = focus === 'angle';
-    ctx.fillStyle = angOn ? 'rgba(255,180,90,0.4)' : 'rgba(50,55,70,0.5)';
+    ctx.fillStyle = angOn ? 'rgba(247,151,75,0.4)' : 'rgba(50,55,70,0.5)';
     roundRect(ctx, 22, line - 16, w - 44, 26, 4);
     ctx.fill();
     ctx.fillStyle = angOn ? '#fff4e8' : '#b8c0d8';

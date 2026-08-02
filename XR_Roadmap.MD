@@ -477,25 +477,24 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 |---|---|---|
 | **Friend / family playable** | **Yes** | Quest MR/VR loop + desktop; teach lower R/I on Drag; Soften + remesh heal stretches |
 | **Materials / files trust** | **Yes (Phase C)** | GLB round-trip + map paint; `.sgl` still vertex/UV-strong (map slots optional later) |
-| **Presentation coherence** | **Mostly** | Tool **icon pack** (desktop Form/Paint + XR dock); wireframe in OPTS; README shows the palette |
+| **Presentation coherence** | **Yes** | Product **logo** as README hero; UI accents locked to logo (`#58A8F0` / `#F7974B`); tool icon pack + wireframe |
 | **Quest feel / perf** | **Pass 1 done** | Cached XR brush radius AABB; coalesce mesh GPU uploads / frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
-| **Named v1 “final cut”** | **~90%** | Blockers below — none are “rewrite sculpting” |
+| **Named v1 “final cut”** | **~91%** | Blockers below — none are “rewrite sculpting” |
 
 **Blockers before calling it a final product cut**
 
 1. **ADD shape / Workspace re-fit** — family playtest shrink when stacking primitives far from origin  
 2. **Gate How-to docs** Camera buttons (maintainer helpers, not end-user product)  
-3. Optional: drop hero stills / GIF under `docs/media/` (icons already cover GitHub front door)  
-4. Light dock offset / size fine-tune from more sculpt time  
+3. Light dock offset / size fine-tune from more sculpt time  
 
-**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share.
+**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero (landed).
 
 ### Where we are (2026-08-01)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** tool **icon pack** (desktop + XR); OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass** (Quest-first); **α maps ON/OFF**; roadmap prune; Phase D UV *likely needed*; family playtest notes below.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** as GitHub hero; **brand accent sync** (UI ↔ logo cyan/amber); tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
 
 ```
-███████████████████████░░  ~90% toward named product cut
+███████████████████████░░  ~91% toward named product cut
 █████████████████████████  ~98% of first-class XR surface
 │                        │
 ├─ Done: session · Workspace · FORM/PAINT/α · Transform · paint · Soften · Save/Load
@@ -503,9 +502,10 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Paint into maps · brush feel · clay PBR defaults + shader hint
 │        · Shared alpha gallery + α maps toggle + ALPHA tab · stamp lock/angle
 │        · Local Snapshot PNG + video · dock/desktop polish · how-to PNG packs
-│        · Tool icons (desktop Form/Paint + XR dock) · OPTS wireframe · Quest sculpt perf pass
+│        · Tool icons · OPTS wireframe · Quest sculpt perf pass
+│        · Product logo hero + brand accent sync (#58A8F0 / #F7974B)
 ├─ Next: ADD shape / Workspace re-fit (playtest shrink) · gate How-to docs · dock fine-tune
-│        · α allowlist watch · optional docs/media hero stills · Import URL only if used
+│        · α allowlist watch · Import URL only if used
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
 └─ Stretch (thin): dock slot swap · hands (after controllers stay boring) · remesh if Quest-safe
@@ -563,6 +563,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Tool icon pack** | **Yes** | `app/resources/tool-icons/*.png` — desktop Form/Paint grid + XR dock thumbs; README tool palette |
 | **OPTS wireframe** | **Yes** | XR dock toggle; WebGL2 uint-index fix so wireframe draws |
 | **Quest sculpt perf pass** | **Yes (pass 1)** | Cache XR brush radius AABB; coalesce buffer uploads / XR frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
+| **Product logo + brand sync** | **Yes** | `docs/media/webxr-sculpt-logo.png` README hero; UI accents `#58A8F0` / `#F7974B` (logo-sampled) |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -570,10 +571,9 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 1. **ADD shape / Workspace re-fit** — spawn near current sculpt; don’t re-fit the room on every ADD (family playtest).  
 2. **How-to docs Camera buttons** — hide/gate before a “final” product cut (keep export helpers for maintainers).  
 3. **Dock placement** — fine-tune from real sculpt sessions (offset / size only).  
-4. **README hero media** — optional; tool icons already on the GitHub front door; stills/GIF under `docs/media/` when ready.  
-5. **α allowlist watch** — demote grab-tool α if muddy in practice.  
-6. **Import URL UX** — only if hosted CC0 / CORS workflow is something you use; else leave `addModelURL` as-is.  
-7. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
+4. **α allowlist watch** — demote grab-tool α if muddy in practice.  
+5. **Import URL UX** — only if hosted CC0 / CORS workflow is something you use; else leave `addModelURL` as-is.  
+6. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
 
 ~~Bake polish / Studio record / XR capture chrome / other-HMD~~ — cut or absorbed (see *No longer pursuing*).
 
@@ -621,6 +621,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Tool icon pack** — desktop Form/Paint icon grid + XR dock; README tool palette  
 - [x] **OPTS wireframe** + WebGL2 wireframe draw fix  
 - [x] **Quest sculpt perf pass (1)** — radius AABB cache; coalesce GPU uploads; defer Paint/Soften map flush; parked ~20Hz  
+- [x] **Product logo** as GitHub hero (`docs/media/webxr-sculpt-logo.png`) + **brand accent sync** (desktop + XR dock → `#58A8F0` / `#F7974B`)  
 
 ### Next (near-term)
 
@@ -629,10 +630,9 @@ Active leftovers only (done items removed from the “todo” mental list):
 1. [ ] **XR ADD shape** — spawn near current sculpt / matching size; avoid `fitXRStageToScene` on every ADD (family playtest shrink)  
 2. [ ] Before “final” cut: hide or gate **How-to docs** Camera buttons  
 3. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
-4. [ ] Optional hero stills/GIF under `docs/media/` (icons already wire README)  
-5. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
-6. [ ] Optional **Import URL** affordance — only if you use hosted CC0; else skip  
-7. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+4. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
+5. [ ] Optional **Import URL** affordance — only if you use hosted CC0; else skip  
+6. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 
