@@ -486,7 +486,7 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 **Blockers before calling it a final product cut**
 
-1. **Gate How-to docs** Camera buttons when ready for the cut (maintainer PNG exporters — separate from public [`docs/HOW_TO.md`](./docs/HOW_TO.md); **kept for now**)  
+1. ~~Gate How-to docs Camera buttons~~ — **stable build** (`npm run release:stable`) strips them; **dev** keeps helpers. Publish stable via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md) (e.g. `messiahstudios.site/webxr-sculpt/`).  
 
 **Done (was listed as leftover):** light dock offset / size — landed with head-facing float (`_watchOffset`), plane aspect = canvas, FORM reflow; no longer a v1 blocker.
 
@@ -517,8 +517,8 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Desktop-only sessions on WebXR devices (Cancel setup → yagui; chip to enter later)
 │        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
 │        · XR direct-output encodeFragColor (silence ANGLE X4000)
-├─ Next (deferred cut item): gate Camera How-to PNG buttons when naming v1
-│        · α allowlist watch
+├─ Next: publish stable via docs/STABLE_HOSTING.md · α allowlist watch
+│        · (dev) How-to Camera exporters remain until dropped from Camera entirely
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
 └─ Stretch (thin): dock slot swap · hands (after controllers stay boring) · remesh if Quest-safe
@@ -650,11 +650,11 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 
 Active leftovers only (done items removed from the “todo” mental list):
 
-1. [ ] When naming the cut: hide or gate **Camera How-to PNG** export buttons (maintainer only — **kept for now**)  
+1. [x] **Stable v1 build** — `npm run release:stable` → `dist/v1/` (How-to Camera UI stripped); host via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)  
 2. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
 3. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
 
-**Landed (no longer leftovers):** dock offset / size fine-tune · Workspace seats in front of the **headset** on enter / SPACE recenter.
+**Landed (no longer leftovers):** dock offset / size fine-tune · Workspace seats in front of the **headset** on enter / SPACE recenter · How-to exporters gated in **stable** (kept on **dev**).
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 

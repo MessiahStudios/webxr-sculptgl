@@ -22,9 +22,19 @@
 | **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
 | **Ship-ready “final cut”** | **~95%** — usable product today; leftover is polish, not missing clay |
 
-**Deferred before naming the cut (intentional):** gate/remove maintainer Camera How-to PNG export buttons (public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md) — keep helpers until then).
+**Channels (same repo):**
 
-**Dock offset / size:** Done — head-facing float, plane aspect = canvas, FORM reflow; no further fine-tune blocker.
+| | Dev | Stable v1 |
+|---|---|---|
+| Build | `npm run release` | `npm run release:stable` → `dist/v1/` |
+| How-to Camera exporters | Yes | **Removed** |
+| Host | `xr-dev.messiahstudios.site` | e.g. `messiahstudios.site/webxr-sculpt/` |
+
+Hosting steps: **[`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)**.
+
+**Deferred on the cut list only for the product naming moment:** none required in the stable build (How-to UI already stripped there). Dev keeps helpers until you drop them from Camera entirely.
+
+**Dock offset / size:** Done — head-facing float, plane aspect = canvas, FORM reflow.
 
 **Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
 
@@ -126,6 +136,16 @@ WebXR on Quest needs HTTPS. Serve locally, then point any tunnel (Cloudflare, ng
 
 Full DIY walkthrough: [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt)  
 Live Quest/Desktop logs while testing: [http://127.0.0.1:8080/__xr_logs](http://127.0.0.1:8080/__xr_logs)
+
+### Stable v1 (GitHub Pages / main site)
+
+```bash
+npm run release:stable   # → dist/v1/ (How-to Camera buttons stripped)
+```
+
+Copy `dist/v1/` into [MessiahStudios.github.io](https://github.com/MessiahStudios/MessiahStudios.github.io) as `webxr-sculpt/` for **`https://www.messiahstudios.site/webxr-sculpt/`**. Keep **`xr-dev.messiahstudios.site`** for development.
+
+Details: **[`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)**.
 
 ---
 

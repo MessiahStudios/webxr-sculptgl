@@ -1,6 +1,7 @@
 import TR from 'gui/GuiTR';
 import getOptionsURL from 'misc/getOptionsURL';
 import Enums from 'misc/Enums';
+import BuildFlags from 'misc/BuildFlags';
 
 class GuiCamera {
 
@@ -48,10 +49,12 @@ class GuiCamera {
     menu.addTitle(TR('cameraSnapshotTitle'));
     menu.addButton(TR('cameraLocalSnapshot'), this, 'saveLocalSnapshot');
 
-    // How-to docs helpers (WebXR dock + desktop yagui). Packs cover full menus.
-    menu.addTitle(TR('cameraHowToDocsTitle'));
-    menu.addButton(TR('cameraDockUIExportAll'), this, 'saveDockUIAllTabs');
-    menu.addButton(TR('cameraDesktopUIExportAll'), this, 'saveDesktopUIAllPanels');
+    // How-to docs helpers — developer builds only (stripped from `npm run release:stable`).
+    if (!BuildFlags.isStable) {
+      menu.addTitle(TR('cameraHowToDocsTitle'));
+      menu.addButton(TR('cameraDockUIExportAll'), this, 'saveDockUIAllTabs');
+      menu.addButton(TR('cameraDesktopUIExportAll'), this, 'saveDesktopUIAllPanels');
+    }
 
     menu.addTitle(TR('cameraRecordTitle'));
     this._recFps = this._main.getLocalRecordFps ? this._main.getLocalRecordFps() : 12;

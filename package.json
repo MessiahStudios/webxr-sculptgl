@@ -1,7 +1,7 @@
 {
   "name": "webxr-sculptgl",
   "homepage": "https://github.com/MessiahStudios/webxr-sculptgl",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "WebXR Sculpt by Messiah Studios — Quest MR/VR digital clay, forked from SculptGL",
   "author": "Messiah Studios; original SculptGL by Stéphane GINIER",
   "license": "MIT",
@@ -40,6 +40,7 @@
     "generate-alphas": "node tools/generate-alpha-pack.js",
     "xr-dev": "npm run release && npm run serve:tunnel",
     "release": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env release",
+    "release:stable": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env stable",
     "webad": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env webad",
     "website": "node --openssl-legacy-provider node_modules/webpack/bin/webpack.js --env website",
     "buildElectron": "yarn release && rm -rf standalone/app/ && cp -R app/ standalone/ && cp package.json standalone",
