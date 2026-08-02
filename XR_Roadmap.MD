@@ -482,21 +482,22 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 | **Materials / files trust** | **Yes (Phase C)** | GLB round-trip + map paint; `.sgl` still vertex/UV-strong (map slots optional later) |
 | **Presentation coherence** | **Yes** | Product **logo** + **welcome splash**; **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** tool guide with icons; UI accents `#58A8F0` / `#F7974B` |
 | **Quest feel / perf** | **Pass 1 done** | Cached XR brush radius AABB; coalesce mesh GPU uploads / frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
-| **Named v1 “final cut”** | **~93%** | Blockers below — none are “rewrite sculpting” |
+| **Named v1 “final cut”** | **~95%** | Blockers below — none are “rewrite sculpting” |
 
 **Blockers before calling it a final product cut**
 
-1. **Gate How-to docs** Camera buttons (maintainer PNG exporters — separate from public [`docs/HOW_TO.md`](./docs/HOW_TO.md))  
-2. Light dock offset / size fine-tune from more sculpt time  
+1. **Gate How-to docs** Camera buttons when ready for the cut (maintainer PNG exporters — separate from public [`docs/HOW_TO.md`](./docs/HOW_TO.md); **kept for now**)  
 
-**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to · **XR ADD spawn** (landed).
+**Done (was listed as leftover):** light dock offset / size — landed with head-facing float (`_watchOffset`), plane aspect = canvas, FORM reflow; no longer a v1 blocker.
+
+**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to · **XR ADD spawn** · **dock offset/size** (landed).
 
 ### Where we are (2026-08-02)
 
 Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **Import URL** (paste-friendly); **Desktop-only on Quest Browser** confirmed (Cancel setup → full yagui; enter XR anytime); dock FORM reflow + **Transform** label; **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
 
 ```
-███████████████████████▓░  ~93% toward named product cut
+████████████████████████▓░  ~95% toward named product cut
 █████████████████████████  ~98% of first-class XR surface
 │                        │
 ├─ Done: session · Workspace · FORM/PAINT/α · Transform · paint · Soften · Save/Load
@@ -511,11 +512,12 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · XR ADD near selection (no Workspace re-fit on every ADD)
 │        · XR dock FORM layout — clamp above footer + flush paint when entry-hint ends
 │        · Dock tool label Transform (match Desktop; was xform)
+│        · Dock offset / size — head-facing float + aspect-matched plane (no longer a leftover)
 │        · Workspace seats ahead of headset (viewer pose) on enter / SPACE recenter
 │        · Desktop-only sessions on WebXR devices (Cancel setup → yagui; chip to enter later)
 │        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
 │        · XR direct-output encodeFragColor (silence ANGLE X4000)
-├─ Next: gate Camera How-to PNG buttons · dock fine-tune
+├─ Next (deferred cut item): gate Camera How-to PNG buttons when naming v1
 │        · α allowlist watch
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
@@ -570,7 +572,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Alpha stamp feel + angle** | **Yes** | Freehand default; lock opt-in; bilinear + contrast; angle −360…360 (Desktop presets + XR stick) |
 | **How-to menu PNG packs** | **Yes** | Camera → How-to docs: live DOM/dock snapshots; Desktop pack unlocks max-height/overflow + explicit scroll size (no clipped bottoms) |
 | **Desktop chrome consistency** | **Yes** | Shared CSS tokens; all topbar dropdowns match Camera (width, wrap, accents); sidebar folders/widgets aligned |
-| **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼; FORM grid clamps above footer + post–entry-hint reflow (no stuck overlap) |
+| **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼; FORM grid clamps above footer + post–entry-hint reflow; head-facing `_watchOffset` (offset/size fine-tune absorbed — not a leftover) |
 | **Tool icon pack** | **Yes** | `app/resources/tool-icons/*.png` — Desktop Form/Paint grid + XR dock thumbs; README tool palette |
 | **OPTS wireframe** | **Yes** | XR dock toggle; WebGL2 uint-index fix so wireframe draws |
 | **Quest sculpt perf pass** | **Yes (pass 1)** | Cache XR brush radius AABB; coalesce buffer uploads / XR frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
@@ -583,11 +585,11 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 
 #### Gaps that still need attention
 
-1. **Camera How-to PNG buttons** — hide/gate maintainer exporters before a “final” product cut (public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md)).  
-2. **Dock placement** — fine-tune from real sculpt sessions (offset / size only).  
-3. **α allowlist watch** — demote grab-tool α if muddy in practice.  
-4. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
+1. **Camera How-to PNG buttons** — hide/gate maintainer exporters when naming the cut (**kept for now**; public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md)).  
+2. **α allowlist watch** — demote grab-tool α if muddy in practice.  
+3. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
 
+~~Dock placement / offset / size~~ — done (head-facing float + aspect-matched plane).  
 ~~Bake polish / Studio record / XR capture chrome / other-HMD~~ — cut or absorbed (see *No longer pursuing*).
 
 Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) → wheel lock / multi-select → tools**. Right: sculpt / Transform / **grip = negative** / undo / redo. **Both grips = Smooth hold** (Desktop Shift).
@@ -627,7 +629,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
   - XR: Cast-like mono (head pose + ~70° FOV) with **clay + brush/gizmo + controllers + dock**  
   - XR still: **~1.5s aim delay** then capture from current headset pose (same overlays as record)  
   - Scratch buffers disposed when idle  
-- [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; FORM entry-hint reflow (no stuck footer overlap)  
+- [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; FORM entry-hint reflow; head-facing offset (offset/size fine-tune done)  
 - [x] **Desktop yagui chrome facelift** — shared CSS tokens; topbar + sidebar consistent with Camera menu  
 - [x] **How-to docs PNG packs** (Camera → How-to docs) — WebXR dock full tabs + Desktop sidebar/topbar; Desktop capture unlocks clip + scrollHeight (no bottom crop); WIP docs helper, not product UX  
 - [x] **α maps ON/OFF** on FORM/PAINT — allowlisted tools; Transform = n/a; ALPHA tab gated; shared stamp  
@@ -648,12 +650,11 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 
 Active leftovers only (done items removed from the “todo” mental list):
 
-1. [ ] Before “final” cut: hide or gate **Camera How-to PNG** export buttons (maintainer only)  
-2. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
-3. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
-4. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+1. [ ] When naming the cut: hide or gate **Camera How-to PNG** export buttons (maintainer only — **kept for now**)  
+2. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
+3. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
 
-**Landed for v1 comfort:** Workspace seats in front of the **headset** on enter / SPACE recenter (guardian size independent — Meta-button recenter not required).
+**Landed (no longer leftovers):** dock offset / size fine-tune · Workspace seats in front of the **headset** on enter / SPACE recenter.
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 

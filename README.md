@@ -20,9 +20,11 @@
 | **Desktop-only sessions** | Done — full yagui loop on PC **or** Quest Browser (Cancel XR setup); enter/exit immersive anytime |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
 | **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
-| **Ship-ready “final cut”** | **~93%** — usable product today; leftover is polish, not missing clay |
+| **Ship-ready “final cut”** | **~95%** — usable product today; leftover is polish, not missing clay |
 
-**Still before a named v1 cut:** gate maintainer Camera How-to PNG export buttons, light dock offset fine-tune.
+**Deferred before naming the cut (intentional):** gate/remove maintainer Camera How-to PNG export buttons (public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md) — keep helpers until then).
+
+**Dock offset / size:** Done — head-facing float, plane aspect = canvas, FORM reflow; no further fine-tune blocker.
 
 **Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
 
@@ -51,8 +53,8 @@ Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png)
 |---|---|
 | **Quest MR/VR** | Continuous sculpt loop with controllers, passthrough or studio VR |
 | **Desktop anytime** | Full Desktop UI without immersive — PC monitor or Quest Browser (Cancel setup); WebXR chip to enter later |
-| **Sculpt Dock** | FORM / PAINT / OPTS / SPACE — head-facing helper, not a floating desktop clone |
-| **Workspace** | Clay in the *room* (scale, distance, turntable) — separate from mesh Transform |
+| **Sculpt Dock** | FORM / PAINT / OPTS / SPACE — head-facing helper (aspect-matched plane; offset clears controller buttons) |
+| **Workspace** | Clay in the *room* (scale, distance, turntable) — seats ahead of the headset on enter / SPACE recenter |
 | **Surface tools** | Paint, Soften (blend colors), masking, shared **alpha stamp gallery** |
 | **Materials** | Clay-friendly PBR paint; GLB round-trip with UVs + live maps when present |
 | **Files** | Save/Load `.sgl`, Import file / **Import URL** (https + CORS; paste-friendly), honest export OBJ / OBJ+MAPS / GLB / PLY / STL |
