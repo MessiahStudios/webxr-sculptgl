@@ -18,10 +18,10 @@
 |---|---|
 | **Core sculpt loop (Quest + desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
-| **Presentation / brand** | Logo hero on GitHub; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
-| **Ship-ready “final cut”** | **~90%** — usable product today; leftover is polish, not missing clay |
+| **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
+| **Ship-ready “final cut”** | **~92%** — usable product today; leftover is polish, not missing clay |
 
-**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer How-to PNG buttons, light dock offset fine-tune.
+**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer Camera How-to PNG export buttons, light dock offset fine-tune.
 
 **Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
 
@@ -38,7 +38,9 @@ Deep checklist: **[`XR_Roadmap.MD`](./XR_Roadmap.MD)** → *Roadmap status* / *P
 | Accent (warm) | `#F7974B` | Logo “SCULPT” / PAINT / warm UI |
 | Ground | `#16181E` | Desktop / dock charcoal |
 
-Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png) (hero) · [`app/resources/brand/`](./app/resources/brand/) (app copy)
+Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png) (hero) · [`app/resources/brand/`](./app/resources/brand/) (app + welcome splash)
+
+**Welcome splash:** first load shows the logo + Messiah Studios links; **Don’t show again** (`sculptgl.welcome.hide`); **Let’s Sculpt** dismisses on desktop, or opens XR setup on headset.
 
 ---
 
@@ -58,7 +60,7 @@ Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png)
 
 ## Tool palette
 
-Same icons on **desktop Form / Paint** and the **XR dock** (`app/resources/tool-icons/`).
+Same icons on **desktop Form / Paint** and the **XR dock**. Full usage guide: **[`docs/HOW_TO.md`](./docs/HOW_TO.md)**.
 
 ### Form
 
@@ -78,9 +80,20 @@ Same icons on **desktop Form / Paint** and the **XR dock** (`app/resources/tool-
 
 ---
 
+## How to
+
+| Guide | Contents |
+|---|---|
+| **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** | Tool icons explained · desktop + Quest controls · α stamps · first-session tips |
+| [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt) | HTTPS tunnel for Quest Browser |
+| [`XR_Roadmap.MD`](./XR_Roadmap.MD) | Design charter, architecture, Phase A–E status |
+
+---
+
 ## Screenshots
 
-Brand hero above is the GitHub product image. Quest MR / desktop stills or short GIFs can still land under `docs/media/` when you have them.
+Brand hero above is the GitHub product image. Optional Quest MR / desktop stills can still land under `docs/media/`.
+
 ---
 
 ## Quick start

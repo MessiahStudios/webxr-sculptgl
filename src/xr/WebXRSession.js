@@ -3,6 +3,7 @@
  */
 import XRSetup from 'xr/XRSetup';
 import XRRemoteLog from 'xr/XRRemoteLog';
+import WelcomeOverlay from 'xr/WelcomeOverlay';
 
 function xrSetupLog(tag, detail) {
   XRRemoteLog.event(tag, detail);
@@ -48,7 +49,12 @@ class WebXRSession {
     this._webxrBar = bar;
     if (bar) bar.style.display = 'none';
 
-    if (!navigator.xr) return;
+    var self = this;
+
+    if (!navigator.xr) {
+      this._afterXrProbe(false, false);
+      return;
+    }
 
     var enterBtn = document.getElementById('webxr-enter-mr');
     var exitBtn = document.getElementById('webxr-exit');
@@ -58,7 +64,10 @@ class WebXRSession {
     var scaleUpBtn = document.getElementById('webxr-scale-up');
     var scaleDownBtn = document.getElementById('webxr-scale-down');
     var snapshotBtn = document.getElementById('webxr-snapshot');
-    if (!enterBtn || !exitBtn) return;
+    if (!enterBtn || !exitBtn) {
+      this._afterXrProbe(XRSetup.isHeadsetBrowser(), false);
+      return;
+    }
 
     // Local Snapshot control (virtual-view PNG) — create if HTML template lacks it.
     if (!snapshotBtn && bar) {
@@ -80,7 +89,6 @@ class WebXRSession {
     this._scaleDownBtn = scaleDownBtn;
     this._snapshotBtn = snapshotBtn;
 
-    var self = this;
     Promise.all([
       navigator.xr.isSessionSupported('immersive-ar'),
       navigator.xr.isSessionSupported('immersive-vr')
@@ -102,23 +110,15 @@ class WebXRSession {
         headset_browser: onHeadset,
         xr_toolbar_visible: immersiveOk,
         enter_button_visible: immersiveOk,
-        auto_open_setup: !!(immersiveOk && onHeadset),
-        note: 'Auto-open XR setup only on HMD browsers (Quest/Pico/…). Desktop keeps the chip; Cancel = stay on desktop tools.'
+        welcome_pending: WelcomeOverlay.shouldShow(),
+        auto_open_setup: !!(immersiveOk && onHeadset && !WelcomeOverlay.shouldShow()),
+        note: 'Welcome (if enabled) runs before headset auto XR setup; Cancel setup = stay on desktop tools.'
       });
-      // Headset: land in XR setup immediately. Desktop sculpt still works if they dismiss.
-      if (immersiveOk && onHeadset) {
-        setTimeout(function () {
-          if (self._session) return;
-          xrSetupLog('auto_open_setup', {
-            reason: 'headset_browser_with_immersive_support',
-            expect: 'Setup modal appears without tapping XR setup; Cancel returns to desktop UI'
-          });
-          self._openSetupModal();
-        }, 280);
-      }
+      self._afterXrProbe(onHeadset, immersiveOk);
     }).catch(function () {
       if (bar) bar.style.display = 'none';
       enterBtn.style.display = 'none';
+      self._afterXrProbe(false, false);
     });
 
     enterBtn.addEventListener('click', function () {
@@ -147,6 +147,48 @@ class WebXRSession {
         });
       }.bind(this));
     }
+  }
+
+  /**
+   * After XR probe (or when XR is unavailable): welcome first, then headset setup.
+   * Desktop Let's Sculpt only dismisses welcome; headset continues into XR setup.
+   */
+  _afterXrProbe(onHeadset, immersiveOk) {
+    var self = this;
+    var openHeadsetSetup = function () {
+      if (self._session) return;
+      if (!(immersiveOk && onHeadset)) return;
+      xrSetupLog('auto_open_setup', {
+        reason: 'headset_browser_with_immersive_support',
+        after_welcome: true,
+        expect: 'Setup modal appears; Cancel returns to desktop UI'
+      });
+      self._openSetupModal();
+    };
+
+    if (!WelcomeOverlay.shouldShow()) {
+      if (immersiveOk && onHeadset) {
+        setTimeout(openHeadsetSetup, 280);
+      }
+      return;
+    }
+
+    xrSetupLog('welcome_show', {
+      headset_browser: !!onHeadset,
+      immersive_ok: !!immersiveOk,
+      expect: onHeadset && immersiveOk
+        ? 'Lets Sculpt closes welcome then opens XR setup'
+        : 'Lets Sculpt closes welcome; stay on desktop sculpt'
+    });
+
+    WelcomeOverlay.show({
+      onHeadset: !!onHeadset,
+      immersiveOk: !!immersiveOk,
+      onContinue: function () {
+        if (immersiveOk && onHeadset)
+          openHeadsetSetup();
+      }
+    });
   }
 
   /**

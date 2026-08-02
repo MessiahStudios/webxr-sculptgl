@@ -338,7 +338,8 @@ Other community approaches (for context, not dependencies):
 
 | Piece | Location | Role |
 |---|---|---|
-| Session + enter/exit | `src/xr/WebXRSession.js` | MR/VR start, frame loop, grip-exit, stage UI hooks |
+| Session + enter/exit | `src/xr/WebXRSession.js` | MR/VR start, frame loop, grip-exit, stage UI hooks; welcome → XR setup gate |
+| Welcome splash | `src/xr/WelcomeOverlay.js` | First-load logo + links + Don’t show again; pre-session only |
 | Setup panel | `src/xr/XRSetup.js` | Mode + controller profile before enter |
 | Controllers | `src/xr/XRControllerModels.js` | Official WebXR input-profile GLBs; poses dock host; passes viewer pose for billboard |
 | Sculpt Dock | `src/xr/XRSculptDock.js` + `XRSculptDockState.js` | FORM / PAINT / OPTS / SPACE; paint; file/scene; Transform; **Local Snapshot / Record**; tool icons; wireframe; **head-facing float near left grip** |
@@ -477,34 +478,36 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 |---|---|---|
 | **Friend / family playable** | **Yes** | Quest MR/VR loop + desktop; teach lower R/I on Drag; Soften + remesh heal stretches |
 | **Materials / files trust** | **Yes (Phase C)** | GLB round-trip + map paint; `.sgl` still vertex/UV-strong (map slots optional later) |
-| **Presentation coherence** | **Yes** | Product **logo** as README hero; UI accents locked to logo (`#58A8F0` / `#F7974B`); tool icon pack + wireframe |
+| **Presentation coherence** | **Yes** | Product **logo** + **welcome splash**; **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** tool guide with icons; UI accents `#58A8F0` / `#F7974B` |
 | **Quest feel / perf** | **Pass 1 done** | Cached XR brush radius AABB; coalesce mesh GPU uploads / frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
-| **Named v1 “final cut”** | **~91%** | Blockers below — none are “rewrite sculpting” |
+| **Named v1 “final cut”** | **~92%** | Blockers below — none are “rewrite sculpting” |
 
 **Blockers before calling it a final product cut**
 
 1. **ADD shape / Workspace re-fit** — family playtest shrink when stacking primitives far from origin  
-2. **Gate How-to docs** Camera buttons (maintainer helpers, not end-user product)  
+2. **Gate How-to docs** Camera buttons (maintainer PNG exporters — separate from public [`docs/HOW_TO.md`](./docs/HOW_TO.md))  
 3. Light dock offset / size fine-tune from more sculpt time  
 
-**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero (landed).
+**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to (landed).
 
 ### Where we are (2026-08-01)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** as GitHub hero; **brand accent sync** (UI ↔ logo cyan/amber); tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
 
 ```
-███████████████████████░░  ~91% toward named product cut
+███████████████████████▓░  ~92% toward named product cut
 █████████████████████████  ~98% of first-class XR surface
 │                        │
 ├─ Done: session · Workspace · FORM/PAINT/α · Transform · paint · Soften · Save/Load
 │        · Import GLB (UVs + live maps + Draco) · Export GLB / OBJ / OBJ+MAPS / PLY / STL
 │        · Paint into maps · brush feel · clay PBR defaults + shader hint
 │        · Shared alpha gallery + α maps toggle + ALPHA tab · stamp lock/angle
-│        · Local Snapshot PNG + video · dock/desktop polish · how-to PNG packs
+│        · Local Snapshot PNG + video · dock/desktop polish · how-to PNG packs (Camera helpers)
 │        · Tool icons · OPTS wireframe · Quest sculpt perf pass
 │        · Product logo hero + brand accent sync (#58A8F0 / #F7974B)
-├─ Next: ADD shape / Workspace re-fit (playtest shrink) · gate How-to docs · dock fine-tune
+│        · Welcome splash (logo + links + Don’t show again; headset → XR setup)
+│        · Public How-to guide (docs/HOW_TO.md) with tool icons
+├─ Next: ADD shape / Workspace re-fit (playtest shrink) · gate Camera How-to PNG buttons · dock fine-tune
 │        · α allowlist watch · Import URL only if used
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
@@ -564,12 +567,14 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **OPTS wireframe** | **Yes** | XR dock toggle; WebGL2 uint-index fix so wireframe draws |
 | **Quest sculpt perf pass** | **Yes (pass 1)** | Cache XR brush radius AABB; coalesce buffer uploads / XR frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
 | **Product logo + brand sync** | **Yes** | `docs/media/webxr-sculpt-logo.png` README hero; UI accents `#58A8F0` / `#F7974B` (logo-sampled) |
+| **Welcome splash** | **Yes** | Logo + Messiah Studios links; `sculptgl.welcome.hide`; Let’s Sculpt → desktop dismiss / headset XR setup |
+| **Public How-to guide** | **Yes** | [`docs/HOW_TO.md`](./docs/HOW_TO.md) — tool icons + desktop/Quest controls; README links it |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
 
 1. **ADD shape / Workspace re-fit** — spawn near current sculpt; don’t re-fit the room on every ADD (family playtest).  
-2. **How-to docs Camera buttons** — hide/gate before a “final” product cut (keep export helpers for maintainers).  
+2. **Camera How-to PNG buttons** — hide/gate maintainer exporters before a “final” product cut (public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md)).  
 3. **Dock placement** — fine-tune from real sculpt sessions (offset / size only).  
 4. **α allowlist watch** — demote grab-tool α if muddy in practice.  
 5. **Import URL UX** — only if hosted CC0 / CORS workflow is something you use; else leave `addModelURL` as-is.  
@@ -622,13 +627,15 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **OPTS wireframe** + WebGL2 wireframe draw fix  
 - [x] **Quest sculpt perf pass (1)** — radius AABB cache; coalesce GPU uploads; defer Paint/Soften map flush; parked ~20Hz  
 - [x] **Product logo** as GitHub hero (`docs/media/webxr-sculpt-logo.png`) + **brand accent sync** (desktop + XR dock → `#58A8F0` / `#F7974B`)  
+- [x] **Welcome splash** — logo + links; Don’t show again; Let’s Sculpt dismisses (desktop) or opens XR setup (headset)  
+- [x] **Public How-to** — [`docs/HOW_TO.md`](./docs/HOW_TO.md) with shared tool icons; README How-to section  
 
 ### Next (near-term)
 
 Active leftovers only (done items removed from the “todo” mental list):
 
 1. [ ] **XR ADD shape** — spawn near current sculpt / matching size; avoid `fitXRStageToScene` on every ADD (family playtest shrink)  
-2. [ ] Before “final” cut: hide or gate **How-to docs** Camera buttons  
+2. [ ] Before “final” cut: hide or gate **Camera How-to PNG** export buttons (maintainer only)  
 3. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
 4. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
 5. [ ] Optional **Import URL** affordance — only if you use hosted CC0; else skip  
@@ -822,15 +829,19 @@ Necessary follow-through after geometry-first GLB.
 
 > **Why it may earn place:** map paint and honest textured export need UVs. Imported GLBs often already have them; clay you birth in-app often doesn’t. Artists who’ve fought seams in Mudbox/ZBrush know the pain — *hiding* seams (paint across, padding, projection) is different from *authoring* unwraps. We need both eventually: better bake/padding helps hide; Phase D creates or repairs the unwrap when Blender isn’t in the loop.
 
-- [ ] Keep imported UVs intact through sculpt ops that can break unwraps (document limits)  
-- [ ] Simple **project / planar / box** unwrap for primitives and UV-less meshes  
-- [ ] **Seam mark → unwrap → pack** (Desktop-first; density belongs on monitor)  
-- [ ] Soften seam visibility for map paint (padding / dilation already improved; more if needed)  
-- [ ] XR: preview UVs / “has UVs?” status — not a full seam editor in MR on day one  
+**Status (2026-08):** **not started as a build track** — *likely needed* later, **not a v1 blocker**. Phase C already paints into maps when UVs exist; UV-less clay still uses vertex paint.
 
-*Outcome:* artists can unwrap or correct UVs in-app when Blender isn’t required; imported UVs stay first-class; Quest stays free of a Mudbox-class UV suite.
+| Item | Status |
+|---|---|
+| Keep imported UVs intact through sculpt ops (document limits) | Not done |
+| Simple **project / planar / box** unwrap for primitives / UV-less meshes | Not done |
+| **Seam mark → unwrap → pack** (Desktop-first) | Not done |
+| Soften seam visibility for map paint (padding already improved in C) | Partial via C padding; more if needed |
+| XR: preview UVs / “has UVs?” status | Not done |
 
-**Interest note (2026-08):** confirmed as *likely needed* for the textured path — not scheduled ahead of README/sculpt polish; Desktop owns seam/unwrap density.
+*Outcome when built:* artists can unwrap or correct UVs in-app when Blender isn’t required; imported UVs stay first-class; Quest stays free of a Mudbox-class UV suite.
+
+**Interest note:** Desktop owns seam/unwrap density; do not schedule ahead of ADD re-fit / product-cut polish.
 
 ### Phase E — Texture-based sculpting (alphas & stamps)
 
