@@ -25,11 +25,10 @@ function extensionFromPath(pathname) {
  * @returns {{ ok: true, url: string, fileType: string } | { ok: false, error: string }}
  */
 function validateImportURL(raw) {
-  var s = String(raw == null ? '' : raw).trim();
+  // Pastes often insert newlines/spaces when wrapping long CDN links — strip them.
+  var s = String(raw == null ? '' : raw).replace(/\s+/g, '').trim();
   if (!s)
     return { ok: false, error: 'Empty URL — paste a full https:// link to a mesh file.' };
-  if (/\s/.test(s))
-    return { ok: false, error: 'URL must not contain spaces. Copy the link carefully.' };
 
   var parsed;
   try {
@@ -84,7 +83,9 @@ function promptText() {
     '',
     cautionText(),
     '',
-    'Formats: .obj .ply .stl .sgl .glb .gltf'
+    'Formats: .obj .ply .stl .sgl .glb .gltf',
+    '',
+    'Default sample is the Khronos Duck .glb — leave it or paste your own https link (one line).'
   ].join('\n');
 }
 
