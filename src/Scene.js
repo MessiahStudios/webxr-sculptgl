@@ -25,6 +25,7 @@ import Export from 'files/Export';
 import XRProjectStore from 'xr/XRProjectStore';
 import LocalRecord from 'xr/LocalRecord';
 import Tablet from 'misc/Tablet';
+import ImportURL from 'files/ImportURL';
 import { saveAs } from 'file-saver';
 
 class Scene {
@@ -148,57 +149,149 @@ class Scene {
     this.onCanvasResize();
 
     var modelURL = getOptionsURL().modelurl;
-    if (modelURL) this.addModelURL(modelURL);
-    else this.addSphere();
+    if (modelURL) {
+      this.addModelURL(modelURL).catch(function (err) {
+        console.warn('?modelurl= import failed', err && err.message ? err.message : err);
+      });
+    } else {
+      this.addSphere();
+    }
 
     this._webXR = new WebXRSession(this);
     this._webXR.initUI();
   }
 
-  addModelURL(url) {
-    var fileType = this.getFileType(url);
-    if (!fileType) {
-      console.warn('addModelURL: unknown type', url);
-      XRRemoteLog.see('MR', 'Import URL failed — unknown type', { url: String(url).slice(0, 120) });
-      return;
+  /**
+   * Fetch a mesh from a remote URL (HTTPS + CORS).
+   * @param {string} url
+   * @param {{ onProgress?: function, silent?: boolean }} [opts]
+   * @returns {Promise<*>} resolves with loadScene result (or null)
+   */
+  addModelURL(url, opts) {
+    opts = opts || {};
+    var check = ImportURL.validateImportURL(url);
+    if (!check.ok) {
+      console.warn('addModelURL:', check.error);
+      XRRemoteLog.see('MR', 'Import URL rejected', { error: check.error, url: String(url).slice(0, 120) });
+      return Promise.reject(new Error(check.error));
     }
 
-    XRRemoteLog.see('MR', 'Import URL fetching…', { type: fileType, url: String(url).slice(0, 120) });
-
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-
-    xhr.responseType = (fileType === 'obj' || fileType === 'gltf') ? 'text' : 'arraybuffer';
+    var fileType = check.fileType;
+    var safeUrl = check.url;
+    XRRemoteLog.see('MR', 'Import URL fetching…', { type: fileType, url: safeUrl.slice(0, 120) });
 
     var self = this;
-    xhr.onload = function () {
-      if (xhr.status === 200 || xhr.status === 0) {
-        var result = self.loadScene(xhr.response, fileType);
-        if (result && typeof result.then === 'function') {
-          result.then(function () {
-            XRRemoteLog.see('MR', 'Import URL loaded', { type: fileType });
-          }).catch(function (err) {
-            console.warn('addModelURL failed', err);
-            XRRemoteLog.see('MR', 'Import URL parse failed', {
-              type: fileType,
-              err: err && err.message ? err.message : String(err)
-            });
-          });
-        } else {
-          XRRemoteLog.see('MR', 'Import URL loaded', { type: fileType });
-        }
-      } else {
-        console.warn('addModelURL HTTP', xhr.status, url);
-        XRRemoteLog.see('MR', 'Import URL HTTP error', { status: xhr.status });
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      var settled = false;
+      var timer = window.setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        try { xhr.abort(); } catch (e) { /* ignore */ }
+        var err = new Error('Import timed out after ' + (ImportURL.FETCH_TIMEOUT_MS / 1000) + 's — check the URL / network.');
+        XRRemoteLog.see('MR', 'Import URL timeout', { url: safeUrl.slice(0, 120) });
+        reject(err);
+      }, ImportURL.FETCH_TIMEOUT_MS);
+
+      function fail(msg, detail) {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        console.warn('addModelURL', msg, detail || '');
+        XRRemoteLog.see('MR', 'Import URL failed — ' + msg, detail || { url: safeUrl.slice(0, 120) });
+        reject(new Error(msg));
       }
-    };
 
-    xhr.onerror = function () {
-      console.warn('addModelURL network error', url);
-      XRRemoteLog.see('MR', 'Import URL network/CORS error', { url: String(url).slice(0, 120) });
-    };
+      function ok(result) {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        XRRemoteLog.see('MR', 'Import URL loaded', { type: fileType });
+        resolve(result);
+      }
 
-    xhr.send(null);
+      xhr.open('GET', safeUrl, true);
+      xhr.responseType = (fileType === 'obj' || fileType === 'gltf') ? 'text' : 'arraybuffer';
+
+      xhr.onprogress = function (ev) {
+        if (ev.lengthComputable && ev.total > ImportURL.MAX_BYTES) {
+          fail('File too large (max ~80 MB).', { total: ev.total });
+          try { xhr.abort(); } catch (e) { /* ignore */ }
+          return;
+        }
+        if (opts.onProgress && ev.lengthComputable)
+          opts.onProgress(ev.loaded, ev.total);
+      };
+
+      xhr.onload = function () {
+        if (settled) return;
+        if (!(xhr.status === 200 || xhr.status === 0)) {
+          fail('HTTP ' + xhr.status + ' — verify the URL is public and correct.', { status: xhr.status });
+          return;
+        }
+        var lenHeader = xhr.getResponseHeader('Content-Length');
+        if (lenHeader && parseInt(lenHeader, 10) > ImportURL.MAX_BYTES) {
+          fail('File too large (max ~80 MB).');
+          return;
+        }
+        var body = xhr.response;
+        if (body && body.byteLength && body.byteLength > ImportURL.MAX_BYTES) {
+          fail('File too large (max ~80 MB).');
+          return;
+        }
+        try {
+          var result = self.loadScene(body, fileType);
+          if (result && typeof result.then === 'function') {
+            result.then(ok).catch(function (err) {
+              fail((err && err.message) || 'Failed to parse mesh from URL.', {
+                type: fileType,
+                err: err && err.message ? err.message : String(err)
+              });
+            });
+          } else {
+            ok(result);
+          }
+        } catch (err) {
+          fail((err && err.message) || 'Failed to parse mesh from URL.', {
+            type: fileType,
+            err: err && err.message ? err.message : String(err)
+          });
+        }
+      };
+
+      xhr.onerror = function () {
+        fail('Network/CORS error — the host must allow this page (HTTPS + Access-Control-Allow-Origin).', {
+          url: safeUrl.slice(0, 120)
+        });
+      };
+
+      xhr.send(null);
+    });
+  }
+
+  /**
+   * Desktop / XR prompt → validate → fetch. Returns a Promise (may reject).
+   * @returns {Promise<*>}
+   */
+  promptImportURL() {
+    var sample = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF-Binary/Duck.glb';
+    var url = window.prompt(ImportURL.promptText(), sample);
+    if (url == null) return Promise.reject(new Error('cancelled'));
+    url = String(url).trim();
+    if (!url) return Promise.reject(new Error('cancelled'));
+
+    var check = ImportURL.validateImportURL(url);
+    if (!check.ok) {
+      window.alert('Import URL blocked\n\n' + check.error + '\n\n' + ImportURL.cautionText());
+      return Promise.reject(new Error(check.error));
+    }
+
+    var self = this;
+    return this.addModelURL(check.url).catch(function (err) {
+      var msg = (err && err.message) ? err.message : String(err);
+      window.alert('Import URL failed\n\n' + msg + '\n\n' + ImportURL.cautionText());
+      return Promise.reject(err);
+    });
   }
 
   getBackground() {

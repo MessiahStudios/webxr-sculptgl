@@ -53,7 +53,7 @@ Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png)
 | **Workspace** | Clay in the *room* (scale, distance, turntable) — separate from mesh Transform |
 | **Surface tools** | Paint, Soften (blend colors), masking, shared **alpha stamp gallery** |
 | **Materials** | Clay-friendly PBR paint; GLB round-trip with UVs + live maps when present |
-| **Files** | Save/Load `.sgl`, honest export OBJ / OBJ+MAPS / GLB / PLY / STL |
+| **Files** | Save/Load `.sgl`, Import file / **Import URL** (https), honest export OBJ / OBJ+MAPS / GLB / PLY / STL |
 | **Capture** | Local Snapshot PNG + video (virtual view — not OS Cast) |
 
 ---

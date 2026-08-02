@@ -425,6 +425,7 @@ Alphas in SculptGL modulate brush **falloff / intensity** via a texture (classic
 | **SAVE project (.sgl)** | IndexedDB on the Quest origin |
 | **LOAD last (.sgl)** | **Replaces** scene, re-fits Workspace |
 | **IMPORT file** | Adds OBJ/PLY/STL/SGL/**GLB** — picker **may fail in XR**; prefer before enter / after exit |
+| **IMPORT URL** | HTTPS (or localhost http) + CORS; known mesh extension; verify URL first; max ~80 MB |
 | **EXPORT** + format | OBJ / OBJ+MAPS / **GLB** / PLY / STL → browser download / Files |
 | **LOCAL SNAPSHOT** | PNG of the virtual sculpt view (no passthrough) |
 | **START / STOP RECORD** | WebM video (+ FPS 15/24/30 · Small/Balanced/High clean presets) |
@@ -458,11 +459,12 @@ Alphas in SculptGL modulate brush **falloff / intensity** via a texture (classic
 
 ```
 In XR:     Save / Load last  →  IndexedDB (.sgl)
+           IMPORT URL         →  https mesh (CORS) when picker fails
 Around XR: Desktop Files menu / 2D browser picker  →  OBJ PLY STL SGL GLB/glTF
-Optional:  HTTPS URL fetch (addModelURL) when CORS allows
+Optional:  ?modelurl=https://… at boot (same validators)
 ```
 
-File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR.
+File pickers work best **before** entering XR (Quest Browser 2D) or after exit — not as a free Files browser inside immersive MR. **Import URL** is the immersive-friendly path when the host allows CORS; always verify the link first.
 
 **Honest import note:** GLB/glTF import keeps **indexed topology**, **UVs**, **live albedo/metalRough textures** (ShaderPBR samples them), and still fills vertex paint as fallback. Draco via `./draco/`. Export prefers live maps when present.
 
@@ -507,8 +509,9 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Welcome splash (logo + links + Don’t show again; headset → XR setup)
 │        · Public How-to guide (docs/HOW_TO.md) with tool icons
 │        · XR ADD near selection (no Workspace re-fit on every ADD)
+│        · Import URL (https + CORS + extension/size safeguards)
 ├─ Next: gate Camera How-to PNG buttons · dock fine-tune
-│        · α allowlist watch · Import URL only if used
+│        · α allowlist watch
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
 └─ Stretch (thin): dock slot swap · hands (after controllers stay boring) · remesh if Quest-safe
@@ -540,7 +543,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **“Evaluate Nomad UX” checklist row** | Ongoing filter via charter — not a deliverable |
 | **Alphas → paint intensity special-case** | Vague; stamps already modulate falloff — no separate project |
 
-**Still on the fence (not cut, not scheduled):** thin Desktop paint layers · thin aim-projection if α leaves a gap · **Spectator** · **Import URL** · **dock slot swap** · **Phase D UV tools** (*likely needed* for textured/seam path — Desktop-first; not next sprint).
+**Still on the fence (not cut, not scheduled):** thin Desktop paint layers · thin aim-projection if α leaves a gap · **Spectator** · **dock slot swap** · **Phase D UV tools** (*likely needed* for textured/seam path — Desktop-first; not next sprint).
 
 #### Recent agreed list — what we said vs what advanced
 
@@ -569,6 +572,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Product logo + brand sync** | **Yes** | `docs/media/webxr-sculpt-logo.png` README hero; UI accents `#58A8F0` / `#F7974B` (logo-sampled) |
 | **Welcome splash** | **Yes** | Logo + Messiah Studios links; `sculptgl.welcome.hide`; Let’s Sculpt → Desktop dismiss / headset XR setup |
 | **Public How-to guide** | **Yes** | [`docs/HOW_TO.md`](./docs/HOW_TO.md) — tool icons + Desktop/Quest controls; README links it |
+| **Import URL** | **Yes** | Files + XR OPTS; HTTPS-only (localhost http OK); extension allowlist; size/timeout; CORS caution |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -576,8 +580,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 1. **Camera How-to PNG buttons** — hide/gate maintainer exporters before a “final” product cut (public guide is [`docs/HOW_TO.md`](./docs/HOW_TO.md)).  
 2. **Dock placement** — fine-tune from real sculpt sessions (offset / size only).  
 3. **α allowlist watch** — demote grab-tool α if muddy in practice.  
-4. **Import URL UX** — only if hosted CC0 / CORS workflow is something you use; else leave `addModelURL` as-is.  
-5. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
+4. **`.sgl` map slots** — project re-open still vertex/UV-strong; live map persistence in `.sgl` is a real continuity gap if you care (Materials polish, not a new tool).  
 
 ~~Bake polish / Studio record / XR capture chrome / other-HMD~~ — cut or absorbed (see *No longer pursuing*).
 
@@ -629,6 +632,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Welcome splash** — logo + links; Don’t show again; Let’s Sculpt dismisses (Desktop) or opens XR setup (headset)  
 - [x] **Public How-to** — [`docs/HOW_TO.md`](./docs/HOW_TO.md) with shared tool icons; README How-to section  
 - [x] **XR ADD spawn** — place near selection at matching size; no `fitXRStageToScene` on ADD (Clear/Recenter/load still re-fit)  
+- [x] **Import URL** — HTTPS (+ localhost http); extension allowlist; ~80 MB / 60s caps; CORS caution (Files + XR OPTS)  
 
 ### Next (near-term)
 
@@ -637,8 +641,7 @@ Active leftovers only (done items removed from the “todo” mental list):
 1. [ ] Before “final” cut: hide or gate **Camera How-to PNG** export buttons (maintainer only)  
 2. [ ] Dock placement fine-tune from sculpt time (offset / size — keep head-facing follow)  
 3. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
-4. [ ] Optional **Import URL** affordance — only if you use hosted CC0; else skip  
-5. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+4. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 
@@ -721,7 +724,7 @@ You (Quest, sculpting) ──sync clay/scene──► Friend (Quest, view-only)
 | **Export** | `.obj` / `.ply` / `.stl` / **`.glb`** | Hand off — only what each format honestly carries (see Materials track) |
 | **Export (textured zip)** | `.obj` + `.mtl` + PNG maps | Same bake as GLB maps, looser DCC pack |
 | **Import** | `.obj` / `.ply` / `.stl` / `.sgl` / **`.glb` / `.gltf`** | Adds to scene (Desktop Files / 2D picker / XR OPTS Import) |
-| **Import URL** | HTTPS + CORS | Hosted CC0 / personal static hosts (`addModelURL`) |
+| **Import URL** | HTTPS (+ localhost http) + CORS + allowlisted extension | Hosted CC0 / personal static hosts (`addModelURL` / OPTS) |
 
 ### Later (stretch)
 

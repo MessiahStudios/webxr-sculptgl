@@ -25,6 +25,7 @@ class GuiFiles {
     menu.addTitle(TR('fileImportTitle'));
     menu.addButton(TR('fileAdd'), this, 'addFile' /*, 'CTRL+O/I'*/ );
     menu.addButton(TR('fileAddURL'), this, 'addFileURL');
+    menu.addTitle(TR('fileAddURLHint'));
     menu.addCheckbox(TR('fileAutoMatrix'), this._main, '_autoMatrix');
     menu.addCheckbox(TR('fileVertexSRGB'), this._main, '_vertexSRGB');
 
@@ -56,19 +57,13 @@ class GuiFiles {
 
   /** Fetch mesh from HTTPS URL (CORS required). Same path as ?modelurl=. */
   addFileURL() {
-    var sample = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF-Binary/Duck.glb';
-    var url = window.prompt(
-      'Import mesh URL (obj/ply/stl/sgl/glb/gltf).\nNeeds HTTPS + CORS. Cancel to abort.',
-      sample
-    );
-    if (!url) return;
-    url = url.trim();
-    if (!url) return;
-    if (!this._main.getFileType(url)) {
-      window.alert('Unknown file type — use a URL ending in .obj .ply .stl .sgl .glb or .gltf');
-      return;
-    }
-    this._main.addModelURL(url);
+    var self = this;
+    this._main.promptImportURL().then(function () {
+      // success — scene already updated
+    }).catch(function (err) {
+      if (err && err.message === 'cancelled') return;
+      // promptImportURL already alerts on validation/fetch errors
+    });
   }
 
   onTextureSize(value) {

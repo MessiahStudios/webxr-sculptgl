@@ -79,7 +79,7 @@ export var XR_TAB_TOOLS = {
   form: ['brush', 'inflate', 'pinch', 'crease', 'drag', 'move', 'twist', 'localscale', 'smooth', 'flatten', 'transform'],
   paint: ['paint', 'masking', 'soften'],
   alpha: [],
-  opts: ['save', 'load', 'import', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling', 'wireframe'],
+  opts: ['save', 'load', 'import', 'importUrl', 'export', 'exportFmt', 'snapshot', 'record', 'recordFps', 'recordQuality', 'clear', 'add', 'undo', 'redo', 'clay', 'symmetry', 'culling', 'wireframe'],
   workspace: []
 };
 
@@ -103,7 +103,7 @@ export function normalizeTabId(tab) {
 
 /** Always-visible file continuity rows (before paint opts / brush flags). */
 export var XR_FILE_OPTS = [
-  'save', 'load', 'import', 'export', 'exportFmt',
+  'save', 'load', 'import', 'importUrl', 'export', 'exportFmt',
   'snapshot', 'record', 'recordFps', 'recordQuality'
 ];
 export var XR_RECORD_FPS = [15, 24, 30];
@@ -552,8 +552,9 @@ export function createXRSculptDockState() {
       if (focus === 'paintAll')
         return 'paintAll'; // dock calls scene.paintAllXR
       if (focus === 'save' || focus === 'load' || focus === 'export' || focus === 'import' ||
+          focus === 'importUrl' ||
           focus === 'snapshot' || focus === 'record')
-        return focus; // dock calls scene file helpers / file picker
+        return focus; // dock calls scene file helpers / file picker / URL import
       if (focus === 'clear' || focus === 'add')
         return focus; // dock calls scene.clearXRScene / addXRShape
       if (focus === 'exportFmt') {

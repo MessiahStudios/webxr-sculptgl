@@ -44,6 +44,7 @@ var TR = {
   fileImportTitle: 'Import',
   fileAdd: 'Add (obj, sgl, ply, stl, glb)',
   fileAddURL: 'Import URL (https…)',
+  fileAddURLHint: 'Caution: verify the URL first · https only · CORS · .obj/.ply/.stl/.sgl/.glb/.gltf · max ~80 MB',
   fileAutoMatrix: 'Scale & center',
   fileVertexSRGB: 'sRGB vertex color',
   fileExportSceneTitle: 'Export Scene',

@@ -139,6 +139,7 @@ function optLabel(ok, s) {
   if (ok === 'save') return 'SAVE .sgl project';
   if (ok === 'load') return 'LOAD last .sgl (replaces scene)';
   if (ok === 'import') return 'IMPORT file (prefer before XR)';
+  if (ok === 'importUrl') return 'IMPORT URL (https + CORS)';
   if (ok === 'export') return 'EXPORT ' + exportFmtLabel(s.exportFmt);
   if (ok === 'snapshot') return 'SNAPSHOT sculpt view (1.5s aim)';
   if (ok === 'record') return s.recording ? 'STOP RECORD — save video' : 'START RECORD — virtual view';
@@ -1374,6 +1375,17 @@ class XRSculptDock {
       }
       return;
     }
+    if (action === 'importUrl') {
+      self._showFileToast('Import URL — https only · verify link · CORS required', 4500);
+      this._scene.promptImportURL().then(function () {
+        self._showFileToast('Imported from URL', 3500);
+        self.syncFromDesktop();
+      }).catch(function (err) {
+        if (err && err.message === 'cancelled') return;
+        self._showFileToast('URL import failed — ' + ((err && err.message) || 'error'), 5500);
+      });
+      return;
+    }
     if (action === 'export') {
       try {
         var pending = this._scene.exportXRMesh(this.state.exportFmt || 'obj');
@@ -1483,6 +1495,7 @@ class XRSculptDock {
           else if (action === 'redo') this._scene.redoXR();
           else if (action === 'paintAll') this._scene.paintAllXR();
           else if (action === 'save' || action === 'load' || action === 'export' || action === 'import' ||
+            action === 'importUrl' ||
             action === 'snapshot' || action === 'record')
             this._runFileAction(action);
           else if (action === 'clear' || action === 'add')
