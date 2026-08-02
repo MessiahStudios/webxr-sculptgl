@@ -451,7 +451,7 @@ Alphas in SculptGL modulate brush **falloff / intensity** via a texture (classic
 | Wheel lock | **Left trigger** commits; stick must recenter before re-aim |
 | Eyedropper / paint-all | Opts rows |
 | R/I | Always-visible meters; squeeze+stick |
-| Soften | 1-ring blend of color / rough / metal (+ maps); desktop Paint↔Blend dual button |
+| Soften | 1-ring blend of color / rough / metal (+ maps); Desktop Paint↔Blend dual button |
 | Clay-friendly PBR | Rough/metal default to clay ideals (~55% / ~4%); chrome-ish values auto-correct when selecting Paint until the artist edits (or eyedrops). Matcap/Flat show paint as **color**; PBR uses metal/rough — Desktop hint + XR PAINT note |
 
 ### Continuity vs import (Quest reality)
@@ -626,7 +626,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **OPTS wireframe** + WebGL2 wireframe draw fix  
 - [x] **Quest sculpt perf pass (1)** — radius AABB cache; coalesce GPU uploads; defer Paint/Soften map flush; parked ~20Hz  
 - [x] **Product logo** as GitHub hero (`docs/media/webxr-sculpt-logo.png`) + **brand accent sync** (Desktop + XR dock → `#58A8F0` / `#F7974B`)  
-- [x] **Welcome splash** — logo + links; Don’t show again; Let’s Sculpt dismisses (desktop) or opens XR setup (headset)  
+- [x] **Welcome splash** — logo + links; Don’t show again; Let’s Sculpt dismisses (Desktop) or opens XR setup (headset)  
 - [x] **Public How-to** — [`docs/HOW_TO.md`](./docs/HOW_TO.md) with shared tool icons; README How-to section  
 - [x] **XR ADD spawn** — place near selection at matching size; no `fitXRStageToScene` on ADD (Clear/Recenter/load still re-fit)  
 
@@ -757,7 +757,7 @@ Import asset (keep what GLB/OBJ offers)
 | Capability | Today |
 |---|---|
 | UV buffers + OBJ/SGL UV round-trip | Yes (`MeshData` tex coords / UV faces) |
-| UV preview shader + texture bake export (desktop) | Yes (limited; needs existing UVs) |
+| UV preview shader + texture bake export (Desktop) | Yes (limited; needs existing UVs) |
 | Vertex PBR paint (color / rough / metal / mask) | Yes — Desktop + XR dock; clay-friendly defaults + Soften blend |
 | Brush **alpha** stamps (PNG/JPG falloff) | Yes — shared gallery (Desktop thumbs + XR ALPHA tab); lock + angle ±360°; bilinear/contrast sampling |
 | GLB/glTF import | Yes — **UVs + welded topo + live maps + vertex fallback + Draco** |
@@ -947,7 +947,7 @@ Do **not** block Workspace/dock/sculpt polish waiting on a full UV suite (Phase 
 | Sculpt on a monitor | Yes | Yes (unchanged path) |
 | Sculpt in the room (MR) at true scale | No | Yes — primary surface |
 | Closed VR studio | No | Yes |
-| Same tools as desktop | Yes | Yes (XR input remap) |
+| Same tools as Desktop | Yes | Yes (XR input remap) |
 | Floating desktop UI in headset | N/A | **No** — redesign for XR |
 | Official maintenance | No (abandoned) | Community XR continuation |
 
