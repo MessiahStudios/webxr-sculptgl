@@ -4,9 +4,9 @@
   <img src="docs/media/webxr-sculpt-logo.png" alt="WebXR Sculpt — sculpt, paint, create anywhere" width="420" />
 </p>
 
-**An open, Quest-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — extending the original desktop sculpting engine with spatial interaction, Workspace, lightweight PBR painting, and modern asset interoperability.
+**An open, Quest-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — extending the original Desktop sculpting engine with spatial interaction, Workspace, lightweight PBR painting, and modern asset interoperability.
 
-> Shape digital clay at human scale in Meta Quest MR/VR, while keeping a full desktop workflow on the same core.
+> Shape digital clay at human scale in Meta Quest MR/VR, while keeping a full Desktop workflow on the same core.
 
 **Product:** WebXR Sculpt · **Studio:** [Messiah Studios](https://github.com/MessiahStudios) · **Repo:** [MessiahStudios/webxr-sculptgl](https://github.com/MessiahStudios/webxr-sculptgl)
 
@@ -16,12 +16,12 @@
 
 | Layer | Status |
 |---|---|
-| **Core sculpt loop (Quest + desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
+| **Core sculpt loop (Quest + Desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
 | **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
-| **Ship-ready “final cut”** | **~92%** — usable product today; leftover is polish, not missing clay |
+| **Ship-ready “final cut”** | **~93%** — usable product today; leftover is polish, not missing clay |
 
-**Still before a named v1 cut:** ADD-shape spawn / Workspace re-fit (family playtest shrink), gate maintainer Camera How-to PNG export buttons, light dock offset fine-tune.
+**Still before a named v1 cut:** gate maintainer Camera How-to PNG export buttons, light dock offset fine-tune.
 
 **Not required for v1:** Spectator, hand tracking, Phase D UV suite, remesh, paint layers.
 
@@ -40,7 +40,7 @@ Deep checklist: **[`XR_Roadmap.MD`](./XR_Roadmap.MD)** → *Roadmap status* / *P
 
 Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png) (hero) · [`app/resources/brand/`](./app/resources/brand/) (app + welcome splash)
 
-**Welcome splash:** first load shows the logo + Messiah Studios links; **Don’t show again** (`sculptgl.welcome.hide`); **Let’s Sculpt** dismisses on desktop, or opens XR setup on headset.
+**Welcome splash:** first load shows the logo + Messiah Studios links; **Don’t show again** (`sculptgl.welcome.hide`); **Let’s Sculpt** dismisses on Desktop, or opens XR setup on headset.
 
 ---
 
@@ -60,7 +60,7 @@ Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png)
 
 ## Tool palette
 
-Same icons on **desktop Form / Paint** and the **XR dock**. Full usage guide: **[`docs/HOW_TO.md`](./docs/HOW_TO.md)**.
+Same icons on **Desktop Form / Paint** and the **XR dock**. Full usage guide: **[`docs/HOW_TO.md`](./docs/HOW_TO.md)**.
 
 ### Form
 
@@ -84,7 +84,7 @@ Same icons on **desktop Form / Paint** and the **XR dock**. Full usage guide: **
 
 | Guide | Contents |
 |---|---|
-| **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** | Tool icons explained · desktop + Quest controls · α stamps · first-session tips |
+| **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** | Tool icons explained · Desktop + Quest controls · α stamps · first-session tips |
 | [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt) | HTTPS tunnel for Quest Browser |
 | [`XR_Roadmap.MD`](./XR_Roadmap.MD) | Design charter, architecture, Phase A–E status |
 
@@ -92,7 +92,7 @@ Same icons on **desktop Form / Paint** and the **XR dock**. Full usage guide: **
 
 ## Screenshots
 
-Brand hero above is the GitHub product image. Optional Quest MR / desktop stills can still land under `docs/media/`.
+Brand hero above is the GitHub product image. Optional Quest MR / Desktop stills can still land under `docs/media/`.
 
 ---
 
@@ -121,14 +121,14 @@ WebXR on Quest needs HTTPS. Serve locally, then point any tunnel (Cloudflare, ng
 3. On the headset browser, open your `https://…` host and hard-refresh after rebuilds
 
 Full DIY walkthrough: [`tools/xr-tunnel.txt`](./tools/xr-tunnel.txt)  
-Live Quest/desktop logs while testing: [http://127.0.0.1:8080/__xr_logs](http://127.0.0.1:8080/__xr_logs)
+Live Quest/Desktop logs while testing: [http://127.0.0.1:8080/__xr_logs](http://127.0.0.1:8080/__xr_logs)
 
 ---
 
 ## Project philosophy
 
 - **One sculpting core** — don’t fork brush kernels unless XR physics demands it  
-- **Two presentations** — desktop for density and files; XR for presence and proportion  
+- **Two presentations** — Desktop for density and files; XR for presence and proportion  
 - **Never break flow** — prefer sticks, grips, and spatial action over nested panels  
 - **Presence over panels** — the clay is the interface; the dock is only a helper  
 - **Honest interoperability** — each export format only promises what it can carry  
@@ -138,7 +138,7 @@ Deep design, architecture, and status: **[`XR_Roadmap.MD`](./XR_Roadmap.MD)**
 ```
 Digital Clay Studio
 ├── SculptGL Core
-├── Desktop Workflow
+├── Desktop workflow
 ├── Quest MR/VR Workflow
 ├── Workspace
 ├── Materials Pipeline

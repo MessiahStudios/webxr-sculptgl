@@ -1088,11 +1088,14 @@ class Scene {
   }
 
   /**
-   * Add a primitive like desktop Topology (sphere / cube / cylinder / torus).
+   * Add a primitive like Desktop Topology (sphere / cube / cylinder / torus).
+   * Places near the current selection at a similar size — does NOT re-fit Workspace
+   * (re-fit on Clear / Recenter only; otherwise ADD balloons the bbox and shrinks the room).
    * @param {'sphere'|'cube'|'cylinder'|'torus'} kind
    */
   addXRShape(kind) {
     this._endXRSculptStroke();
+    var anchor = this.getMesh();
     var k = (kind || 'sphere').toLowerCase();
     var mesh = null;
     if (k === 'cube') mesh = this.addCube();
@@ -1103,12 +1106,59 @@ class Scene {
     } else {
       mesh = this.addSphere();
     }
-    this.fitXRStageToScene();
+    if (mesh && anchor && anchor !== mesh)
+      this._placeXRShapeNearAnchor(mesh, anchor);
+    // Keep Workspace scale/distance; only nudge orbit pivot if we already have a stage fit.
+    if (this._xrStageFit)
+      this.syncXROrbitPivotToSelection(true);
     this.render();
     XRRemoteLog.see('MR', 'Added shape → ' + k, {
-      meshes: this.getMeshes().length
+      meshes: this.getMeshes().length,
+      placed_near_selection: !!(mesh && anchor && anchor !== mesh),
+      workspace_refit: false
     });
     return mesh;
+  }
+
+  /**
+   * Translate / scale a freshly added primitive next to an existing mesh in model space.
+   * Matching size keeps ADD from looking like a tiny speck beside a huge sculpt COM.
+   */
+  _placeXRShapeNearAnchor(mesh, anchor) {
+    if (!mesh || !anchor || mesh === anchor) return;
+    var aBox = this.computeBoundingBoxMeshes([anchor]);
+    var mBox = this.computeBoundingBoxMeshes([mesh]);
+    if (!isFinite(aBox[0]) || !isFinite(mBox[0])) return;
+
+    var aCx = (aBox[0] + aBox[3]) * 0.5;
+    var aCy = (aBox[1] + aBox[4]) * 0.5;
+    var aCz = (aBox[2] + aBox[5]) * 0.5;
+    var aR = Math.max(0.05, this.computeRadiusFromBoundingBox(aBox));
+    var mR = Math.max(0.05, this.computeRadiusFromBoundingBox(mBox));
+
+    var mat = mesh.getMatrix();
+    // Match roughly the anchor's world size (primitives start at normalizeSize unit).
+    var s = aR / mR;
+    s = Math.min(4.0, Math.max(0.15, s));
+    if (Math.abs(s - 1.0) > 0.02)
+      mat4.scale(mat, mat, [s, s, s]);
+
+    mBox = this.computeBoundingBoxMeshes([mesh]);
+    if (!isFinite(mBox[0])) return;
+    var mCx = (mBox[0] + mBox[3]) * 0.5;
+    var mCy = (mBox[1] + mBox[4]) * 0.5;
+    var mCz = (mBox[2] + mBox[5]) * 0.5;
+
+    // Offset along +X so the new piece sits beside the sculpt, not inside it.
+    // Left-multiply translation so it is world-space (not scaled local).
+    var gap = aR * 1.25;
+    var tMat = mat4.create();
+    mat4.fromTranslation(tMat, [
+      aCx + gap - mCx,
+      aCy - mCy,
+      aCz - mCz
+    ]);
+    mat4.mul(mat, tMat, mat);
   }
 
   /**

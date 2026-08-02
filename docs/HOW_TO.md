@@ -1,6 +1,6 @@
 # How to use WebXR Sculpt
 
-Quest-first digital clay on the same core as desktop. Icons match **desktop Form / Paint** and the **XR dock**.
+Quest-first digital clay on the same core as Desktop. Icons match **Desktop Form / Paint** and the **XR dock**.
 
 <p align="center">
   <img src="media/webxr-sculpt-logo.png" alt="WebXR Sculpt" width="280" />
@@ -92,7 +92,7 @@ Prefer Import from the 2D browser **before** entering XR if the immersive picker
 
 1. Start with **Brush** + moderate radius; Smooth often.  
 2. Use **Drag** gently — huge R/I stretches topology.  
-3. **ADD** shapes stack at the origin; use **Transform** to pose them (Workspace re-fit on every ADD is a known polish item).  
+3. **ADD** shapes spawn beside the current selection in XR (matching size; Workspace does not re-fit). On Desktop, Scene → Add places at the origin — orbit to find them, then Transform to pose.  
 4. Paint looks “clay” under Matcap; switch to **PBR** to judge metal/rough.  
 5. Export **GLB** when you need maps; keep **`.sgl`** for full project continuity here.
 
