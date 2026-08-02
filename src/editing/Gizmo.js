@@ -329,6 +329,12 @@ class Gizmo {
 
   _computeCenterGizmo(center = [0.0, 0.0, 0.0]) {
     var meshes = this._main.getSelectedMeshes();
+    // Fall back to primary mesh so an empty selection never NaNs the gizmo to origin.
+    if (!meshes || !meshes.length) {
+      var primary = this._main.getMesh();
+      if (!primary) return center;
+      meshes = [primary];
+    }
 
     var acc = [0.0, 0.0, 0.0];
     var icenter = [0.0, 0.0, 0.0];

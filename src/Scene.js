@@ -1580,6 +1580,9 @@ class Scene {
       if (this._xrSculpting) {
         this._xrSculpting = false;
         this.getSculptManager().end();
+        // end() may have deferred GPU uploads (or tools that only dirty-flag). Flush
+        // before returning — the per-frame flush below is skipped on this early return.
+        this.getSculptManager().flushXRMeshBuffers();
       } else {
         // Multi-select clicks return false from startXR — still clear edge latch on release.
         var idleTool = this.getSculptManager().getCurrentTool();

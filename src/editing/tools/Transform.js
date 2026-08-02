@@ -153,6 +153,7 @@ class Transform extends SculptBase {
     }
     if (!anyEdit) {
       this._forceToolMesh = null;
+      this._meshBuffersDirty = false;
       return;
     }
 
@@ -172,12 +173,22 @@ class Transform extends SculptBase {
       this.applyEditMatrix(iVerts);
 
       if (iVerts.length === 0) continue;
+      // XR defers updateMeshBuffers() to a per-frame flush, but Scene returns on
+      // trigger-release *before* that flush — leaving GPU verts at the pre-bake pose
+      // while the gizmo/picking follow the baked CPU center (gizmo "detaches").
+      // Force-upload each baked mesh immediately, then sync the orbit pivot.
+      this._forceUploadMeshBuffers = true;
       this.updateMeshBuffers();
+      this._forceUploadMeshBuffers = false;
+      if (meshes[i].balanceOctree)
+        meshes[i].balanceOctree();
     }
     this._forceToolMesh = null;
+    this._meshBuffersDirty = false;
     // Snap visuals to baked verts (clears any leftover edit preview)
     this._main.render();
     // Re-aim orbit at the moved selection COM without jumping the room view.
+    // Must run *after* GPU upload so room/seat math matches what is drawn.
     if (this._main.syncXROrbitPivotToSelection) {
       this._main.syncXROrbitPivotToSelection(true);
       if (this._main._rebuildXRStageMatrix)
