@@ -17,6 +17,7 @@
 | Layer | Status |
 |---|---|
 | **Core sculpt loop (Quest + Desktop)** | Done — continuous clay, dock, Workspace, Transform, paint/Soften, α stamps |
+| **Desktop-only sessions** | Done — full yagui loop on PC **or** Quest Browser (Cancel XR setup); enter/exit immersive anytime |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
 | **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
 | **Ship-ready “final cut”** | **~93%** — usable product today; leftover is polish, not missing clay |
@@ -49,6 +50,7 @@ Assets: [`docs/media/webxr-sculpt-logo.png`](./docs/media/webxr-sculpt-logo.png)
 | | |
 |---|---|
 | **Quest MR/VR** | Continuous sculpt loop with controllers, passthrough or studio VR |
+| **Desktop anytime** | Full Desktop UI without immersive — PC monitor or Quest Browser (Cancel setup); WebXR chip to enter later |
 | **Sculpt Dock** | FORM / PAINT / OPTS / SPACE — head-facing helper, not a floating desktop clone |
 | **Workspace** | Clay in the *room* (scale, distance, turntable) — separate from mesh Transform |
 | **Surface tools** | Paint, Soften (blend colors), masking, shared **alpha stamp gallery** |
@@ -129,6 +131,7 @@ Live Quest/Desktop logs while testing: [http://127.0.0.1:8080/__xr_logs](http://
 
 - **One sculpting core** — don’t fork brush kernels unless XR physics demands it  
 - **Two presentations** — Desktop for density and files; XR for presence and proportion  
+- **Desktop-only is first-class** — immersive is opt-in (Cancel XR setup on Quest Browser stays on panels + canvas)  
 - **Never break flow** — prefer sticks, grips, and spatial action over nested panels  
 - **Presence over panels** — the clay is the interface; the dock is only a helper  
 - **Honest interoperability** — each export format only promises what it can carry  

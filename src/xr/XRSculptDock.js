@@ -117,7 +117,7 @@ function toolShortLabel(tk) {
   if (tk === 'localscale') return 'scale';
   if (tk === 'soften') return 'blend';
   if (tk === 'masking') return 'mask';
-  if (tk === 'transform') return 'xform';
+  if (tk === 'transform') return 'Transform';
   return tk;
 }
 
@@ -304,6 +304,8 @@ class XRSculptDock {
     this._alphaThumbCache = {};
     /** @type {Object.<string, HTMLImageElement>} */
     this._toolIconCache = {};
+    /** @type {number|null} rAF id — coalesce async icon/thumb onloads into one paint */
+    this._iconPaintRaf = null;
 
     // Follow left grip in local space, but float above the button deck (not on top of it)
     // so Quest newcomers can still see X/Y/stick/squeeze while learning. +Y ≈ toward the
@@ -363,7 +365,13 @@ class XRSculptDock {
     var need = this.state.tab === 'workspace' || (hud && hud.entryHint) || toastLive || this._squeezeHeld || eyedropHint ||
       this._rightGripNeg || smoothHold;
     if (!need) {
-      this._lastWorkspaceHudLine = null;
+      // Entry-hint / toast can push FORM tools into the footer. When that HUD
+      // drops, flush one reflow paint — otherwise the overlapped frame sticks
+      // until the user toggles tabs.
+      if (this._lastWorkspaceHudLine != null) {
+        this._lastWorkspaceHudLine = null;
+        this._paintCanvas();
+      }
       return;
     }
     var key = (hud ? hud.line : '') + '|' + (hud && hud.entryHint ? '1' : '0') + '|' + this.state.tab +
@@ -884,6 +892,13 @@ class XRSculptDock {
       var cellW = Math.floor((w - 44 - gap * (cols - 1)) / cols);
       var iconSize = Math.min(52, cellW - 10);
       var cellH = iconSize + 22;
+      // Keep the tool grid above the fixed footer (entry-hint adds +44px above).
+      var tRows = Math.max(1, Math.ceil(tools.length / cols));
+      var gridBudget = (h - 56) - line - 4;
+      if (tRows * cellH > gridBudget && gridBudget > 0) {
+        cellH = Math.max(36, Math.floor(gridBudget / tRows));
+        iconSize = Math.max(24, cellH - 16);
+      }
       for (i = 0; i < tools.length; ++i) {
         var r = Math.floor(i / cols);
         var c = i % cols;
@@ -1024,6 +1039,21 @@ class XRSculptDock {
   }
 
   /**
+   * Coalesce async tool-icon / alpha-thumb onloads into one dock repaint.
+   */
+  _scheduleIconPaint() {
+    var self = this;
+    if (this._iconPaintRaf != null) return;
+    var raf = (typeof requestAnimationFrame === 'function')
+      ? requestAnimationFrame
+      : function (fn) { return setTimeout(fn, 16); };
+    this._iconPaintRaf = raf(function () {
+      self._iconPaintRaf = null;
+      self._paintCanvas();
+    });
+  }
+
+  /**
    * Resolve a drawable thumb for a gallery id (builtin URL or custom luminance canvas).
    * @param {string} id
    * @returns {HTMLImageElement|HTMLCanvasElement|null}
@@ -1037,7 +1067,7 @@ class XRSculptDock {
     if (builtin) {
       var img = new Image();
       img.onload = function () {
-        self._paintCanvas();
+        self._scheduleIconPaint();
       };
       img.src = AlphaLibrary.alphaThumbUrl(builtin.file);
       this._alphaThumbCache[aid] = img;
@@ -1063,7 +1093,7 @@ class XRSculptDock {
     var self = this;
     var img = new Image();
     img.onload = function () {
-      self._paintCanvas();
+      self._scheduleIconPaint();
     };
     img.onerror = function () {
       /* leave placeholder; dock still shows short label */

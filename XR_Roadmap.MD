@@ -12,7 +12,7 @@ This document has a consistent hierarchy: **long-term vision → product philoso
 > **XR shouldn’t be a viewer bolted on.**
 > **It should be the primary sculpting surface.**
 
-Desktop edits **data**. XR evaluates and creates **form**.
+Desktop edits **data**. XR evaluates and creates **form**. Immersive is **opt-in**: the same app runs a full Desktop sculpt session on a PC **or** in Quest Browser’s 2D window (Cancel XR setup); enter / exit WebXR whenever you want.
 
 | Desktop | XR |
 |---|---|
@@ -21,7 +21,7 @@ Desktop edits **data**. XR evaluates and creates **form**.
 | Topology | Gesture |
 | Precision transforms | Volume |
 | Dense panels | Presence |
-| Editing on a screen | Spatial judgment in the room |
+| Editing on a screen (PC **or** headset browser 2D) | Spatial judgment in the room |
 
 Those are fundamentally different strengths. The charter below is the filter for every future decision — so the project stays coherent over years, not months.
 
@@ -478,7 +478,7 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 | Milestone | Ready? | Notes |
 |---|---|---|
-| **Friend / family playable** | **Yes** | Quest MR/VR loop + Desktop; teach lower R/I on Drag; Soften + remesh heal stretches |
+| **Friend / family playable** | **Yes** | Quest MR/VR loop + Desktop (PC or Quest Browser 2D); teach lower R/I on Drag; Soften + remesh heal stretches |
 | **Materials / files trust** | **Yes (Phase C)** | GLB round-trip + map paint; `.sgl` still vertex/UV-strong (map slots optional later) |
 | **Presentation coherence** | **Yes** | Product **logo** + **welcome splash**; **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** tool guide with icons; UI accents `#58A8F0` / `#F7974B` |
 | **Quest feel / perf** | **Pass 1 done** | Cached XR brush radius AABB; coalesce mesh GPU uploads / frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
@@ -493,7 +493,7 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 
 ### Where we are (2026-08-02)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **Import URL** (paste-friendly); **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **Import URL** (paste-friendly); **Desktop-only on Quest Browser** confirmed (Cancel setup → full yagui; enter XR anytime); dock FORM reflow + **Transform** label; **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
 
 ```
 ███████████████████████▓░  ~93% toward named product cut
@@ -509,6 +509,9 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Welcome splash (logo + links + Don’t show again; headset → XR setup)
 │        · Public How-to guide (docs/HOW_TO.md) with tool icons
 │        · XR ADD near selection (no Workspace re-fit on every ADD)
+│        · XR dock FORM layout — clamp above footer + flush paint when entry-hint ends
+│        · Dock tool label Transform (match Desktop; was xform)
+│        · Desktop-only sessions on WebXR devices (Cancel setup → yagui; chip to enter later)
 │        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
 │        · XR direct-output encodeFragColor (silence ANGLE X4000)
 ├─ Next: gate Camera How-to PNG buttons · dock fine-tune
@@ -566,7 +569,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Alpha stamp feel + angle** | **Yes** | Freehand default; lock opt-in; bilinear + contrast; angle −360…360 (Desktop presets + XR stick) |
 | **How-to menu PNG packs** | **Yes** | Camera → How-to docs: WebXR dock pack (full OPTS lists) + Desktop sidebar/topbar pack. Docs/WIP — not headset product UI; regenerate when menus change |
 | **Desktop chrome consistency** | **Yes** | Shared CSS tokens; all topbar dropdowns match Camera (width, wrap, accents); sidebar folders/widgets aligned |
-| **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼ cues; shorter labels; `α∅` = no stamp |
+| **XR dock layout polish** | **Yes** | Plane aspect = canvas; OPTS scroll + ▲/▼; FORM grid clamps above footer + post–entry-hint reflow (no stuck overlap) |
 | **Tool icon pack** | **Yes** | `app/resources/tool-icons/*.png` — Desktop Form/Paint grid + XR dock thumbs; README tool palette |
 | **OPTS wireframe** | **Yes** | XR dock toggle; WebGL2 uint-index fix so wireframe draws |
 | **Quest sculpt perf pass** | **Yes (pass 1)** | Cache XR brush radius AABB; coalesce buffer uploads / XR frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
@@ -574,6 +577,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Welcome splash** | **Yes** | Logo + Messiah Studios links; `sculptgl.welcome.hide`; Let’s Sculpt → Desktop dismiss / headset XR setup |
 | **Public How-to guide** | **Yes** | [`docs/HOW_TO.md`](./docs/HOW_TO.md) — tool icons + Desktop/Quest controls; README links it |
 | **Import URL** | **Yes** | Files + XR OPTS; HTTPS-only (localhost http OK); extension allowlist; size/timeout; CORS caution; strips wrap whitespace on paste |
+| **Desktop-only on WebXR device** | **Yes (verified)** | Quest Browser: Cancel XR setup → full Desktop UI + canvas; WebXR chip to enter/re-enter immersive anytime |
 | **Spectator / Co-sculpt** | **No** | Feasible (see Spectator feasibility); needs signaling — not built |
 
 #### Gaps that still need attention
@@ -622,7 +626,7 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
   - XR: Cast-like mono (head pose + ~70° FOV) with **clay + brush/gizmo + controllers + dock**  
   - XR still: **~1.5s aim delay** then capture from current headset pose (same overlays as record)  
   - Scratch buffers disposed when idle  
-- [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; tighter labels  
+- [x] **XR dock layout polish** — canvas/plane aspect match; OPTS scroll + ▲/▼; FORM entry-hint reflow (no stuck footer overlap)  
 - [x] **Desktop yagui chrome facelift** — shared CSS tokens; topbar + sidebar consistent with Camera menu  
 - [x] **How-to docs PNG packs** (Camera → How-to docs) — WebXR dock full tabs + Desktop sidebar/topbar; WIP docs helper, not product UX  
 - [x] **α maps ON/OFF** on FORM/PAINT — allowlisted tools; Transform = n/a; ALPHA tab gated; shared stamp  
@@ -634,7 +638,9 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **Public How-to** — [`docs/HOW_TO.md`](./docs/HOW_TO.md) with shared tool icons; README How-to section  
 - [x] **XR ADD spawn** — place near selection at matching size; no `fitXRStageToScene` on ADD (Clear/Recenter/load still re-fit)  
 - [x] **Import URL** — HTTPS (+ localhost http); extension allowlist; ~80 MB / 60s caps; CORS caution; paste whitespace strip (Files + XR OPTS)
-- [x] **XR encodeFragColor** — single-return path for `uDirectOutput` (avoids ANGLE/HLSL X4000 warn)  
+- [x] **XR encodeFragColor** — single-return path for `uDirectOutput` (avoids ANGLE/HLSL X4000 warn)
+- [x] **XR dock FORM reflow** — clamp tool grid above footer; flush paint when entry-hint ends; tool label **Transform** (Desktop parity)
+- [x] **Desktop-only on WebXR devices** — Cancel XR setup stays on yagui + canvas (Quest Browser verified); enter immersive anytime from chip  
 
 ### Next (near-term)
 

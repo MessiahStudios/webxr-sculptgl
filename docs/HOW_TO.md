@@ -14,8 +14,11 @@ Quest-first digital clay on the same core as Desktop. Icons match **Desktop Form
 |---|---|
 | Sculpt on a monitor | Open the app → welcome **Let’s Sculpt** → use Form/Paint icons or hotkeys |
 | Sculpt in the room | Quest Browser (HTTPS) → welcome → **Let’s Sculpt** → XR setup (MR/VR) → enter |
+| Desktop UI on Quest (no immersive) | Same Quest Browser URL → welcome / XR setup → **Cancel** → full Desktop panels + canvas (pointer / laser). Enter XR anytime from the chip |
 | Skip the welcome next time | Check **Don’t show this again** before Let’s Sculpt |
 | Tunnel / Quest HTTPS | [`../tools/xr-tunnel.txt`](../tools/xr-tunnel.txt) |
+
+Immersive XR is **opt-in**. A whole session can stay on Desktop tools — on a PC **or** in Quest Browser’s 2D window — and still enter / exit WebXR when you want.
 
 ---
 
@@ -68,6 +71,8 @@ Transform never stamps. Best on Brush / Inflate / Crease / Pinch / Flatten / Pai
 - **Files:** Save/Load `.sgl`, Import file, **Import URL** (https + CORS — verify the link first; wrapped pastes OK), Export OBJ / OBJ+MAPS / GLB / PLY / STL.  
 - **Camera:** Local Snapshot PNG + Start/Stop video (virtual view — not OS Cast).  
 - Undo / Redo: usual shortcuts + UI.
+
+Works the same in **Quest Browser** when you stay out of immersive (Cancel XR setup): panels + canvas via pointer/laser. Dense UI is easier on a monitor; Quest-as-Desktop is best for files / precision, with the WebXR chip ready when you want the room.
 
 ---
 
