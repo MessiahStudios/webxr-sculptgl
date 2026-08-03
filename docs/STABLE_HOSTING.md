@@ -7,6 +7,8 @@ Same GitHub repo. Two **builds**, not two repos.
 | **Dev** | `npm run release` + `npm run server` | `app/` | Yes | `https://xr-dev.messiahstudios.site/` (keep for XR experiments) |
 | **Stable v1** | `npm run release:stable` | `dist/v1/` | **No** | Your main Pages site (below) |
 
+`/__xr_logs` and `POST /__xr_log` exist only on the **dev server** (`npm run server`). Stable/GitHub Pages is static — remote logging is disabled there so the browser console stays clean.
+
 `dist/v1/` is gitignored (large: JS + `webxr-profiles` + resources). Build locally, then copy into the Pages repo.
 
 ---

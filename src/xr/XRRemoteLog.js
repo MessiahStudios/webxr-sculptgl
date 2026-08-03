@@ -1,12 +1,17 @@
 /**
  * Relays console + view/action descriptions to the laptop via POST /__xr_log.
- * Live view: http://127.0.0.1:8080/__xr_logs
+ * Live view (dev server only): http://127.0.0.1:8080/__xr_logs
  *
  * Works for Quest AND desktop — same buffer/file.
  * Prefer XRRemoteLog.see(mode, '...') for intentional product lines:
  *   see('MR'|'VR', ...)     → source xr-view   (headset)
  *   see('DESKTOP', ...)     → source desktop-view
+ *
+ * Stable / GitHub Pages builds: no remote relay (static hosts have no __xr_log).
+ * Dev keeps the full POST + /__xr_logs page for Quest playtesting.
  */
+import BuildFlags from 'misc/BuildFlags';
+
 var QUEUE = [];
 var FLUSH_MS = 200;
 var MAX_QUEUE = 400;
@@ -17,6 +22,11 @@ var origInfo = null;
 var origWarn = null;
 var origError = null;
 var origLog = null;
+
+function relayEnabled() {
+  // Product cut has no Express log endpoint — POSTing only causes 405 noise.
+  return !BuildFlags.isStable;
+}
 
 function detectSource() {
   var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
@@ -36,6 +46,7 @@ function stringifyArg(a) {
 }
 
 function enqueue(level, args, tag) {
+  if (!relayEnabled()) return;
   var msg = [];
   var i;
   for (i = 0; i < args.length; ++i)
@@ -54,7 +65,7 @@ function enqueue(level, args, tag) {
 
 function flush() {
   timer = null;
-  if (!QUEUE.length) return;
+  if (!relayEnabled() || !QUEUE.length) return;
   var entries = QUEUE;
   QUEUE = [];
   try {
@@ -86,10 +97,12 @@ function see(mode, whatYouShouldSee, detail) {
   var isDesktop = m === 'DESKTOP' || m === 'Desktop';
   var prefix = isDesktop ? '[DESKTOP]' : '[' + m + ' VIEW]';
   var tag = isDesktop ? 'desktop-view' : 'xr-view';
-  if (detail !== undefined)
-    enqueue('info', [prefix, whatYouShouldSee, detail], tag);
-  else
-    enqueue('info', [prefix, whatYouShouldSee], tag);
+  if (relayEnabled()) {
+    if (detail !== undefined)
+      enqueue('info', [prefix, whatYouShouldSee, detail], tag);
+    else
+      enqueue('info', [prefix, whatYouShouldSee], tag);
+  }
   try {
     var fn = origInfo || console.info;
     if (detail !== undefined)
@@ -100,10 +113,12 @@ function see(mode, whatYouShouldSee, detail) {
 }
 
 function event(tag, detail) {
-  if (detail !== undefined)
-    enqueue('info', ['[XR]', tag, detail], 'xr');
-  else
-    enqueue('info', ['[XR]', tag], 'xr');
+  if (relayEnabled()) {
+    if (detail !== undefined)
+      enqueue('info', ['[XR]', tag, detail], 'xr');
+    else
+      enqueue('info', ['[XR]', tag], 'xr');
+  }
   try {
     var fn = origInfo || console.info;
     if (detail !== undefined)
@@ -117,6 +132,10 @@ function install() {
   if (hooked || typeof window === 'undefined') return;
   hooked = true;
   sourceTag = detectSource();
+
+  // Stable product: no console hijack, no POST relay.
+  if (!relayEnabled()) return;
+
   origLog = console.log.bind(console);
   origInfo = console.info.bind(console);
   origWarn = console.warn.bind(console);
