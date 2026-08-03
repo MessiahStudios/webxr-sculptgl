@@ -753,6 +753,11 @@ li.sculptgl-tool-select-hidden {
   display: none;
 }
 
+body.wxs-welcome-open #wxs-mobile-tools-btn,
+body.wxs-welcome-open #wxs-mobile-scrim {
+  display: none !important;
+}
+
 body.wxs-mobile #wxs-mobile-tools-btn {
   display: block;
   position: fixed;
