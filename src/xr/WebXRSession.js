@@ -97,7 +97,8 @@ class WebXRSession {
       self._vrSupported = !!pair[1];
       var immersiveOk = !!(pair[0] || pair[1]);
       var onHeadset = XRSetup.isHeadsetBrowser();
-      if (immersiveOk) {
+      var offerXr = XRSetup.shouldOfferXrEntry(immersiveOk);
+      if (offerXr) {
         self._showPreSessionBar();
         enterBtn.style.display = '';
       } else {
@@ -108,13 +109,15 @@ class WebXRSession {
         immersive_ar: self._arSupported,
         immersive_vr: self._vrSupported,
         headset_browser: onHeadset,
-        xr_toolbar_visible: immersiveOk,
-        enter_button_visible: immersiveOk,
+        phone_handset: XRSetup.isPhoneHandset(),
+        offer_xr_entry: offerXr,
+        xr_toolbar_visible: offerXr,
+        enter_button_visible: offerXr,
         welcome_pending: WelcomeOverlay.shouldShow(),
-        auto_open_setup: !!(immersiveOk && onHeadset && !WelcomeOverlay.shouldShow()),
-        note: 'Welcome (if enabled) runs before headset auto XR setup; Cancel setup = stay on desktop tools.'
+        auto_open_setup: !!(offerXr && onHeadset && !WelcomeOverlay.shouldShow()),
+        note: 'Phones suppress XR setup even if WebXR reports immersive support; Quest/headset UA keeps it.'
       });
-      self._afterXrProbe(onHeadset, immersiveOk);
+      self._afterXrProbe(onHeadset, offerXr);
     }).catch(function () {
       if (bar) bar.style.display = 'none';
       enterBtn.style.display = 'none';

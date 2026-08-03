@@ -53,6 +53,42 @@ function isHeadsetBrowser() {
   return /Quest|OculusBrowser|Oculus|Meta Quest|PicoBrowser|PICO|Helio|Wolvic|SamsungBrowser.*XR|XRBrowser/i.test(ua);
 }
 
+/**
+ * Phone / small handset (not Quest). Android Chrome often reports immersive-ar/vr
+ * via ARCore / Cardboard — that must NOT surface "XR setup" (iPhone already skips it).
+ * Quest remains a headset browser even though it is Android-based.
+ */
+function isPhoneHandset() {
+  if (isHeadsetBrowser()) return false;
+  var ua = navigator.userAgent || '';
+  if (/iPhone|iPod/i.test(ua)) return true;
+  // Android phones include "Mobile"; many tablets omit it.
+  if (/Android/i.test(ua) && /Mobile/i.test(ua)) return true;
+  try {
+    var minSide = Math.min(screen.width || 0, screen.height || 0);
+    var maxSide = Math.max(screen.width || 0, screen.height || 0);
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var narrow = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    // CSS-pixel phone envelope; excludes most tablets / desktops.
+    if (coarse && narrow && minSide > 0 && minSide <= 550 && maxSide <= 1000)
+      return true;
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+/**
+ * Whether to show the XR setup chip / offer immersive entry.
+ * Headsets: yes when WebXR immersive is available.
+ * Phones: no (desktop sculpt UI only — same as iPhone).
+ * Desktop with WebXR runtimes: yes (chip only; no auto-open).
+ */
+function shouldOfferXrEntry(immersiveOk) {
+  if (!immersiveOk) return false;
+  if (isHeadsetBrowser()) return true;
+  if (isPhoneHandset()) return false;
+  return true;
+}
+
 function readSavedProfileChoice() {
   try {
     return localStorage.getItem(STORAGE_PROFILE) || 'auto';
@@ -167,6 +203,8 @@ export default {
   PROFILE_OPTIONS: PROFILE_OPTIONS,
   detectProfileFromUA: detectProfileFromUA,
   isHeadsetBrowser: isHeadsetBrowser,
+  isPhoneHandset: isPhoneHandset,
+  shouldOfferXrEntry: shouldOfferXrEntry,
   readSavedProfileChoice: readSavedProfileChoice,
   writeSavedProfileChoice: writeSavedProfileChoice,
   readSavedSessionMode: readSavedSessionMode,
