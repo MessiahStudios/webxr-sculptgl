@@ -19,6 +19,7 @@ class GuiMesh {
     this.domFaces.innerHTML = TR('meshNbFaces');
 
     this.domUl = document.createElement('span');
+    this.domUl.className = 'gui-mesh-stats';
     this.domUl.appendChild(this.domVerts);
     this.domUl.appendChild(this.domFaces);
     var style = this.domUl.style;

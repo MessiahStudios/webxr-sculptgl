@@ -41,26 +41,33 @@ function ensureStyles() {
   var style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = [
+    'html.wxs-welcome-open, body.wxs-welcome-open{',
+    'overflow:hidden !important;overscroll-behavior:none;',
+    '}',
     '#webxr-sculpt-welcome{',
-    'display:flex;position:fixed;inset:0;z-index:2147483647;',
-    'align-items:center;justify-content:center;',
+    'position:fixed;left:0;top:0;right:0;bottom:0;',
+    'width:100vw;width:100dvw;max-width:100%;',
+    'height:100vh;height:100dvh;max-height:100%;',
+    'z-index:2147483647;margin:0;',
+    'display:grid;place-items:center;',
     'padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))',
     ' max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));',
     'box-sizing:border-box;font-family:Open Sans,Segoe UI,sans-serif;',
     'background:rgba(10,12,16,0.88);pointer-events:auto;',
-    'overflow:auto;-webkit-overflow-scrolling:touch;',
+    'overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;',
     '}',
     '#webxr-sculpt-welcome .wxs-welcome-panel{',
     'position:relative;z-index:1;pointer-events:auto;',
-    'width:min(440px,100%);max-height:min(92dvh,92vh,780px);',
+    'width:min(440px, calc(100vw - 24px));max-width:100%;',
+    'max-height:min(92dvh,92vh,780px);',
     'overflow:auto;padding:22px 24px 20px;border-radius:12px;',
     'background:#16181e;color:#e8ecff;',
     'box-shadow:0 16px 48px rgba(0,0,0,0.55);',
     'border:1px solid rgba(88,168,240,0.28);box-sizing:border-box;',
-    'text-align:center;',
+    'text-align:center;justify-self:center;align-self:center;margin:0 auto;',
     '}',
     '#webxr-sculpt-welcome .wxs-welcome-logo{',
-    'display:block;margin:0 auto 14px;width:min(240px,56vw);height:auto;',
+    'display:block;margin:0 auto 14px;width:min(220px,52vw);height:auto;',
     'max-width:100%;border-radius:10px;',
     '}',
     '#webxr-sculpt-welcome .wxs-welcome-blurb{',
@@ -70,7 +77,7 @@ function ensureStyles() {
     'display:flex;flex-direction:column;gap:8px;margin:0 0 18px;text-align:left;',
     '}',
     '#webxr-sculpt-welcome .wxs-welcome-links a{',
-    'display:block;padding:10px 12px;border-radius:8px;',
+    'display:flex;align-items:center;padding:12px 12px;border-radius:8px;',
     'border:1px solid rgba(140,160,200,0.22);background:rgba(0,0,0,0.28);',
     'color:#58a8f0;font-size:13px;text-decoration:none;box-sizing:border-box;',
     'min-height:44px;line-height:1.3;',
@@ -86,26 +93,25 @@ function ensureStyles() {
     'width:18px;height:18px;accent-color:#58a8f0;cursor:pointer;flex:0 0 auto;',
     '}',
     '#webxr-sculpt-welcome .wxs-welcome-go{',
-    'width:100%;padding:12px 18px;border-radius:8px;',
+    'width:100%;padding:14px 18px;border-radius:8px;',
     'border:1px solid #3d6b9e;background:#1f4a7a;color:#fff;',
     'font-size:15px;font-weight:600;cursor:pointer;min-height:48px;',
+    'touch-action:manipulation;',
     '}',
     '@media (max-width:480px){',
-    '#webxr-sculpt-welcome{align-items:flex-start;padding-top:max(10px, env(safe-area-inset-top));}',
+    '#webxr-sculpt-welcome{place-items:start center;padding-top:max(10px, env(safe-area-inset-top));}',
     '#webxr-sculpt-welcome .wxs-welcome-panel{',
-    'padding:14px 14px 16px;max-height:min(96dvh,96vh);border-radius:10px;',
+    'width:calc(100vw - 20px);padding:14px 14px 16px;max-height:min(96dvh,96vh);border-radius:10px;',
     '}',
-    '#webxr-sculpt-welcome .wxs-welcome-logo{width:min(148px,42vw);margin-bottom:10px;}',
+    '#webxr-sculpt-welcome .wxs-welcome-logo{width:min(140px,40vw);margin-bottom:10px;}',
     '#webxr-sculpt-welcome .wxs-welcome-blurb{font-size:12px;margin-bottom:10px;}',
     '#webxr-sculpt-welcome .wxs-welcome-links{gap:6px;margin-bottom:12px;}',
-    '#webxr-sculpt-welcome .wxs-welcome-links a{padding:11px 12px;font-size:13px;}',
     '#webxr-sculpt-welcome .wxs-welcome-check{margin-bottom:12px;font-size:12px;}',
-    '#webxr-sculpt-welcome .wxs-welcome-go{font-size:15px;padding:14px 16px;}',
     '}',
     '@media (max-height:560px) and (orientation:landscape){',
-    '#webxr-sculpt-welcome{align-items:flex-start;}',
-    '#webxr-sculpt-welcome .wxs-welcome-panel{max-height:min(94dvh,94vh);padding:12px 14px;}',
-    '#webxr-sculpt-welcome .wxs-welcome-logo{width:min(96px,22vh);margin-bottom:8px;}',
+    '#webxr-sculpt-welcome{place-items:start center;}',
+    '#webxr-sculpt-welcome .wxs-welcome-panel{max-height:min(94dvh,94vh);padding:12px 14px;width:min(420px, calc(100vw - 24px));}',
+    '#webxr-sculpt-welcome .wxs-welcome-logo{width:min(88px,20vh);margin-bottom:8px;}',
     '#webxr-sculpt-welcome .wxs-welcome-blurb{font-size:12px;margin-bottom:8px;}',
     '#webxr-sculpt-welcome .wxs-welcome-links{gap:5px;margin-bottom:10px;}',
     '}'
@@ -130,6 +136,9 @@ function show(opts) {
   var root = document.getElementById('webxr-sculpt-welcome');
   if (root) root.remove();
 
+  document.documentElement.classList.add('wxs-welcome-open');
+  document.body.classList.add('wxs-welcome-open');
+
   root = document.createElement('div');
   root.id = 'webxr-sculpt-welcome';
   root.setAttribute('role', 'dialog');
@@ -144,8 +153,8 @@ function show(opts) {
   logo.className = 'wxs-welcome-logo';
   logo.src = 'resources/brand/webxr-sculpt-logo.png';
   logo.alt = 'WebXR Sculpt';
-  logo.width = 240;
-  logo.height = 240;
+  logo.width = 220;
+  logo.height = 220;
   logo.addEventListener('error', function () {
     logo.style.display = 'none';
   });
@@ -187,6 +196,12 @@ function show(opts) {
   checkRow.appendChild(checkText);
   panel.appendChild(checkRow);
 
+  function dismiss() {
+    document.documentElement.classList.remove('wxs-welcome-open');
+    document.body.classList.remove('wxs-welcome-open');
+    if (root && root.parentNode) root.parentNode.removeChild(root);
+  }
+
   var go = document.createElement('button');
   go.type = 'button';
   go.className = 'wxs-welcome-go';
@@ -194,7 +209,7 @@ function show(opts) {
   go.addEventListener('click', function () {
     if (check.checked)
       writeHidePref(true);
-    root.remove();
+    dismiss();
     if (opts.onContinue) opts.onContinue();
   });
   panel.appendChild(go);

@@ -14,6 +14,7 @@ import GuiTablet from 'gui/GuiTablet';
 import ShaderContour from 'render/shaders/ShaderContour';
 
 import Export from 'files/Export';
+import MobileChrome from 'gui/MobileChrome';
 
 class Gui {
 
@@ -23,6 +24,7 @@ class Gui {
     this._guiMain = null;
     this._sidebar = null;
     this._topbar = null;
+    this._mobileChrome = null;
 
     this._ctrlTablet = null;
     this._ctrlFiles = null;
@@ -85,6 +87,9 @@ class Gui {
 
     this.updateMesh();
     this.setVisibility(true);
+
+    this._mobileChrome = new MobileChrome(this);
+    this._mobileChrome.install();
 
     if (window.postprocessGui) window.postprocessGui();
   }
@@ -201,6 +206,10 @@ class Gui {
   }
 
   deleteGui() {
+    if (this._mobileChrome) {
+      this._mobileChrome.dispose();
+      this._mobileChrome = null;
+    }
     if (!this._guiMain || !this._guiMain.domMain.parentNode)
       return;
     this.callFunc('removeEvents');

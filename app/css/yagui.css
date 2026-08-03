@@ -741,3 +741,142 @@ li.sculptgl-tool-select-hidden {
   background: transparent !important;
   color: var(--gui-accent) !important;
 }
+
+/* =========================================================
+   Mobile / short-landscape chrome (phones)
+   ========================================================= */
+#wxs-mobile-tools-btn {
+  display: none;
+}
+
+#wxs-mobile-scrim {
+  display: none;
+}
+
+body.wxs-mobile #wxs-mobile-tools-btn {
+  display: block;
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 40;
+  min-height: 48px;
+  min-width: 96px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(88, 168, 240, 0.55);
+  background: rgba(22, 36, 58, 0.94);
+  color: #e8ecff;
+  font-family: 'Open Sans', 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body.wxs-mobile #wxs-mobile-tools-btn.is-open {
+  background: rgba(31, 74, 122, 0.96);
+}
+
+body.wxs-mobile #wxs-mobile-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(6, 8, 12, 0.55);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.wxs-mobile.wxs-mobile-sidebar-open #wxs-mobile-scrim {
+  display: block;
+}
+
+/* Sidebar stays .hidden for full-width canvas; overlay when Tools is open */
+body.wxs-mobile.wxs-mobile-sidebar-open .gui-sidebar[hidden] {
+  display: block !important;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  width: min(100vw, 360px) !important;
+  max-width: 100vw !important;
+  z-index: 38 !important;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.55);
+  border-left: 1px solid rgba(88, 168, 240, 0.35) !important;
+}
+
+body.wxs-mobile.wxs-mobile-sidebar-open .gui-resize {
+  display: none !important;
+}
+
+body.wxs-mobile .gui-topbar {
+  min-height: 40px;
+  height: auto !important;
+  overflow: visible;
+}
+
+body.wxs-mobile .gui-topbar > ul {
+  display: flex;
+  flex-wrap: nowrap;
+  float: none !important;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0 4px 2px;
+}
+
+body.wxs-mobile .gui-topbar ul > li {
+  flex: 0 0 auto;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 36px;
+  height: 36px;
+}
+
+body.wxs-mobile .gui-topbar ul > li > ul {
+  width: min(280px, calc(100vw - 16px));
+  max-height: calc(100dvh - 64px);
+  max-height: calc(100vh - 64px);
+}
+
+body.wxs-mobile .gui-mesh-stats {
+  display: none !important;
+}
+
+body.wxs-mobile .sculptgl-tool-icon-btn {
+  min-width: 72px;
+  min-height: 72px;
+}
+
+@media (max-width: 480px) {
+  body.wxs-mobile.wxs-mobile-sidebar-open .gui-sidebar[hidden] {
+    width: 100vw !important;
+  }
+
+  body.wxs-mobile .gui-topbar ul > li {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  body.wxs-mobile #wxs-mobile-tools-btn {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    min-height: 42px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  body.wxs-mobile.wxs-mobile-sidebar-open .gui-sidebar[hidden] {
+    width: min(70vw, 320px) !important;
+  }
+}
+
