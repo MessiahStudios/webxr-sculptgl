@@ -20,7 +20,7 @@
 | **Desktop-only sessions** | Done — full yagui loop on PC **or** Quest Browser (Cancel XR setup); enter/exit immersive anytime |
 | **Files & materials** | Done through Phase C — GLB in/out, map paint, honest export |
 | **Presentation / brand** | Logo hero on GitHub; welcome splash on load; UI accents matched to logo cyan `#58A8F0` / amber `#F7974B` |
-| **Ship-ready “final cut”** | **~95%** — usable product today; leftover is polish, not missing clay |
+| **Ship-ready “final cut”** | **~96%** — live at [`messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/); leftover is polish + optional CI |
 
 **Channels (same repo):**
 
@@ -28,9 +28,13 @@
 |---|---|---|
 | Build | `npm run release` | `npm run release:stable` → `dist/v1/` |
 | How-to Camera exporters | Yes | **Removed** |
-| Host | `xr-dev.messiahstudios.site` | e.g. `messiahstudios.site/webxr-sculpt/` |
+| Remote `/__xr_logs` | Yes (`npm run server`) | **Off** (static Pages) |
+| XR setup chip | Headset + desktop WebXR | Same rules — **phones suppressed** |
+| Host | `xr-dev.messiahstudios.site` | [`messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/) |
 
 Hosting steps: **[`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)**.
+
+**Also landed for live:** Transform gizmo bake flush · smartphone Tools chrome · responsive welcome · app favicon · Android phone XR gate (Quest still gets setup).
 
 **Deferred on the cut list only for the product naming moment:** none required in the stable build (How-to UI already stripped there). Dev keeps helpers until you drop them from Camera entirely.
 
@@ -140,12 +144,14 @@ Live Quest/Desktop logs while testing: [http://127.0.0.1:8080/__xr_logs](http://
 ### Stable v1 (GitHub Pages / main site)
 
 ```bash
-npm run release:stable   # → dist/v1/ (How-to Camera buttons stripped)
+npm run release:stable   # → dist/v1/ (How-to Camera buttons stripped; no __xr_log relay)
 ```
 
-Copy `dist/v1/` into [MessiahStudios.github.io](https://github.com/MessiahStudios/MessiahStudios.github.io) as `webxr-sculpt/` for **`https://www.messiahstudios.site/webxr-sculpt/`**. Keep **`xr-dev.messiahstudios.site`** for development.
+**Live:** [`https://www.messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/)
 
-Details: **[`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)**.
+Copy `dist/v1/` into [MessiahStudios.github.io](https://github.com/MessiahStudios/MessiahStudios.github.io) as `webxr-sculpt/` when republishing. Keep **`xr-dev.messiahstudios.site`** for development.
+
+Phones get the **Tools** mobile UI (no XR setup). Quest Browser still offers XR setup. Details: **[`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)**.
 
 ---
 

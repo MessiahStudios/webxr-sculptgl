@@ -482,22 +482,34 @@ File pickers work best **before** entering XR (Quest Browser 2D) or after exit �
 | **Materials / files trust** | **Yes (Phase C)** | GLB round-trip + map paint; `.sgl` still vertex/UV-strong (map slots optional later) |
 | **Presentation coherence** | **Yes** | Product **logo** + **welcome splash**; **[`docs/HOW_TO.md`](./docs/HOW_TO.md)** tool guide with icons; UI accents `#58A8F0` / `#F7974B` |
 | **Quest feel / perf** | **Pass 1 done** | Cached XR brush radius AABB; coalesce mesh GPU uploads / frame; Paint/Soften map flush on stroke end; parked restroke ~20Hz |
-| **Named v1 “final cut”** | **~95%** | Blockers below — none are “rewrite sculpting” |
+| **Named v1 “final cut”** | **~96%** | Live stable on Pages; phone UX + Transform bake fix landed; leftovers below are polish |
 
 **Blockers before calling it a final product cut**
 
-1. ~~Gate How-to docs Camera buttons~~ — **stable build** (`npm run release:stable`) strips them; **dev** keeps helpers. Publish stable via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md) (e.g. `messiahstudios.site/webxr-sculpt/`).  
+1. ~~Gate How-to docs Camera buttons~~ — **stable build** (`npm run release:stable`) strips them; **dev** keeps helpers. **Published:** [`https://www.messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/) via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md).  
 
 **Done (was listed as leftover):** light dock offset / size — landed with head-facing float (`_watchOffset`), plane aspect = canvas, FORM reflow; no longer a v1 blocker.
 
-**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to · **XR ADD spawn** · **dock offset/size** (landed).
+**Explicitly not blockers for v1:** Spectator · hands · Phase D UV suite · remesh · paint layers · other-HMD parity · cloud share · README hero / welcome / public how-to · **XR ADD spawn** · **dock offset/size** (landed) · **smartphone Tools chrome** (landed) · **Android phone XR suppression** (landed).
 
-### Where we are (2026-08-02)
+### Where we are (2026-08-02 — live journal)
 
-Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Today’s wins:** product **logo** + **welcome splash**; public **How-to** ([`docs/HOW_TO.md`](./docs/HOW_TO.md) with tool icons); **XR ADD** places near selection without Workspace re-fit; **Import URL** (paste-friendly); **Desktop-only on Quest Browser** confirmed (Cancel setup → full yagui; enter XR anytime); dock FORM reflow + **Transform** label; **brand accent sync**; tool **icon pack**; OPTS **wireframe**; WebGL2 wireframe fix; **sculpt perf pass**; **α maps ON/OFF**; Phase D UV *likely needed*; family playtest notes below.
+Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials through **Phase C** are landed. **Stable v1 is live** on the main site. Recent product/engineering journal (same day as portfolio hybrid publish):
+
+| Landed | Note |
+|---|---|
+| **Stable Pages host** | `npm run release:stable` → `dist/v1/` → [`messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/); tagged `v1.0.0` |
+| **Stable vs dev split** | How-to Camera exporters stripped on stable; `/__xr_log` relay **off** on stable (no 405 on static Pages); **on** for `npm run server` / xr-dev |
+| **App favicon** | WebXR Sculpt brand logo (`resources/brand/webxr-sculpt-logo.png`) |
+| **Transform gizmo detach fix** | XR bake force-uploads GPU buffers before orbit pivot sync; flush on trigger-up (CPU/GPU desync was the “gizmo flies home” bug) |
+| **Smartphone chrome** | ≤900px / short landscape: full-width canvas, floating **Tools** overlay, scrollable topbar, responsive welcome |
+| **Phone XR gate** | Android phones often report immersive WebXR (ARCore/Cardboard) — **suppress XR setup** there; **Quest / headset UA** still get the chip + setup. Matches iPhone “Tools only” UX |
+| **Portfolio hybrid** | Main site links Work + Services paths to WebXR Sculpt (separate repo: `MessiahStudios.github.io`) |
+
+Also earlier today / prior: product **logo** + **welcome splash**; public **How-to**; **XR ADD** near selection; **Import URL**; **Desktop-only on Quest Browser**; dock FORM reflow + **Transform** label; **Workspace viewer seat**; brand accents; tool icons; OPTS wireframe; sculpt perf pass; α maps.
 
 ```
-████████████████████████▓░  ~95% toward named product cut
+█████████████████████████▓  ~96% toward named product cut
 █████████████████████████  ~98% of first-class XR surface
 │                        │
 ├─ Done: session · Workspace · FORM/PAINT/α · Transform · paint · Soften · Save/Load
@@ -517,8 +529,14 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 │        · Desktop-only sessions on WebXR devices (Cancel setup → yagui; chip to enter later)
 │        · Import URL (https + CORS + extension/size safeguards; strips paste whitespace)
 │        · XR direct-output encodeFragColor (silence ANGLE X4000)
-├─ Next: publish stable via docs/STABLE_HOSTING.md · α allowlist watch
+│        · Stable v1 live on messiahstudios.site/webxr-sculpt/ (tag v1.0.0)
+│        · Stable: How-to Camera UI stripped · remote __xr_log disabled · app favicon
+│        · XR Transform bake: force GPU flush (gizmo stays on mesh after move)
+│        · Smartphone Tools chrome + responsive welcome (portrait / landscape)
+│        · Phone handsets suppress XR setup; Quest headset UA keeps it
+├─ Next: α allowlist watch · optional .sgl live map-slot persistence
 │        · (dev) How-to Camera exporters remain until dropped from Camera entirely
+│        · engineering confidence: thin CI / smoke tests (outside playtest journal)
 ├─ Parallel: Phase D UV tools — *likely needed* for textured/seam path (Desktop-first; not v1 blocker)
 ├─ Collaboration: Spectator still a north-star (not near-term) · Co-sculpt after that
 └─ Stretch (thin): dock slot swap · hands (after controllers stay boring) · remesh if Quest-safe
@@ -530,6 +548,13 @@ Quest MR/VR sculpting remains a **real continuous loop**. Capture and Materials 
 - **Drag** at high radius/intensity stretches verts / skinny tris — expected; Smooth + remesh heal; teach lower R/I for first sessions.  
 - **Voxel remesh → Block** = Minecraft look — by design; use a smoother remesh for organic clay.  
 - **ADD cube/sphere in XR after a wild Drag** — **fixed:** ADD places near the current selection at matching size and no longer calls `fitXRStageToScene()` (re-fit remains on Clear / Recenter / load). Desktop Scene → Add never used Workspace fit (XR-only).
+
+#### Playtest note (live stable — 2026-08-02)
+
+- **Transform in XR** — gizmo could detach after move (GPU verts stale); **fixed** with force flush on bake.  
+- **Android phone vs iPhone** — Android Chrome offered **XR setup** / Cardboard stereo because WebXR immersive is reported; iPhone did not. **Fixed:** phone handsets suppress XR entry; Quest headset UA still gets setup. Phones use **Tools** chrome.  
+- **Welcome on phones** — needed responsive centering; Tools overlay for Form & Paint.  
+- **Stable console** — `POST __xr_log` 405 on Pages; relay disabled on stable (dev keeps `/__xr_logs`).  
 #### No longer pursuing (cut from active interest)
 
 These stay in the doc so we don’t re-open rabbit holes — they are **not** backlog.
@@ -645,16 +670,22 @@ Left-hand priority (settled): **Workspace → squeeze (R/I or wheel brightness) 
 - [x] **XR dock FORM reflow** — clamp tool grid above footer; flush paint when entry-hint ends; tool label **Transform** (Desktop parity)
 - [x] **Desktop-only on WebXR devices** — Cancel XR setup stays on yagui + canvas (Quest Browser verified); enter immersive anytime from chip  
 - [x] **Workspace viewer-relative seat** — enter + SPACE recenter place clay ahead of headset pose (guardian-size independent)  
+- [x] **Stable v1 hosting** — `release:stable` → `dist/v1/`; live at [`messiahstudios.site/webxr-sculpt/`](https://www.messiahstudios.site/webxr-sculpt/); tag `v1.0.0`; docs in [`STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)  
+- [x] **Stable product cut flags** — How-to Camera exporters off; remote `__xr_log` POSTs off on static host; app brand favicon  
+- [x] **XR Transform bake / gizmo attach** — force GPU buffer upload on release so gizmo + picking stay on the moved mesh  
+- [x] **Smartphone chrome** — Tools overlay, full-width canvas, scrollable topbar, responsive welcome (portrait + landscape)  
+- [x] **Phone XR entry gate** — suppress XR setup on Android/iPhone handsets; keep for Quest / headset UA (and desktop WebXR chip)  
 
 ### Next (near-term)
 
 Active leftovers only (done items removed from the “todo” mental list):
 
-1. [x] **Stable v1 build** — `npm run release:stable` → `dist/v1/` (How-to Camera UI stripped); host via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)  
+1. [x] **Stable v1 build** — `npm run release:stable` → `dist/v1/` (How-to Camera UI stripped); **live** via [`docs/STABLE_HOSTING.md`](./docs/STABLE_HOSTING.md)  
 2. [ ] **α allowlist watch** — drop drag/move/twist/localscale from XR α if muddy  
 3. [ ] Optional: persist **live map slots in `.sgl`** if re-open-with-textures becomes painful  
+4. [ ] Optional: thin **CI / smoke tests** (build + GLB/SGL round-trip) — engineering confidence, not clay feature  
 
-**Landed (no longer leftovers):** dock offset / size fine-tune · Workspace seats in front of the **headset** on enter / SPACE recenter · How-to exporters gated in **stable** (kept on **dev**).
+**Landed (no longer leftovers):** dock offset / size fine-tune · Workspace seats in front of the **headset** on enter / SPACE recenter · How-to exporters gated in **stable** · live Pages publish · Transform gizmo flush · smartphone Tools chrome · phone XR suppression.
 
 **Explicitly not next:** Studio record · XR capture chrome · smudge · projection · layers · hands · remesh · other-HMD · Sketchfab/cloud share.
 
