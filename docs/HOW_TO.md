@@ -1,6 +1,6 @@
 # How to use WebXR Sculpt
 
-Quest-first digital clay on the same core as Desktop. Icons match **Desktop Form / Paint** and the **XR dock**.
+WebXR-first digital clay for Desktop, VR, and Mixed Reality — optimized for Meta Quest. Icons match **Desktop Form / Paint** and the **XR dock**.
 
 <p align="center">
   <img src="media/webxr-sculpt-logo.png" alt="WebXR Sculpt" width="280" />

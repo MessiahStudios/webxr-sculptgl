@@ -2,7 +2,7 @@
   "name": "webxr-sculptgl",
   "homepage": "https://github.com/MessiahStudios/webxr-sculptgl",
   "version": "1.0.0",
-  "description": "WebXR Sculpt by Messiah Studios — Quest MR/VR digital clay, forked from SculptGL",
+  "description": "WebXR Sculpt by Messiah Studios — WebXR-first digital clay for Desktop, VR, and Mixed Reality. Optimized for Meta Quest.",
   "author": "Messiah Studios; original SculptGL by Stéphane GINIER",
   "license": "MIT",
   "main": "main.js",

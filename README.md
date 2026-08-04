@@ -4,9 +4,9 @@
   <img src="docs/media/webxr-sculpt-logo.png" alt="WebXR Sculpt — sculpt, paint, create anywhere" width="420" />
 </p>
 
-**An open, Quest-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — extending the original Desktop sculpting engine with spatial interaction, Workspace, lightweight PBR painting, and modern asset interoperability.
+**An open, WebXR-first digital clay studio built on [SculptGL](https://github.com/stephomi/sculptgl)** — for Desktop, VR, and Mixed Reality. Optimized for Meta Quest.
 
-> Shape digital clay at human scale in Meta Quest MR/VR, while keeping a full Desktop workflow on the same core.
+> Shape digital clay at human scale in the browser — immersive on headset, full Desktop on the same core. Best experience on Meta Quest MR/VR.
 
 **Product:** WebXR Sculpt · **Studio:** [Messiah Studios](https://github.com/MessiahStudios) · **Repo:** [MessiahStudios/webxr-sculptgl](https://github.com/MessiahStudios/webxr-sculptgl)
 

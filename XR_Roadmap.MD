@@ -2,7 +2,7 @@
 
 > **Mission:** Build the best place to shape digital clay at human scale using open web technologies, while preserving the strengths of an established Desktop sculpting workflow.
 
-How this project extends [stephomi/sculptgl](https://github.com/stephomi/sculptgl) for Meta Quest MR/VR, and how that differs from the abandoned upstream.
+How this project extends [stephomi/sculptgl](https://github.com/stephomi/sculptgl) with WebXR for Desktop, VR, and Mixed Reality (optimized for Meta Quest), and how that differs from the abandoned upstream.
 
 This document has a consistent hierarchy: **long-term vision → product philosophy → usability charter → product scope → engineering architecture → implementation roadmap**. Each layer reinforces the one above it.
 ---
@@ -128,16 +128,17 @@ It **is** trying to become the best place to **shape digital clay at human scale
 
 If a feature needs dozens of windows, nested menus, modal dialogs, tiny text, or property sheets, Desktop is the better environment — spend the effort there.
 
-### Target platform (Quest-first)
+### Target platform (WebXR-first · Quest-optimized)
 
 | | |
 |---|---|
-| **Product target** | Meta Quest 2 / 3 / 3S / Pro via **Meta Quest Browser** (HTTPS) |
+| **Product positioning** | WebXR-first digital sculpting for Desktop, VR, and Mixed Reality. Optimized for Meta Quest. |
+| **Primary engineering target** | Meta Quest 2 / 3 / 3S / Pro via **Meta Quest Browser** (HTTPS) |
 | **Modes that matter** | Mixed reality passthrough (`immersive-ar`) and closed VR (`immersive-vr`) |
 | **Already included** | WebXR input-profile GLBs + setup fallbacks for Pico, Index, Vive, WMR, etc. (so controllers can *draw* when a runtime matches) |
 | **Not a near-term goal** | First-class testing, binding polish, and MR UX parity on non-Quest headsets |
 
-WebXR is an open API — other headsets *may* enter a session — but Quest is where Workspace, dock muscle memory, grip-exit, and remote logs are designed and proven. Broaden only when real use (or a concrete tester) earns the cost.
+Brand is WebXR-first; engineering stays Quest-optimized. Other headsets *may* enter a session — Quest is where Workspace, dock muscle memory, grip-exit, and remote logs are designed and proven. Broaden only when real use (or a concrete tester) earns the cost.
 
 ---
 
@@ -564,7 +565,7 @@ These stay in the doc so we don’t re-open rabbit holes — they are **not** ba
 | **Studio record** (yagui in-frame encode) | Local Record + OS window capture cover tutorials; not worth a second encode path |
 | **XR presentation capture polish** (aim rays, MR plate, fancy framing) | Dock + controllers already in frame; polish ≠ product |
 | **Cloud / Sketchfab-style share from XR** | Non-goal adjacent; local Save/Load + honest export are enough |
-| **Other-headset first-class polish** | Quest-first stays; opportunistic only — not a tracked deliverable |
+| **Other-headset first-class polish** | Brand WebXR-first; engineering Quest-optimized — opportunistic only, not a tracked deliverable |
 | **Smudge / smear tool** | Soften covers blend intent; don’t lengthen PAINT |
 | **Substance-style projection + layer stacks** | α stamps own the image story; full projector is a different product |
 | **XR paint-layer manager** | Presence-over-panels; Desktop-thin layers only *maybe* later |

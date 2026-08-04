@@ -162,7 +162,7 @@ function show(opts) {
 
   var blurb = document.createElement('p');
   blurb.className = 'wxs-welcome-blurb';
-  blurb.textContent = 'Quest-first digital clay — sculpt with mouse, pen, or headset. Same core on desktop and in the room.';
+  blurb.textContent = 'WebXR-first digital sculpting for Desktop, VR, and Mixed Reality. Optimized for Meta Quest.';
   panel.appendChild(blurb);
 
   var linkList = document.createElement('div');
