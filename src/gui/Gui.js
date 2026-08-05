@@ -15,6 +15,7 @@ import ShaderContour from 'render/shaders/ShaderContour';
 
 import Export from 'files/Export';
 import MobileChrome from 'gui/MobileChrome';
+import WhyWebXRModal from 'gui/WhyWebXRModal';
 
 class Gui {
 
@@ -170,11 +171,22 @@ class Gui {
   }
 
   addAboutButton() {
-    var ctrlAbout = this._topbar.addMenu();
-    ctrlAbout.domContainer.innerHTML = TR('about');
-    ctrlAbout.domContainer.addEventListener('mousedown', function () {
-      window.open('https://github.com/MessiahStudios/webxr-sculptgl', '_blank');
-    });
+    var menu = this._topbar.addMenu(TR('about'));
+    menu.addButton(TR('aboutWebsite'), this, 'openMainWebsite');
+    menu.addButton(TR('aboutGithub'), this, 'openGithub');
+    menu.addButton(TR('aboutWhy'), this, 'showWhyWebXR');
+  }
+
+  openMainWebsite() {
+    window.open('https://www.messiahstudios.site/', '_blank', 'noopener,noreferrer');
+  }
+
+  openGithub() {
+    window.open('https://github.com/MessiahStudios/webxr-sculptgl', '_blank', 'noopener,noreferrer');
+  }
+
+  showWhyWebXR() {
+    WhyWebXRModal.show();
   }
 
   updateMesh() {

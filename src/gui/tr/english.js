@@ -247,6 +247,9 @@ var TR = {
   sketchfabUploadProcessing: 'Processing...\nYour model will be available at :',
 
   about: 'About & Help',
+  aboutWebsite: 'Messiah Studios website',
+  aboutGithub: 'View code on GitHub',
+  aboutWhy: 'Why WebXR Sculpt?',
 
   alphaNone: 'None',
   alphaSquare: 'Square',
